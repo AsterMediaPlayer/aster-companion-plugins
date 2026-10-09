@@ -1,0 +1,371 @@
+/*
+ * Aurora plugin styles: only for elements the Aurora script adds (au-*) and the classes it toggles.
+ * Uses the Aurora skin's variables when that custom CSS is installed, with fallbacks so it also works on stock Jellyfin.
+ */
+
+/* ---------- Home hero banner ------------------------------------------------ */
+
+.au-hero {
+    position: relative;
+    height: 78vh;
+    min-height: 420px;
+    max-height: 900px;
+    overflow: hidden;
+    margin-bottom: 1.5em;
+    background: var(--au-bg, #0b0b0e);
+    isolation: isolate;
+}
+
+.au-hero-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 1.1s ease, visibility 0s linear 1.1s;
+}
+
+.au-hero-slide.is-active {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 1.1s ease, visibility 0s;
+    z-index: 1;
+}
+
+.au-hero-img {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center 25%;
+    transform: scale(1.06);
+    transition: transform 12s ease-out;
+}
+
+.au-hero-slide.is-active .au-hero-img {
+    transform: scale(1);
+}
+
+/* the same left + bottom fade as the details page, so text sits on calm art */
+.au-hero-slide::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(to top, var(--au-bg, #0b0b0e) 0%, rgba(11, 11, 14, 0.55) 22%, rgba(11, 11, 14, 0) 50%),
+        linear-gradient(to right, rgba(11, 11, 14, 0.9) 0%, rgba(11, 11, 14, 0.45) 35%, rgba(11, 11, 14, 0) 62%),
+        linear-gradient(to bottom, rgba(11, 11, 14, 0.55) 0%, rgba(11, 11, 14, 0) 18%);
+    pointer-events: none;
+}
+
+.au-hero-content {
+    position: absolute;
+    z-index: 2;
+    left: 4.2vw;
+    bottom: 11%;
+    width: min(44vw, 720px);
+    color: var(--au-text, #f5f5f7);
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.7s ease 0.35s, transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.35s;
+}
+
+.au-hero-slide.is-active .au-hero-content {
+    opacity: 1;
+    transform: none;
+}
+
+.au-hero-logo {
+    display: block;
+    max-width: 100%;
+    max-height: 19vh;
+    width: auto;
+    margin-bottom: 1.1em;
+    filter: drop-shadow(0 6px 24px rgba(0, 0, 0, 0.5));
+}
+
+.au-hero-title {
+    margin: 0 0 0.35em;
+    font-size: clamp(2rem, 4.4vw, 4.2rem);
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.02;
+    text-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+
+.au-hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35em 0.9em;
+    color: var(--au-text-2, rgba(235, 235, 245, 0.7));
+    font-weight: 600;
+    font-size: 1em;
+    margin-bottom: 0.8em;
+}
+
+.au-hero-rating {
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 4px;
+    padding: 0 0.4em;
+    font-size: 0.85em;
+}
+
+.au-hero-overview {
+    margin: 0 0 1.4em;
+    color: var(--au-text-2, rgba(235, 235, 245, 0.75));
+    font-size: 1.05em;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    max-width: 62ch;
+}
+
+.au-hero-buttons {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.au-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 52px;
+    padding: 0 26px 0 20px;
+    border: 0;
+    border-radius: 999px;
+    font: inherit;
+    font-weight: 700;
+    font-size: 1.05em;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.2s;
+}
+
+.au-btn:hover, .au-btn:focus-visible {
+    transform: scale(1.05);
+}
+
+.au-btn:focus-visible {
+    outline: 3px solid var(--au-blue, #00a4dc);
+    outline-offset: 3px;
+}
+
+.au-btn-icon {
+    font-size: 1.5em;
+}
+
+.au-btn-primary {
+    background: var(--au-text, #f5f5f7);
+    color: #000;
+}
+
+.au-btn-glass {
+    background: rgba(255, 255, 255, 0.16);
+    color: var(--au-text, #f5f5f7);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+}
+
+.au-btn-glass:hover {
+    background: rgba(255, 255, 255, 0.26);
+}
+
+.au-hero-dots {
+    position: absolute;
+    z-index: 3;
+    right: 4.2vw;
+    bottom: 11%;
+    display: flex;
+    gap: 8px;
+}
+
+.au-hero-dot {
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.35);
+    cursor: pointer;
+    transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.3s;
+}
+
+.au-hero-dot.is-active {
+    width: 26px;
+    background: rgba(255, 255, 255, 0.95);
+}
+
+/* on Home with a banner, the header floats over the art with no backing */
+html.au-has-hero header.MuiAppBar-root {
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0)) !important;
+}
+
+/* phones: shorter banner, content full width */
+html.layout-mobile .au-hero {
+    height: 62vh;
+    min-height: 360px;
+}
+
+html.layout-mobile .au-hero-content {
+    width: auto;
+    right: 5vw;
+    left: 5vw;
+    bottom: 13%;
+}
+
+html.layout-mobile .au-hero-overview {
+    -webkit-line-clamp: 2;
+}
+
+html.layout-mobile .au-hero-dots {
+    left: 5vw;
+    right: auto;
+    bottom: 5%;
+}
+
+/* ---------- Trailer backgrounds ------------------------------------------- */
+
+/* sits with the backdrop (z-index -1, scrolls with the page) under the dimming gradient */
+.au-trailer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 1.4s ease;
+    background: #000;
+}
+
+.au-trailer.is-visible {
+    opacity: 1;
+}
+
+.au-trailer.is-scrolled {
+    opacity: 0;
+}
+
+video.au-trailer-media {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* cover the viewport with a 16:9 frame, whatever the window shape */
+.au-trailer-yt {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100vw;
+    height: 56.25vw;
+    min-height: 100vh;
+    min-width: 177.78vh;
+    /* 1.33 crops the bars of a 2.39:1 trailer letterboxed inside YouTube's 16:9 frame */
+    transform: translate(-50%, -50%) scale(1.33);
+    border: 0;
+}
+
+.au-trailer-mute {
+    position: absolute;
+    top: calc(100vh - 92px);
+    right: 4.2vw;
+    z-index: 5;
+    width: 48px;
+    height: 48px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease, background 0.2s;
+}
+
+.au-trailer-mute.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.au-trailer-mute.is-scrolled {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.au-trailer-mute:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* while a trailer plays, quiet the static title logo a touch so motion leads */
+html.au-trailer-on .itemDetailPage .detailLogo {
+    transition: opacity 1.2s ease;
+    opacity: 0.92;
+}
+
+/* ---------- Card tilt --------------------------------------------------------- */
+
+html.au-tilt.layout-desktop .card:hover .cardScalable.au-tilting {
+    transform: perspective(900px) rotateX(var(--au-rx, 0deg)) rotateY(var(--au-ry, 0deg)) scale(1.06) translateY(-4px) !important;
+    transition: transform 0.12s linear, box-shadow 0.35s ease !important;
+}
+
+html.au-tilt.layout-desktop .cardScalable.au-tilting::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(circle at var(--au-mx, 50%) var(--au-my, 50%), rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 55%);
+    mix-blend-mode: soft-light;
+}
+
+/* round cast portraits tilt less */
+html.au-tilt.layout-desktop .personCard:hover .cardScalable.au-tilting {
+    transform: perspective(900px) rotateX(calc(var(--au-rx, 0deg) / 2)) rotateY(calc(var(--au-ry, 0deg) / 2)) scale(1.08) !important;
+}
+
+/* ---------- Genre chips ---------------------------------------------------- */
+
+/* font-size 0 hides the bare ", " separators between the links; the chips restore their own size */
+.au-genres .au-genre-list {
+    font-size: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.au-genres .au-genre-list > * {
+    font-size: 0;
+}
+
+.au-genres .au-genre-list a {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 0.4em 1em;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--au-text, #f5f5f7) !important;
+    text-decoration: none;
+    transition: background 0.2s;
+}
+
+.au-genres .au-genre-list a:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .au-hero-img, .au-hero-content, .au-hero-slide, .au-trailer {
+        transition: none !important;
+    }
+}

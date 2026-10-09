@@ -1,0 +1,17 @@
+name: "Aurora"
+guid: "22f5ff1c-c1cd-47b2-839f-25e6cd9c8afc"
+version: "0.1.0.0"
+targetAbi: "12.0.0.0"
+framework: "net10.0"
+owner: "peppy6582"
+overview: "Apple TV style behaviour for the Jellyfin web client."
+description: >
+  Adds a rotating home hero banner, muted trailer backgrounds on details pages,
+  card tilt and genre chips to jellyfin-web. Pairs with the Aurora custom CSS
+  but works without it. Developed primarily with an AI coding assistant
+  (Claude Code); see the README.
+category: "General"
+artifacts:
+  - "Jellyfin.Plugin.Aurora.dll"
+changelog: >
+  - 0.1.0.0: First version. Hero banner, trailer backgrounds, card tilt, genre chips.
