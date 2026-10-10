@@ -712,3 +712,40 @@ html.layout-mobile .au-ep-arrows {
 @media (prefers-reduced-motion: reduce) {
     .au-ep-ghost .au-ep-img, .au-ep-ghost-line { animation: none; }
 }
+
+/* ---------- No layout jumps ------------------------------------------------ */
+
+/* empty banner placeholder at full height while the featured titles load */
+.au-hero.au-hero-pending {
+    background:
+        radial-gradient(60vw 50vh at 70% 30%, rgba(170, 92, 195, 0.10), transparent 70%),
+        radial-gradient(50vw 40vh at 85% 10%, rgba(0, 164, 220, 0.08), transparent 70%),
+        var(--au-bg, #0b0b0e);
+}
+
+/* badges arrive after the page draws: on desktop they float in space reserved under the year line,
+   so nothing below them moves */
+html.layout-desktop .itemDetailPage:not(.au-noart):not(:has(.btnInstantMix:not(.hide))) .itemMiscInfo-primary {
+    margin-bottom: 30px !important;
+}
+
+html.layout-desktop .itemDetailPage .infoWrapper {
+    position: relative;
+}
+
+/* an absolutely placed element sits after the line's 30px bottom margin, so pull it up into that gap */
+html.layout-desktop .au-badges {
+    position: absolute;
+    margin-top: -24px;
+}
+
+/* swapped-in Up Next art fades over Jellyfin's thumb instead of popping */
+.au-upnext .au-upnext-art,
+.au-upnext .au-upnext-logo {
+    animation: au-upnext-in 0.35s ease both;
+}
+
+@keyframes au-upnext-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}

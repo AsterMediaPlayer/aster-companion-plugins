@@ -281,6 +281,29 @@
         hero.node.style.marginTop = (-(r.top + window.scrollY)) + 'px';
     }
 
+    function fillHero(client, node, items) {
+        items.forEach(function (item) { node.appendChild(buildSlide(client, item)); });
+        if (items.length > 1) {
+            var dots = el('div', 'au-hero-dots');
+            items.forEach(function (item, i) {
+                var d = el('button', 'au-hero-dot');
+                d.type = 'button';
+                d.setAttribute('aria-label', 'Show ' + (item.Name || 'title ' + (i + 1)));
+                d.addEventListener('click', function () { showSlide(i); startRotation(); });
+                dots.appendChild(d);
+            });
+            node.appendChild(dots);
+        }
+        node.classList.remove('au-hero-pending');
+        showSlide(0);
+        startRotation();
+    }
+
+    /*
+     * Called straight from the MutationObserver (before paint) as well as from refresh(). The banner element goes
+     * in immediately, empty and at its final height, so Home's rows are laid out below it from the first frame
+     * instead of jumping down when the featured titles arrive. If there turn out to be no titles it is removed.
+     */
     var ensureHero = safe('hero', function () {
         var client = api();
         var page = visiblePage('.homePage, #indexPage');
@@ -298,42 +321,37 @@
         if (hero.node && hero.node.parentNode) {
             hero.node.parentNode.removeChild(hero.node);
         }
-        hero.node = null;
+
+        var node = el('section', 'au-hero au-hero-pending');
+        node.setAttribute('aria-roledescription', 'carousel');
+        node.setAttribute('aria-label', 'Featured');
+        node.addEventListener('mouseenter', function () { hero.paused = true; });
+        node.addEventListener('mouseleave', function () { hero.paused = false; });
+        node.addEventListener('focusin', function () { hero.paused = true; });
+        node.addEventListener('focusout', function () { hero.paused = false; });
+        anchor.parentNode.insertBefore(node, anchor);
+        hero.node = node;
+        document.documentElement.classList.add('au-has-hero');
+        placeHero();
 
         loadHeroItems(client).then(safe('hero render', function (items) {
-            if (!items.length || !document.contains(anchor) || (hero.node && document.contains(hero.node))) {
+            if (hero.node !== node || !document.contains(node)) {
                 return;
             }
-            var node = el('section', 'au-hero');
-            node.setAttribute('aria-roledescription', 'carousel');
-            node.setAttribute('aria-label', 'Featured');
-            items.forEach(function (item) { node.appendChild(buildSlide(client, item)); });
-
-            if (items.length > 1) {
-                var dots = el('div', 'au-hero-dots');
-                items.forEach(function (item, i) {
-                    var d = el('button', 'au-hero-dot');
-                    d.type = 'button';
-                    d.setAttribute('aria-label', 'Show ' + (item.Name || 'title ' + (i + 1)));
-                    d.addEventListener('click', function () { showSlide(i); startRotation(); });
-                    dots.appendChild(d);
-                });
-                node.appendChild(dots);
+            if (!items.length) {
+                node.remove();
+                hero.node = null;
+                document.documentElement.classList.remove('au-has-hero');
+                return;
             }
-
-            node.addEventListener('mouseenter', function () { hero.paused = true; });
-            node.addEventListener('mouseleave', function () { hero.paused = false; });
-            node.addEventListener('focusin', function () { hero.paused = true; });
-            node.addEventListener('focusout', function () { hero.paused = false; });
-
-            anchor.parentNode.insertBefore(node, anchor);
-            hero.node = node;
-            document.documentElement.classList.add('au-has-hero');
-            placeHero();
-            showSlide(0);
-            startRotation();
+            fillHero(client, node, items);
         }), function (err) {
             console.warn(LOG, 'could not load featured titles', err);
+            if (hero.node === node) {
+                node.remove();
+                hero.node = null;
+                document.documentElement.classList.remove('au-has-hero');
+            }
         });
     });
 
@@ -1155,12 +1173,18 @@
         if (page.getAttribute('data-au-item') === id && page.querySelector('.au-badges, .au-episodes:not(.au-episodes-pending)')) {
             return;
         }
+        if (page.getAttribute('data-au-item') !== id) {
+            page.classList.remove('au-noart');
+        }
         page.setAttribute('data-au-item', id);
         getItemCached(client, id).then(safe('details item', function (item) {
             if (!item || hashParam('id') !== id) {
                 return;
             }
             knownType[id] = item.Type;
+            /* titles with no backdrop of their own or from their show get the album-style layout */
+            var hasArt = (item.BackdropImageTags && item.BackdropImageTags.length) || (item.ParentBackdropImageTags && item.ParentBackdropImageTags.length);
+            page.classList.toggle('au-noart', !hasArt);
             badges(client, page, item);
             episodeShelf(client, page, item);
         }), function () {});
@@ -1204,7 +1228,10 @@
         });
         window.addEventListener('resize', safe('resize', placeHero));
         new MutationObserver(function () {
+            /* before paint: things that can be decided from the page alone, so they never show in a stock state */
             preHideSeasons();
+            genreChips();
+            ensureHero();
             queueRefresh();
         }).observe(document.body, { childList: true, subtree: true });
         queueRefresh();
