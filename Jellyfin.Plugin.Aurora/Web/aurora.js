@@ -972,6 +972,65 @@
         }), function () { row.removeAttribute('aria-busy'); });
     }
 
+    /* Jellyfin's own Next Up block on a show page. */
+    function nextUpSection(page) {
+        var hs = page.querySelectorAll('.detailPagePrimaryContent h2');
+        for (var i = 0; i < hs.length; i++) {
+            if (/^next up$/i.test((hs[i].textContent || '').trim())) {
+                return hs[i].closest('.verticalSection') || hs[i].parentElement;
+            }
+        }
+        return null;
+    }
+
+    function placeholderShelf() {
+        var shelf = el('section', 'au-episodes au-episodes-pending verticalSection');
+        var head = el('div', 'au-ep-head');
+        head.appendChild(el('h2', 'sectionTitle sectionTitle-cards au-ep-title', 'Episodes'));
+        shelf.appendChild(head);
+        shelf.appendChild(el('div', 'au-season-tabs'));
+        var row = el('div', 'au-ep-row');
+        for (var i = 0; i < 5; i++) {
+            var ghost = el('div', 'au-ep au-ep-ghost');
+            ghost.appendChild(el('div', 'au-ep-img'));
+            ghost.appendChild(el('div', 'au-ep-ghost-line'));
+            ghost.appendChild(el('div', 'au-ep-ghost-line au-ep-ghost-short'));
+            row.appendChild(ghost);
+        }
+        shelf.appendChild(row);
+        return shelf;
+    }
+
+    /*
+     * Runs straight from the MutationObserver callback, which fires before the browser paints, so Jellyfin's
+     * season cards and Next Up block are hidden before they are ever drawn (refresh() is throttled and the
+     * Episodes row needs three server round trips, which used to leave ~180 ms of the stock layout showing).
+     * Season cards only ever appear on a show page, so their arrival is the signal. A placeholder row holds
+     * the space until the real one is ready.
+     */
+    var preHideSeasons = safe('pre-hide', function () {
+        if (!config.EnableEpisodeShelf || location.hash.indexOf('#/details') !== 0) {
+            return;
+        }
+        var page = visiblePage('.itemDetailPage');
+        var list = page && page.querySelector('#listChildrenCollapsible');
+        if (!list || list.classList.contains('au-replaced') || !list.querySelector('.card[data-type="Season"]')) {
+            return;
+        }
+        var id = hashParam('id');
+        if (page.querySelector('.au-episodes-failed[data-series="' + id + '"]')) {
+            return;
+        }
+        list.classList.add('au-replaced');
+        var nu = nextUpSection(page);
+        if (nu) {
+            nu.classList.add('au-replaced');
+        }
+        if (!page.querySelector('.au-episodes')) {
+            list.parentNode.insertBefore(placeholderShelf(), list);
+        }
+    });
+
     function restoreJellyfinSeasons(page) {
         page.querySelectorAll('.au-episodes').forEach(function (n) { n.remove(); });
         page.querySelectorAll('.au-replaced').forEach(function (n) { n.classList.remove('au-replaced'); });
@@ -983,10 +1042,18 @@
             return;
         }
         var anchor = page.querySelector('#listChildrenCollapsible');
-        if (!anchor || page.querySelector('.au-episodes[data-series="' + item.Id + '"]')) {
+        if (!anchor || page.querySelector('.au-episodes[data-series="' + item.Id + '"]:not(.au-episodes-failed)')) {
             return;
         }
-        restoreJellyfinSeasons(page);
+        /* a row left over from a different show goes; a placeholder stays until the real row replaces it */
+        page.querySelectorAll('.au-episodes:not(.au-episodes-pending)').forEach(function (n) { n.remove(); });
+        var giveUp = function () {
+            restoreJellyfinSeasons(page);
+            var mark = el('div', 'au-episodes au-episodes-failed');
+            mark.setAttribute('data-series', item.Id);
+            mark.hidden = true;
+            anchor.parentNode.insertBefore(mark, anchor);
+        };
 
         var shelf = el('section', 'au-episodes verticalSection');
         shelf.setAttribute('data-series', item.Id);
@@ -1020,7 +1087,11 @@
         ]).then(safe('episodes render', function (res) {
             var seasons = ((res[0] && res[0].Items) || []);
             var next = res[1];
-            if (!seasons.length || hashParam('id') !== item.Id || !document.contains(anchor)) {
+            if (hashParam('id') !== item.Id || !document.contains(anchor)) {
+                return;
+            }
+            if (!seasons.length) {
+                giveUp();
                 return;
             }
             var start = (next && seasons.filter(function (s) { return s.Id === next.SeasonId; })[0])
@@ -1039,18 +1110,24 @@
             if (seasons.length === 1) {
                 tabs.classList.add('is-single');
             }
-            anchor.parentNode.insertBefore(shelf, anchor);
+            var pending = page.querySelector('.au-episodes-pending');
+            if (pending) {
+                pending.replaceWith(shelf);
+            } else {
+                anchor.parentNode.insertBefore(shelf, anchor);
+            }
             /* the row replaces Jellyfin's season cards and its separate Next Up block */
             anchor.classList.add('au-replaced');
-            page.querySelectorAll('.detailPagePrimaryContent .verticalSection, .detailPagePrimaryContent .detailSection > *').forEach(function (sec) {
-                var h = sec.querySelector('h2');
-                if (sec !== shelf && sec !== anchor && h && /^next up$/i.test((h.textContent || '').trim()) && !sec.contains(shelf)) {
-                    sec.classList.add('au-replaced');
-                }
-            });
+            var nu = nextUpSection(page);
+            if (nu && !nu.contains(shelf)) {
+                nu.classList.add('au-replaced');
+            }
             shelf.setAttribute('data-season', start.Id);
             loadSeason(client, item, shelf, start, next && next.SeasonId === start.Id ? next.Id : null);
-        }), function (err) { console.warn(LOG, 'could not load seasons', err); });
+        }), function (err) {
+            console.warn(LOG, 'could not load seasons; showing Jellyfin\'s own', err);
+            giveUp();
+        });
     });
 
     /* Everything on a details page that needs the item itself. */
@@ -1111,7 +1188,10 @@
             queueRefresh();
         });
         window.addEventListener('resize', safe('resize', placeHero));
-        new MutationObserver(queueRefresh).observe(document.body, { childList: true, subtree: true });
+        new MutationObserver(function () {
+            preHideSeasons();
+            queueRefresh();
+        }).observe(document.body, { childList: true, subtree: true });
         queueRefresh();
     }
 

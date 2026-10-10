@@ -674,3 +674,41 @@ html.layout-mobile .au-ep-arrows {
 .au-replaced {
     display: none !important;
 }
+
+/* placeholder row shown while the real Episodes row loads (same footprint, so nothing jumps) */
+.au-episodes-pending .au-season-tabs {
+    min-height: 34px;
+}
+
+.au-ep-ghost {
+    cursor: default;
+}
+
+.au-ep-ghost .au-ep-img,
+.au-ep-ghost-line {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.05) 100%);
+    background-size: 200% 100%;
+    animation: au-shimmer 1.4s ease-in-out infinite;
+    box-shadow: none;
+}
+
+.au-ep-ghost-line {
+    height: 12px;
+    margin-top: 0.9em;
+    border-radius: 6px;
+    width: 70%;
+}
+
+.au-ep-ghost-short {
+    width: 40%;
+    margin-top: 0.6em;
+}
+
+@keyframes au-shimmer {
+    from { background-position: 100% 0; }
+    to { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .au-ep-ghost .au-ep-img, .au-ep-ghost-line { animation: none; }
+}
