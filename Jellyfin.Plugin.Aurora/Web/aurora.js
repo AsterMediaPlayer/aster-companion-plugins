@@ -972,16 +972,20 @@
         }), function () { row.removeAttribute('aria-busy'); });
     }
 
-    /* Jellyfin's own Next Up block on a show page. */
+    /* Jellyfin's own Next Up block on a show page. Jellyfin reuses the page between titles and only adds
+       .hide to sections that don't apply, so a block it has hidden is a leftover from the last show: ignore it. */
     function nextUpSection(page) {
         var hs = page.querySelectorAll('.detailPagePrimaryContent h2');
         for (var i = 0; i < hs.length; i++) {
-            if (/^next up$/i.test((hs[i].textContent || '').trim())) {
+            if (/^next up$/i.test((hs[i].textContent || '').trim()) && !hs[i].closest('.hide')) {
                 return hs[i].closest('.verticalSection') || hs[i].parentElement;
             }
         }
         return null;
     }
+
+    /* Item types already looked up, so the pre-hide never touches a page known not to be a show. */
+    var knownType = {};
 
     function placeholderShelf() {
         var shelf = el('section', 'au-episodes au-episodes-pending verticalSection');
@@ -1014,15 +1018,24 @@
         }
         var page = visiblePage('.itemDetailPage');
         var list = page && page.querySelector('#listChildrenCollapsible');
-        if (!list || list.classList.contains('au-replaced') || !list.querySelector('.card[data-type="Season"]')) {
+        if (!list) {
             return;
         }
-        var id = hashParam('id');
-        if (page.querySelector('.au-episodes-failed[data-series="' + id + '"]')) {
-            return;
-        }
-        list.classList.add('au-replaced');
+        /* Either signal means a show page, and whichever Jellyfin draws first must not get a frame on screen:
+           season cards in the list, or the Next Up block (Jellyfin only shows that one for shows). */
+        var hasSeasons = !!list.querySelector('.card[data-type="Season"]');
         var nu = nextUpSection(page);
+        if (!hasSeasons && !nu) {
+            return;
+        }
+        var currentId = hashParam('id');
+        if ((knownType[currentId] && knownType[currentId] !== 'Series')
+            || page.querySelector('.au-episodes-failed[data-series="' + currentId + '"]')) {
+            return;
+        }
+        if (hasSeasons) {
+            list.classList.add('au-replaced');
+        }
         if (nu) {
             nu.classList.add('au-replaced');
         }
@@ -1138,7 +1151,8 @@
         if (!client || !page || !id) {
             return;
         }
-        if (page.getAttribute('data-au-item') === id && page.querySelector('.au-badges, .au-episodes')) {
+        /* a placeholder row doesn't count as done: the real one (or a restore) still has to happen */
+        if (page.getAttribute('data-au-item') === id && page.querySelector('.au-badges, .au-episodes:not(.au-episodes-pending)')) {
             return;
         }
         page.setAttribute('data-au-item', id);
@@ -1146,6 +1160,7 @@
             if (!item || hashParam('id') !== id) {
                 return;
             }
+            knownType[id] = item.Type;
             badges(client, page, item);
             episodeShelf(client, page, item);
         }), function () {});
