@@ -34,4 +34,13 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>Show a title's genres as chips.</summary>
     public bool EnableGenreChips { get; set; } = true;
+
+    /// <summary>Apple TV "Up Next" look for Continue Watching and Next Up: the title's logo over each still.</summary>
+    public bool EnableUpNext { get; set; } = true;
+
+    /// <summary>Quality badges (4K, Dolby Vision, HDR10, Dolby Atmos, 5.1, CC) under a title.</summary>
+    public bool EnableBadges { get; set; } = true;
+
+    /// <summary>On show pages, an Episodes row with season tabs in place of the season cards.</summary>
+    public bool EnableEpisodeShelf { get; set; } = true;
 }

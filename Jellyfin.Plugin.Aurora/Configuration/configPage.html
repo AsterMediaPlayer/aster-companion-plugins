@@ -55,6 +55,15 @@
                     <div class="checkboxContainer">
                         <label><input id="EnableGenreChips" type="checkbox" is="emby-checkbox" /><span>Show genres as chips</span></label>
                     </div>
+                    <div class="checkboxContainer">
+                        <label><input id="EnableBadges" type="checkbox" is="emby-checkbox" /><span>Show quality badges (4K, HDR, Dolby Atmos, CC)</span></label>
+                    </div>
+                    <div class="checkboxContainer">
+                        <label><input id="EnableUpNext" type="checkbox" is="emby-checkbox" /><span>Up Next style for Continue Watching and Next Up (title logos over stills)</span></label>
+                    </div>
+                    <div class="checkboxContainer">
+                        <label><input id="EnableEpisodeShelf" type="checkbox" is="emby-checkbox" /><span>Episodes row with season tabs on show pages</span></label>
+                    </div>
 
                     <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
                 </form>
@@ -62,7 +71,7 @@
         </div>
         <script type="text/javascript">
             var pluginId = '22f5ff1c-c1cd-47b2-839f-25e6cd9c8afc';
-            var BOOLS = ['EnableHero', 'EnableTrailers', 'AllowYouTubeTrailers', 'EnableTilt', 'EnableGenreChips'];
+            var BOOLS = ['EnableHero', 'EnableTrailers', 'AllowYouTubeTrailers', 'EnableTilt', 'EnableGenreChips', 'EnableUpNext', 'EnableBadges', 'EnableEpisodeShelf'];
             var NUMS = ['HeroCount', 'HeroIntervalSeconds', 'TrailerDelaySeconds'];
 
             function loadConfig(page) {

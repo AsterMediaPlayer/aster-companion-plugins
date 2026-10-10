@@ -28,7 +28,8 @@
     var DEFAULTS = {
         EnableHero: true, HeroSource: 'latest', HeroCount: 8, HeroIntervalSeconds: 9,
         EnableTrailers: true, AllowYouTubeTrailers: true, TrailerDelaySeconds: 4,
-        EnableTilt: true, EnableGenreChips: true
+        EnableTilt: true, EnableGenreChips: true,
+        EnableUpNext: true, EnableBadges: true, EnableEpisodeShelf: true
     };
     var config = DEFAULTS;
 
@@ -90,6 +91,20 @@
         var h = Math.floor(mins / 60);
         var m = mins % 60;
         return h ? h + 'h ' + m + 'm' : m + 'm';
+    }
+
+    /* One fetch per title per minute, shared by trailers, badges and the Episodes row. */
+    var itemCache = {};
+
+    function getItemCached(client, id) {
+        var hit = itemCache[id];
+        if (hit && Date.now() - hit.at < 60000) {
+            return hit.promise;
+        }
+        var promise = client.getItem(client.getCurrentUserId(), id);
+        itemCache[id] = { at: Date.now(), promise: promise };
+        promise.catch(function () { delete itemCache[id]; });
+        return promise;
     }
 
     /* ------------------------------------------------------------------ */
@@ -510,7 +525,7 @@
                 return;
             }
             var userId = client.getCurrentUserId();
-            client.getItem(userId, itemId).then(safe('trailer pick', function (item) {
+            getItemCached(client, itemId).then(safe('trailer pick', function (item) {
                 if (trailer.itemId !== itemId || !item || (item.Type !== 'Movie' && item.Type !== 'Series')) {
                     return;
                 }
@@ -652,6 +667,413 @@
         }
     });
 
+
+    /* ------------------------------------------------------------------ */
+    /* Up Next: the title's logo over each still in Continue Watching / Next Up */
+    /* ------------------------------------------------------------------ */
+
+    var UPNEXT_TITLES = /^(continue watching|next up)$/i;
+
+    var upNext = safe('up next', function () {
+        var client = api();
+        var page = visiblePage('.homePage, #indexPage');
+        if (!config.EnableUpNext || !client || !page) {
+            return;
+        }
+        var sections = page.querySelectorAll('.homeSectionsContainer .verticalSection');
+        var want = [];
+        for (var i = 0; i < sections.length; i++) {
+            var title = sections[i].querySelector('.sectionTitle');
+            if (!title || !UPNEXT_TITLES.test((title.textContent || '').trim())) {
+                continue;
+            }
+            sections[i].classList.add('au-upnext');
+            var cards = sections[i].querySelectorAll('.card[data-id]:not(.au-upnext-seen)');
+            for (var c = 0; c < cards.length; c++) {
+                cards[c].classList.add('au-upnext-seen');
+                want.push(cards[c]);
+            }
+        }
+        if (!want.length) {
+            return;
+        }
+        var ids = want.map(function (card) { return card.getAttribute('data-id'); }).filter(function (id) { return /^[0-9a-f]{32}$/i.test(id); });
+        client.getItems(client.getCurrentUserId(), { Ids: ids.join(','), EnableImageTypes: 'Logo,Backdrop', ImageTypeLimit: 1 }).then(safe('up next logos', function (result) {
+            var byId = {};
+            ((result && result.Items) || []).forEach(function (it) { byId[it.Id] = it; });
+            want.forEach(function (card) {
+                var it = byId[card.getAttribute('data-id')];
+                var scalable = card.querySelector('.cardScalable');
+                /* Layers go inside the image container, ahead of Jellyfin's own children (progress bar, footer),
+                   so those keep painting on top. */
+                var holder = (scalable && scalable.querySelector('.cardImageContainer')) || scalable;
+                if (!it || !holder || holder.querySelector('.au-upnext-logo')) {
+                    return;
+                }
+                var logoId = it.ImageTags && it.ImageTags.Logo ? it.Id : it.ParentLogoItemId;
+                var logoTag = it.ImageTags && it.ImageTags.Logo ? it.ImageTags.Logo : it.ParentLogoImageTag;
+                /* Jellyfin's thumbs often have the title printed on them; under a logo that reads twice. Use the
+                   title's clean backdrop instead, and leave the card alone if there isn't one. */
+                var artId = it.BackdropImageTags && it.BackdropImageTags.length ? it.Id : it.ParentBackdropItemId;
+                var artTag = it.BackdropImageTags && it.BackdropImageTags.length ? it.BackdropImageTags[0]
+                    : (it.ParentBackdropImageTags && it.ParentBackdropImageTags[0]);
+                if (!logoId || !logoTag || !artId || !artTag) {
+                    return;
+                }
+                var art = el('div', 'au-upnext-art');
+                art.style.backgroundImage = 'url("' + client.getImageUrl(artId, { type: 'Backdrop', maxWidth: 780, tag: artTag }) + '")';
+                var img = el('img', 'au-upnext-logo');
+                img.alt = '';
+                img.loading = 'lazy';
+                img.src = client.getImageUrl(logoId, { type: 'Logo', maxWidth: 500, tag: logoTag });
+                img.addEventListener('error', function () { img.remove(); });
+                var first = holder.firstChild;
+                holder.insertBefore(art, first);
+                holder.insertBefore(el('div', 'au-upnext-scrim'), first);
+                holder.insertBefore(img, first);
+                card.classList.add('au-upnext-has-logo');
+            });
+        }), function () { /* no logos: cards stay as Jellyfin drew them */ });
+    });
+
+    /* ------------------------------------------------------------------ */
+    /* Quality badges: 4K / Dolby Vision / HDR10 / Dolby Atmos / 5.1 / CC   */
+    /* ------------------------------------------------------------------ */
+
+    function badgesFor(item) {
+        var source = (item.MediaSources || [])[0];
+        var streams = (source && source.MediaStreams) || item.MediaStreams || [];
+        var video = null, audio = null, subs = false;
+        streams.forEach(function (st) {
+            if (st.Type === 'Video' && !video) {
+                video = st;
+            } else if (st.Type === 'Audio' && (!audio || st.IsDefault)) {
+                audio = st;
+            } else if (st.Type === 'Subtitle') {
+                subs = true;
+            }
+        });
+        var out = [];
+        if (video) {
+            var w = video.Width || 0, h = video.Height || 0;
+            out.push(w >= 3200 || h >= 2000 ? '4K' : (w >= 1200 || h >= 700 ? 'HD' : 'SD'));
+            var range = (video.VideoRangeType || '') + ' ' + (video.VideoRange || '');
+            if (/dovi/i.test(range)) {
+                out.push('Dolby Vision');
+            } else if (/hdr10plus/i.test(range)) {
+                out.push('HDR10+');
+            } else if (/hdr10/i.test(range)) {
+                out.push('HDR10');
+            } else if (/hlg/i.test(range)) {
+                out.push('HLG');
+            } else if (/\bhdr\b/i.test(range)) {
+                out.push('HDR');
+            }
+        }
+        if (audio) {
+            var desc = [audio.Profile, audio.DisplayTitle, audio.Title].join(' ');
+            if (/atmos/i.test(desc)) {
+                out.push('Dolby Atmos');
+            } else if (/dts[:\- ]?x\b/i.test(desc)) {
+                out.push('DTS:X');
+            } else if ((audio.Channels || 0) >= 8) {
+                out.push('7.1');
+            } else if ((audio.Channels || 0) >= 6) {
+                out.push('5.1');
+            }
+        }
+        if (subs) {
+            out.push('CC');
+        }
+        return out;
+    }
+
+    function showBadges(page, forId, list) {
+        var line = page.querySelector('.itemMiscInfo-primary');
+        if (!line || !list.length) {
+            return;
+        }
+        var old = page.querySelector('.au-badges');
+        if (old) {
+            if (old.getAttribute('data-for') === forId) {
+                return;
+            }
+            old.remove();
+        }
+        var box = el('div', 'au-badges');
+        box.setAttribute('data-for', forId);
+        list.forEach(function (b) { box.appendChild(el('span', 'au-badge', b)); });
+        line.parentNode.insertBefore(box, line.nextSibling);
+    }
+
+    var badges = safe('badges', function (client, page, item) {
+        if (!config.EnableBadges) {
+            return;
+        }
+        if (item.Type === 'Movie' || item.Type === 'Episode' || item.Type === 'Video' || item.Type === 'MusicVideo') {
+            showBadges(page, item.Id, badgesFor(item));
+        } else if (item.Type === 'Series') {
+            /* a show has no file of its own: describe it by the episode you would watch next (or the first one) */
+            nextEpisode(client, item.Id).then(safe('series badges', function (ep) {
+                if (!ep || hashParam('id') !== item.Id) {
+                    return;
+                }
+                getItemCached(client, ep.Id).then(safe('series badges item', function (full) {
+                    if (hashParam('id') === item.Id) {
+                        showBadges(page, item.Id, badgesFor(full));
+                    }
+                }), function () {});
+            }), function () {});
+        }
+    });
+
+    /* ------------------------------------------------------------------ */
+    /* Episodes row with season tabs (show pages)                          */
+    /* ------------------------------------------------------------------ */
+
+    var nextUpCache = {};
+
+    /* The episode to resume or start next; falls back to the first episode of the first real season. */
+    function nextEpisode(client, seriesId) {
+        var hit = nextUpCache[seriesId];
+        if (hit && Date.now() - hit.at < 60000) {
+            return hit.promise;
+        }
+        var userId = client.getCurrentUserId();
+        var promise = client.getNextUpEpisodes({ SeriesId: seriesId, UserId: userId, Limit: 1, EnableResumable: true }).then(function (r) {
+            var ep = r && r.Items && r.Items[0];
+            if (ep) {
+                return ep;
+            }
+            return client.getEpisodes(seriesId, { userId: userId, Limit: 1, IsMissing: false }).then(function (e) {
+                return (e && e.Items && e.Items[0]) || null;
+            });
+        });
+        nextUpCache[seriesId] = { at: Date.now(), promise: promise };
+        promise.catch(function () { delete nextUpCache[seriesId]; });
+        return promise;
+    }
+
+    function seasonLabel(season) {
+        return season.IndexNumber === 0 ? (season.Name || 'Specials') : (season.Name || ('Season ' + season.IndexNumber));
+    }
+
+    function episodeCard(client, series, ep) {
+        var card = el('div', 'au-ep');
+        card.tabIndex = 0;
+        card.setAttribute('role', 'link');
+        card.setAttribute('data-id', ep.Id);
+        card.setAttribute('aria-label', (ep.IndexNumber ? 'Episode ' + ep.IndexNumber + ': ' : '') + (ep.Name || ''));
+
+        var img = el('div', 'au-ep-img');
+        var tag = ep.ImageTags && ep.ImageTags.Primary;
+        var url = tag
+            ? client.getImageUrl(ep.Id, { type: 'Primary', maxWidth: 640, tag: tag })
+            : (series.BackdropImageTags && series.BackdropImageTags.length
+                ? client.getImageUrl(series.Id, { type: 'Backdrop', maxWidth: 640, tag: series.BackdropImageTags[0] }) : null);
+        if (url) {
+            img.style.backgroundImage = 'url("' + url + '")';
+        }
+        var ud = ep.UserData || {};
+        if (ud.Played) {
+            var done = el('span', 'au-ep-played material-icons', 'check');
+            img.appendChild(done);
+        } else if (ud.PlayedPercentage) {
+            var bar = el('div', 'au-ep-progress');
+            var fill = el('div', 'au-ep-progress-fill');
+            fill.style.width = Math.min(100, Math.max(2, ud.PlayedPercentage)).toFixed(1) + '%';
+            bar.appendChild(fill);
+            img.appendChild(bar);
+        }
+        var play = el('button', 'au-ep-play');
+        play.type = 'button';
+        play.setAttribute('aria-label', 'Play ' + (ep.Name || 'episode'));
+        play.appendChild(el('span', 'material-icons', 'play_arrow'));
+        play.addEventListener('click', function (e) {
+            e.stopPropagation();
+            openDetails(ep.Id, true);
+        });
+        img.appendChild(play);
+        card.appendChild(img);
+
+        var label = ep.IndexNumber !== undefined && ep.IndexNumber !== null ? 'Episode ' + ep.IndexNumber : '';
+        if (ep.IndexNumberEnd) {
+            label += '–' + ep.IndexNumberEnd;
+        }
+        if (label) {
+            card.appendChild(el('div', 'au-ep-num', label));
+        }
+        card.appendChild(el('div', 'au-ep-name', ep.Name || ''));
+        if (ep.Overview) {
+            card.appendChild(el('p', 'au-ep-overview', ep.Overview));
+        }
+        var meta = [];
+        if (ep.RunTimeTicks) {
+            meta.push(formatRuntime(ep.RunTimeTicks));
+        }
+        if (ep.PremiereDate) {
+            var d = new Date(ep.PremiereDate);
+            if (!isNaN(d)) {
+                meta.push(d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }));
+            }
+        }
+        if (meta.length) {
+            card.appendChild(el('div', 'au-ep-meta', meta.join(' · ')));
+        }
+
+        card.addEventListener('click', function () { openDetails(ep.Id, false); });
+        card.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                openDetails(ep.Id, false);
+            }
+        });
+        return card;
+    }
+
+    function loadSeason(client, series, shelf, season, focusId) {
+        var row = shelf.querySelector('.au-ep-row');
+        shelf.querySelectorAll('.au-season-tab').forEach(function (t) {
+            var on = t.getAttribute('data-season') === season.Id;
+            t.classList.toggle('is-active', on);
+            t.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        row.setAttribute('aria-busy', 'true');
+        client.getEpisodes(series.Id, {
+            userId: client.getCurrentUserId(), seasonId: season.Id, Fields: 'Overview,PremiereDate', EnableImageTypes: 'Primary', IsMissing: false
+        }).then(safe('season episodes', function (r) {
+            if (!document.contains(row) || shelf.getAttribute('data-season') !== season.Id) {
+                return;
+            }
+            row.textContent = '';
+            ((r && r.Items) || []).forEach(function (ep) { row.appendChild(episodeCard(client, series, ep)); });
+            row.removeAttribute('aria-busy');
+            row.scrollLeft = 0;
+            var target = focusId && row.querySelector('.au-ep[data-id="' + focusId + '"]');
+            if (target) {
+                target.classList.add('is-next');
+                /* Line the next episode up with the start of the row. Near the end of a season the row can't scroll that
+                   far, so land on the last whole-card boundary instead: a partial card then peeks in on the right
+                   rather than being cut off on the left. Measured on screen, not via offsetParent. */
+                var rowLeft = row.getBoundingClientRect().left;
+                var startOf = function (card) { return row.scrollLeft + card.getBoundingClientRect().left - rowLeft - 4; };
+                var max = row.scrollWidth - row.clientWidth;
+                var want = startOf(target);
+                if (want > max) {
+                    var cards = row.querySelectorAll('.au-ep');
+                    for (var k = cards.length - 1; k >= 0; k--) {
+                        if (startOf(cards[k]) <= max) {
+                            want = startOf(cards[k]);
+                            break;
+                        }
+                    }
+                }
+                row.scrollLeft = Math.max(0, want);
+            }
+        }), function () { row.removeAttribute('aria-busy'); });
+    }
+
+    function restoreJellyfinSeasons(page) {
+        page.querySelectorAll('.au-episodes').forEach(function (n) { n.remove(); });
+        page.querySelectorAll('.au-replaced').forEach(function (n) { n.classList.remove('au-replaced'); });
+    }
+
+    var episodeShelf = safe('episodes', function (client, page, item) {
+        if (!config.EnableEpisodeShelf || item.Type !== 'Series') {
+            restoreJellyfinSeasons(page);
+            return;
+        }
+        var anchor = page.querySelector('#listChildrenCollapsible');
+        if (!anchor || page.querySelector('.au-episodes[data-series="' + item.Id + '"]')) {
+            return;
+        }
+        restoreJellyfinSeasons(page);
+
+        var shelf = el('section', 'au-episodes verticalSection');
+        shelf.setAttribute('data-series', item.Id);
+        var head = el('div', 'au-ep-head');
+        head.appendChild(el('h2', 'sectionTitle sectionTitle-cards au-ep-title', 'Episodes'));
+        var arrows = el('div', 'au-ep-arrows');
+        [['chevron_left', -1, 'Earlier episodes'], ['chevron_right', 1, 'Later episodes']].forEach(function (a) {
+            var b = el('button', 'au-ep-arrow');
+            b.type = 'button';
+            b.setAttribute('aria-label', a[2]);
+            b.appendChild(el('span', 'material-icons', a[0]));
+            b.addEventListener('click', function () {
+                var row = shelf.querySelector('.au-ep-row');
+                row.scrollBy({ left: a[1] * row.clientWidth * 0.8, behavior: 'smooth' });
+            });
+            arrows.appendChild(b);
+        });
+        head.appendChild(arrows);
+        shelf.appendChild(head);
+        var tabs = el('div', 'au-season-tabs');
+        tabs.setAttribute('role', 'tablist');
+        shelf.appendChild(tabs);
+        var row = el('div', 'au-ep-row');
+        row.setAttribute('role', 'list');
+        shelf.appendChild(row);
+
+        var userId = client.getCurrentUserId();
+        Promise.all([
+            client.getSeasons(item.Id, { userId: userId }),
+            nextEpisode(client, item.Id).catch(function () { return null; })
+        ]).then(safe('episodes render', function (res) {
+            var seasons = ((res[0] && res[0].Items) || []);
+            var next = res[1];
+            if (!seasons.length || hashParam('id') !== item.Id || !document.contains(anchor)) {
+                return;
+            }
+            var start = (next && seasons.filter(function (s) { return s.Id === next.SeasonId; })[0])
+                || seasons.filter(function (s) { return s.IndexNumber > 0; })[0] || seasons[0];
+            seasons.forEach(function (season) {
+                var t = el('button', 'au-season-tab', seasonLabel(season));
+                t.type = 'button';
+                t.setAttribute('role', 'tab');
+                t.setAttribute('data-season', season.Id);
+                t.addEventListener('click', function () {
+                    shelf.setAttribute('data-season', season.Id);
+                    loadSeason(client, item, shelf, season, next && next.SeasonId === season.Id ? next.Id : null);
+                });
+                tabs.appendChild(t);
+            });
+            if (seasons.length === 1) {
+                tabs.classList.add('is-single');
+            }
+            anchor.parentNode.insertBefore(shelf, anchor);
+            /* the row replaces Jellyfin's season cards and its separate Next Up block */
+            anchor.classList.add('au-replaced');
+            page.querySelectorAll('.detailPagePrimaryContent .verticalSection, .detailPagePrimaryContent .detailSection > *').forEach(function (sec) {
+                var h = sec.querySelector('h2');
+                if (sec !== shelf && sec !== anchor && h && /^next up$/i.test((h.textContent || '').trim()) && !sec.contains(shelf)) {
+                    sec.classList.add('au-replaced');
+                }
+            });
+            shelf.setAttribute('data-season', start.Id);
+            loadSeason(client, item, shelf, start, next && next.SeasonId === start.Id ? next.Id : null);
+        }), function (err) { console.warn(LOG, 'could not load seasons', err); });
+    });
+
+    /* Everything on a details page that needs the item itself. */
+    var detailsFeatures = safe('details features', function () {
+        var client = api();
+        var page = visiblePage('.itemDetailPage');
+        var id = page ? hashParam('id') : null;
+        if (!client || !page || !id) {
+            return;
+        }
+        if (page.getAttribute('data-au-item') === id && page.querySelector('.au-badges, .au-episodes')) {
+            return;
+        }
+        page.setAttribute('data-au-item', id);
+        getItemCached(client, id).then(safe('details item', function (item) {
+            if (!item || hashParam('id') !== id) {
+                return;
+            }
+            badges(client, page, item);
+            episodeShelf(client, page, item);
+        }), function () {});
+    });
+
     /* ------------------------------------------------------------------ */
     /* Wiring                                                               */
     /* ------------------------------------------------------------------ */
@@ -666,6 +1088,8 @@
         ensureHero();
         heroGone();
         genreChips();
+        upNext();
+        detailsFeatures();
         scheduleTrailer();
         autoplayFromHero();
     });

@@ -7,8 +7,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Jellyfin.Plugin.Aurora</RootNamespace>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.0</FileVersion>
+    <AssemblyVersion>0.2.0.0</AssemblyVersion>
+    <FileVersion>0.2.0.0</FileVersion>
     <Description>Apple TV style behaviour for the Jellyfin web client: home hero banner, trailer backgrounds, card tilt, genre chips.</Description>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <AnalysisLevel>latest</AnalysisLevel>

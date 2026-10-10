@@ -36,6 +36,9 @@ public sealed class AuroraController : ControllerBase
             TrailerDelaySeconds = Math.Clamp(c.TrailerDelaySeconds, 1, 30),
             c.EnableTilt,
             c.EnableGenreChips,
+            c.EnableUpNext,
+            c.EnableBadges,
+            c.EnableEpisodeShelf,
         };
     }
 

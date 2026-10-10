@@ -369,3 +369,308 @@ html.au-tilt.layout-desktop .personCard:hover .cardScalable.au-tilting {
         transition: none !important;
     }
 }
+
+/* ---------- Up Next: logo over the still ----------------------------------- */
+
+.au-upnext .au-upnext-art {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-size: cover;
+    background-position: center 30%;
+    pointer-events: none;
+}
+
+.au-upnext .au-upnext-scrim {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.25) 38%, rgba(0, 0, 0, 0) 60%);
+}
+
+.au-upnext .au-upnext-logo {
+    position: absolute;
+    left: 7%;
+    bottom: 16%;
+    max-width: 55%;
+    max-height: 34%;
+    width: auto;
+    height: auto;
+    pointer-events: none;
+    filter: drop-shadow(0 3px 12px rgba(0, 0, 0, 0.6));
+}
+
+/* Aurora's layers sit first inside .cardImageContainer, so Jellyfin's progress bar and footer (later children)
+   still paint over them without any z-index. */
+.au-upnext .card.au-upnext-has-logo .cardImageContainer .innerCardFooter {
+    position: absolute;
+}
+
+/* the logo says what it is; keep only the episode line under the card */
+.au-upnext .card.au-upnext-has-logo[data-type="Movie"] .cardText-first,
+.au-upnext .card.au-upnext-has-logo[data-type="Episode"] .cardText-first {
+    display: none;
+}
+
+.au-upnext .card.au-upnext-has-logo .cardText-secondary {
+    color: var(--au-text-2, rgba(235, 235, 245, 0.7)) !important;
+    font-size: 0.85em;
+}
+
+/* ---------- Quality badges ---------------------------------------------- */
+
+.au-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0.55em 0 0.2em;
+}
+
+.au-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 6px;
+    border: 1px solid rgba(235, 235, 245, 0.45);
+    border-radius: 4px;
+    color: rgba(235, 235, 245, 0.78);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+/* ---------- Episodes row ------------------------------------------------- */
+
+.au-episodes {
+    margin: 2.2em 0 1em;
+}
+
+.au-ep-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.au-ep-title {
+    margin: 0 !important;
+}
+
+.au-ep-arrows {
+    display: flex;
+    gap: 6px;
+}
+
+.au-ep-arrow {
+    width: 38px;
+    height: 38px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--au-text, #f5f5f7);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.au-ep-arrow:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+html.layout-mobile .au-ep-arrows {
+    display: none;
+}
+
+.au-season-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0.9em 0 1.1em;
+}
+
+.au-season-tabs.is-single {
+    display: none;
+}
+
+.au-season-tab {
+    height: 34px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--au-text-2, rgba(235, 235, 245, 0.75));
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.au-season-tab:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: var(--au-text, #f5f5f7);
+}
+
+.au-season-tab.is-active {
+    background: var(--au-text, #f5f5f7);
+    color: #000;
+}
+
+.au-ep-row {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: clamp(240px, 21vw, 380px);
+    gap: 22px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 10px 4px 18px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+}
+
+.au-ep-row::-webkit-scrollbar {
+    display: none;
+}
+
+.au-ep-row[aria-busy="true"] {
+    opacity: 0.5;
+}
+
+.au-ep {
+    scroll-snap-align: start;
+    cursor: pointer;
+    outline: none;
+    min-width: 0;
+}
+
+.au-ep-img {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--au-radius, 12px);
+    background: var(--au-bg-raised, #16161b) center / cover no-repeat;
+    overflow: hidden;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4);
+    transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s;
+}
+
+.au-ep:hover .au-ep-img,
+.au-ep:focus-visible .au-ep-img {
+    transform: scale(1.04) translateY(-3px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.au-ep:focus-visible .au-ep-img {
+    outline: 3px solid var(--au-blue, #00a4dc);
+    outline-offset: 3px;
+}
+
+.au-ep.is-next .au-ep-num {
+    color: var(--au-blue, #00a4dc);
+}
+
+.au-ep-play {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 54px;
+    height: 54px;
+    margin: -27px 0 0 -27px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.9);
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.au-ep-play .material-icons {
+    font-size: 30px;
+}
+
+.au-ep:hover .au-ep-play,
+.au-ep:focus-within .au-ep-play {
+    opacity: 1;
+    transform: none;
+}
+
+.au-ep-progress {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.3);
+    overflow: hidden;
+}
+
+.au-ep-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--au-accent, linear-gradient(120deg, #aa5cc3, #00a4dc));
+}
+
+.au-ep-played {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    background: var(--au-accent, linear-gradient(120deg, #aa5cc3, #00a4dc));
+    color: #fff;
+    font-size: 18px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.au-ep-num {
+    margin-top: 0.85em;
+    color: var(--au-text-3, rgba(235, 235, 245, 0.5));
+    font-size: 0.75em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.au-ep-name {
+    margin-top: 0.2em;
+    color: var(--au-text, #f5f5f7);
+    font-weight: 700;
+    font-size: 1em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.au-ep-overview {
+    margin: 0.35em 0 0;
+    color: var(--au-text-2, rgba(235, 235, 245, 0.65));
+    font-size: 0.85em;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.au-ep-meta {
+    margin-top: 0.4em;
+    color: var(--au-text-3, rgba(235, 235, 245, 0.45));
+    font-size: 0.78em;
+    font-weight: 600;
+}
+
+/* Jellyfin's own season cards and Next Up block, replaced by the row above */
+.au-replaced {
+    display: none !important;
+}
