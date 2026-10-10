@@ -43,4 +43,7 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>On show pages, an Episodes row with season tabs in place of the season cards.</summary>
     public bool EnableEpisodeShelf { get; set; } = true;
+
+    /// <summary>A back button in the top-left corner on every page except Home, the player, login and the dashboard.</summary>
+    public bool EnableBackButton { get; set; } = true;
 }

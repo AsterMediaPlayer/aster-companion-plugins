@@ -89,6 +89,7 @@ public sealed partial class AuroraController : ControllerBase
             c.EnableUpNext,
             c.EnableBadges,
             c.EnableEpisodeShelf,
+            c.EnableBackButton,
         };
     }
 

@@ -29,7 +29,7 @@
         EnableHero: true, HeroSource: 'latest', HeroCount: 8, HeroIntervalSeconds: 9,
         EnableTrailers: true, AllowYouTubeTrailers: true, TrailerDelaySeconds: 4,
         EnableTilt: true, EnableGenreChips: true,
-        EnableUpNext: true, EnableBadges: true, EnableEpisodeShelf: true
+        EnableUpNext: true, EnableBadges: true, EnableEpisodeShelf: true, EnableBackButton: true
     };
     var config = DEFAULTS;
 
@@ -1191,6 +1191,82 @@
     });
 
     /* ------------------------------------------------------------------ */
+    /* Back button (top-left)                                               */
+    /* ------------------------------------------------------------------ */
+
+    /* Pages that don't get one: Home (nowhere to go back to), the player (has its own), login, the dashboard. */
+    var NO_BACK = /^#\/(home(\.html)?|video|login(\.html)?|selectserver|dashboard|configurationpage|startupwizard)?(\?|$)/i;
+    /*
+     * A record of the pages visited inside the app (not a counter: Back itself fires a navigation, which made a
+     * counter drift). A navigation to the page before the current one is a "back" and pops; anything else pushes.
+     * Back only uses the browser's history when the previous entry is one of ours, so it never leaves Jellyfin;
+     * with nothing to go back to (opened straight onto a page) it goes Home.
+     */
+    var back = { node: null, trail: [location.hash || '#/home.html'] };
+
+    window.addEventListener('hashchange', function () {
+        var now = location.hash;
+        var t = back.trail;
+        if (t.length > 1 && t[t.length - 2] === now) {
+            t.pop();
+        } else if (t[t.length - 1] !== now) {
+            t.push(now);
+            if (t.length > 100) {
+                t.shift();
+            }
+        }
+    });
+
+    function goBack() {
+        if (back.trail.length > 1) {
+            history.back();
+        } else {
+            back.trail = ['#/home.html'];
+            location.hash = '#/home.html';
+        }
+    }
+
+    /*
+     * The button lives outside the header (in <body>, fixed position), because jellyfin-web's header is drawn by React
+     * and foreign nodes inside it can be torn out or confuse it on redraw. It is lined up with the header's controls:
+     * in the gap left of the logo on desktop, right after the menu button on phones.
+     */
+    var placeBack = safe('back place', function () {
+        var btn = back.node;
+        var toolbar = document.querySelector('header.MuiAppBar-root .MuiToolbar-root');
+        var show = config.EnableBackButton && toolbar && toolbar.offsetParent !== null && !NO_BACK.test(location.hash || '#/home.html');
+        if (!show) {
+            if (btn) {
+                btn.classList.remove('is-visible');
+            }
+            return;
+        }
+        if (!btn) {
+            btn = el('button', 'au-back');
+            btn.type = 'button';
+            btn.title = 'Back';
+            btn.setAttribute('aria-label', 'Back');
+            btn.appendChild(el('span', 'material-icons', 'arrow_back'));
+            btn.addEventListener('click', goBack);
+            document.body.appendChild(btn);
+            back.node = btn;
+        }
+        var first = toolbar.firstElementChild;
+        var fr = first.getBoundingClientRect();
+        var tr = toolbar.getBoundingClientRect();
+        var size = 40;
+        var left;
+        if (first.matches('button, .MuiIconButton-root')) {
+            left = fr.right + 4;                          /* phone: beside the menu button */
+        } else {
+            left = Math.max(8, fr.left - size - 10);       /* desktop: in the gap left of the logo */
+        }
+        btn.style.left = Math.round(left) + 'px';
+        btn.style.top = Math.round(tr.top + (tr.height - size) / 2) + 'px';
+        btn.classList.add('is-visible');
+    });
+
+    /* ------------------------------------------------------------------ */
     /* Wiring                                                               */
     /* ------------------------------------------------------------------ */
 
@@ -1224,14 +1300,16 @@
         window.addEventListener('hashchange', function () {
             stopTrailer();
             trailer.doneFor = null;
+            placeBack();
             queueRefresh();
         });
-        window.addEventListener('resize', safe('resize', placeHero));
+        window.addEventListener('resize', safe('resize', function () { placeHero(); placeBack(); }));
         new MutationObserver(function () {
             /* before paint: things that can be decided from the page alone, so they never show in a stock state */
             preHideSeasons();
             genreChips();
             ensureHero();
+            placeBack();
             queueRefresh();
         }).observe(document.body, { childList: true, subtree: true });
         queueRefresh();
