@@ -39,6 +39,12 @@ public sealed class Theme
 
     public string? AudioPath { get; set; }
 
+    /// <summary>MP4 (H.264/HEVC + AAC) every client can play: the original when it already qualifies, else a converted copy.</summary>
+    public string? Mp4Path { get; set; }
+
+    /// <summary>"pending", "converting", "ready" or "failed"; null when the theme has no video.</summary>
+    public string? Mp4Status { get; set; }
+
     public string? SongTitle { get; set; }
 
     public List<string> Artists { get; set; } = [];

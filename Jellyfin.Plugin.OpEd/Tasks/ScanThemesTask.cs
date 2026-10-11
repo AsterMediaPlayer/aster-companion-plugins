@@ -17,12 +17,16 @@ public sealed class ScanThemesTask : IScheduledTask
 
     public string Key => "OpEdScanThemes";
 
-    public string Description => "Indexes the OP/ED themes folder, matches themes to shows and fetches song metadata from AnimeThemes.";
+    public string Description => "Indexes the OP/ED themes folder, matches themes to shows, fetches song metadata from AnimeThemes and makes MP4 copies of videos that clients can't play as-is.";
 
     public string Category => "OP/ED";
 
-    public Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken) =>
-        _index.ScanAsync(progress, cancellationToken);
+    public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
+    {
+        // First half of the progress bar: the scan; second half: making playable MP4 copies of new videos.
+        await _index.ScanAsync(new Progress<double>(p => progress.Report(p / 2)), cancellationToken).ConfigureAwait(false);
+        await _index.ConvertVideosAsync(new Progress<double>(p => progress.Report(50 + (p / 2))), cancellationToken).ConfigureAwait(false);
+    }
 
     public IEnumerable<TaskTriggerInfo> GetDefaultTriggers() =>
     [

@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.MediaEncoding;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.OpEd.Themes;
@@ -25,14 +26,17 @@ public sealed partial class ThemeIndex
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<ThemeIndex> _logger;
     private readonly SemaphoreSlim _scanLock = new(1, 1);
+    private readonly object _saveLock = new();
+    private readonly VideoConverter _converter;
     private ThemeIndexData _data = new();
     private bool _loaded;
 
-    public ThemeIndex(ILibraryManager libraryManager, IHttpClientFactory httpClientFactory, ILogger<ThemeIndex> logger)
+    public ThemeIndex(ILibraryManager libraryManager, IHttpClientFactory httpClientFactory, IMediaEncoder mediaEncoder, ILogger<ThemeIndex> logger)
     {
         _libraryManager = libraryManager;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
+        _converter = new VideoConverter(mediaEncoder, logger);
     }
 
     private static string DataDir => Plugin.Instance?.DataFolderPath ?? Path.Combine(Path.GetTempPath(), "oped");
@@ -42,6 +46,12 @@ public sealed partial class ThemeIndex
     public ScanReport Report => Data.Report;
 
     public bool IsScanning => _scanLock.CurrentCount == 0;
+
+    public bool IsConverting => _converter.IsBusy;
+
+    /// <summary>Makes playable MP4 copies of the videos that need one (see <see cref="VideoConverter"/>).</summary>
+    public Task ConvertVideosAsync(IProgress<double>? progress, CancellationToken ct) =>
+        _converter.ConvertPendingAsync([.. Data.Themes], SaveCurrent, progress, ct);
 
     private ThemeIndexData Data
     {
@@ -223,6 +233,7 @@ public sealed partial class ThemeIndex
                     }
                 }
 
+                _converter.Classify(theme);
                 themes.Add(theme);
                 if (theme.MetadataSource is null)
                 {
@@ -237,7 +248,9 @@ public sealed partial class ThemeIndex
             _logger.LogInformation(
                 "OP/ED: scan found {Themes} themes ({Meta} with metadata) for {Shows} shows; {Unmatched} folders unmatched, {Unparsed} files not recognised",
                 report.Themes, report.WithMetadata, themes.Select(t => t.SeriesId).Distinct().Count(), report.UnmatchedFolders.Count, report.UnparsedFiles.Count);
-            return Save(themes, report);
+            var saved = Save(themes, report);
+            _converter.RemoveUnused(themes);
+            return saved;
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -308,17 +321,24 @@ public sealed partial class ThemeIndex
         report.FinishedAt = DateTime.UtcNow;
         _data = new ThemeIndexData { Themes = themes, Report = report };
         _loaded = true;
-        try
-        {
-            Directory.CreateDirectory(DataDir);
-            File.WriteAllText(IndexFile, JsonSerializer.Serialize(_data, JsonOptions));
-        }
-        catch (IOException e)
-        {
-            _logger.LogWarning(e, "OP/ED: couldn't save the index");
-        }
-
+        SaveCurrent();
         return report;
+    }
+
+    private void SaveCurrent()
+    {
+        lock (_saveLock)
+        {
+            try
+            {
+                Directory.CreateDirectory(DataDir);
+                File.WriteAllText(IndexFile, JsonSerializer.Serialize(_data, JsonOptions));
+            }
+            catch (IOException e)
+            {
+                _logger.LogWarning(e, "OP/ED: couldn't save the index");
+            }
+        }
     }
 
     private static string StableId(string key) =>

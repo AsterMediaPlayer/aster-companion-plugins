@@ -2,8 +2,9 @@
 
 A Jellyfin 12 plugin for anime opening and ending themes. You put the theme files in a folder; the plugin matches
 them to your shows and seasons, adds song title, artists and episode ranges from [AnimeThemes.moe](https://animethemes.moe),
-and serves them to clients through an authenticated API. It doesn't download theme files and doesn't touch Jellyfin's
-own theme music/video playback.
+and serves them to clients through an authenticated API. Videos that not every client can play (AnimeThemes' WebM,
+for example) get an MP4 copy that every client can. It doesn't download theme files and doesn't touch Jellyfin's own
+theme music/video playback.
 
 ## Themes folder
 
@@ -50,7 +51,8 @@ usual Jellyfin `Authorization: MediaBrowser Token="…"` header. Fields that are
 |---|---|---|
 | GET | `/OpEd/Items/{itemId}/Themes?type=OP\|ED` | Themes for a series, season or episode |
 | GET | `/OpEd/Themes/{themeId}` | One theme |
-| GET | `/OpEd/Themes/{themeId}/Video` | The video file. Supports HTTP range requests, so players can seek |
+| GET | `/OpEd/Themes/{themeId}/Video` | The original video file. Supports HTTP range requests, so players can seek |
+| GET | `/OpEd/Themes/{themeId}/VideoMp4` | The video as MP4 (H.264/HEVC + AAC) that every client can play, with range requests |
 | GET | `/OpEd/Themes/{themeId}/Audio` | The audio file |
 | POST | `/OpEd/Scan` | Rescan now (administrators) |
 | GET | `/OpEd/Status` | Last scan report (administrators) |
@@ -71,6 +73,7 @@ number). Example:
       "Spoiler": false, "Nsfw": false,
       "HasVideo": true, "HasAudio": true,
       "VideoUrl": "/OpEd/Themes/4176c129755c36cf/Video", "VideoContainer": "webm",
+      "VideoMp4Url": "/OpEd/Themes/4176c129755c36cf/VideoMp4", "VideoMp4Status": "ready",
       "AudioUrl": "/OpEd/Themes/4176c129755c36cf/Audio", "AudioContainer": "ogg",
       "MetadataSource": "animethemes"
     }
@@ -79,8 +82,22 @@ number). Example:
 ```
 
 Theme ids are derived from the theme's place in the themes folder, so they stay the same across rescans.
-AnimeThemes videos are WebM (VP9/Opus). Apple platforms don't play WebM natively, so a tvOS client needs its own
-player for them (for example VLCKit), or the themes need to be supplied as MP4.
+
+## Playable video for every client
+
+Clients should play `VideoMp4Url`. AnimeThemes' videos are WebM (VP9/Opus), which Apple's player (AVPlayer, so
+Apple TV and iOS) doesn't play. After each scan the plugin makes a copy every client can play, using Jellyfin's own
+ffmpeg:
+
+- An MP4/M4V/MOV that is already H.264 or HEVC with AAC audio is served as-is; nothing is copied.
+- H.264/HEVC in another container (MKV) is rewrapped into MP4 with the audio converted to AAC. That takes about a second.
+- Anything else (VP9, AV1, …) is converted to H.264 High (CRF 19, at most 1080p wide) + AAC stereo with libx264. It
+  runs one file at a time at low CPU priority and takes about 15 s for a 90-second 720p OP.
+
+`VideoMp4Status` is `pending`, `converting`, `ready` or `failed`; `VideoMp4Url` appears once it is `ready`. Copies
+are kept in the plugin's data folder, are redone when the source file changes, and are deleted once no theme uses them.
+A failed conversion isn't retried until its source file changes; its ffmpeg error is kept next to where the copy would
+be (`*.mp4.failed`).
 
 ## Build
 

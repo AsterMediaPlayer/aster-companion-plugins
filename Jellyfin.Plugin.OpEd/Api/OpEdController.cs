@@ -16,7 +16,8 @@ namespace Jellyfin.Plugin.OpEd.Api;
 ///
 ///   GET  /OpEd/Items/{itemId}/Themes   themes for a show, season or episode (?type=OP|ED to filter)
 ///   GET  /OpEd/Themes/{themeId}         one theme
-///   GET  /OpEd/Themes/{themeId}/Video   the video file (supports HTTP range requests, so clients can seek)
+///   GET  /OpEd/Themes/{themeId}/Video   the original video file (supports HTTP range requests, so clients can seek)
+///   GET  /OpEd/Themes/{themeId}/VideoMp4  the same video as MP4 (H.264/HEVC + AAC) that every client can play
 ///   GET  /OpEd/Themes/{themeId}/Audio   the audio file
 ///   POST /OpEd/Scan                     rescan the themes folder (admins)
 ///   GET  /OpEd/Status                   last scan report (admins)
@@ -103,6 +104,16 @@ public sealed partial class OpEdController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult GetVideo([FromRoute] string themeId) => Stream(VisibleTheme(themeId)?.VideoPath);
 
+    [HttpGet("Themes/{themeId}/VideoMp4")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status206PartialContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult GetVideoMp4([FromRoute] string themeId)
+    {
+        var theme = VisibleTheme(themeId);
+        return theme?.Mp4Status == "ready" ? Stream(theme.Mp4Path) : NotFound();
+    }
+
     [HttpGet("Themes/{themeId}/Audio")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status206PartialContent)]
@@ -112,13 +123,19 @@ public sealed partial class OpEdController : ControllerBase
     [HttpPost("Scan")]
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<ActionResult<ScanReport>> Scan(CancellationToken ct) =>
-        await _index.ScanAsync(null, ct).ConfigureAwait(false);
+    public async Task<ActionResult<ScanReport>> Scan(CancellationToken ct)
+    {
+        var report = await _index.ScanAsync(null, ct).ConfigureAwait(false);
+
+        // Converting can take minutes; run it after the response, not tied to this request.
+        _ = Task.Run(() => _index.ConvertVideosAsync(null, CancellationToken.None), CancellationToken.None);
+        return report;
+    }
 
     [HttpGet("Status")]
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<object> Status() => new { Scanning = _index.IsScanning, Report = _index.Report };
+    public ActionResult<object> Status() => new { Scanning = _index.IsScanning, Converting = _index.IsConverting, Report = _index.Report };
 
     private Theme? VisibleTheme(string themeId)
     {
@@ -210,6 +227,8 @@ public sealed partial class OpEdController : ControllerBase
         HasVideo = t.VideoPath is not null,
         HasAudio = t.AudioPath is not null,
         VideoUrl = t.VideoPath is not null ? $"/OpEd/Themes/{t.Id}/Video" : null,
+        VideoMp4Url = t.Mp4Status == "ready" ? $"/OpEd/Themes/{t.Id}/VideoMp4" : null,
+        VideoMp4Status = t.Mp4Status,
         AudioUrl = t.AudioPath is not null ? $"/OpEd/Themes/{t.Id}/Audio" : null,
         VideoContainer = t.VideoPath is not null ? Path.GetExtension(t.VideoPath).TrimStart('.').ToLowerInvariant() : null,
         AudioContainer = t.AudioPath is not null ? Path.GetExtension(t.AudioPath).TrimStart('.').ToLowerInvariant() : null,
@@ -267,6 +286,12 @@ public sealed class ThemeDto
     public bool HasAudio { get; set; }
 
     public string? VideoUrl { get; set; }
+
+    /// <summary>The video as MP4 (H.264/HEVC + AAC) that every client, including Apple TV, can play. Set once it's ready.</summary>
+    public string? VideoMp4Url { get; set; }
+
+    /// <summary>"pending", "converting", "ready" or "failed"; null when the theme has no video.</summary>
+    public string? VideoMp4Status { get; set; }
 
     public string? AudioUrl { get; set; }
 
