@@ -16,4 +16,10 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>Days before a cached AnimeThemes answer is fetched again.</summary>
     public int MetadataRefreshDays { get; set; } = 14;
+
+    /// <summary>
+    /// Item ids of the Jellyfin libraries that "Cut OP/ED clips from chapters" searches. Empty means none: the feature
+    /// does nothing until at least one library is chosen.
+    /// </summary>
+    public string[] ClipLibraryIds { get; set; } = [];
 }

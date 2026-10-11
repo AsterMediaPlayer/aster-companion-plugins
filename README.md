@@ -38,6 +38,7 @@ anime_themes/
 For themes missing from the folder, the plugin can cut them out of your own episodes. Run **Cut OP/ED clips from
 chapters** (Scheduled Tasks, no automatic trigger) or "Look for clips now" in Dashboard → OP/ED.
 
+- Only the libraries ticked under "Libraries to search" in Dashboard → OP/ED are looked at (none until you choose).
 - Per library season (with an AniDB id, else a season number) it lists the OPs/EDs AnimeThemes has for that AniDB
   entry (just OP1 and ED1 when it has none) and skips every one that already has a theme, a clip waiting for
   review, or a rejected clip.

@@ -221,7 +221,14 @@ public sealed partial class ClipExtractor
                 return;
             }
 
-            var seasons = LibrarySeasons();
+            var libraryIds = config.ClipLibraryIds.Select(i => Guid.TryParse(i, out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty).ToArray();
+            if (libraryIds.Length == 0)
+            {
+                LastResult = "Choose which libraries to search first.";
+                return;
+            }
+
+            var seasons = LibrarySeasons(libraryIds);
             if (onlySlot is not null)
             {
                 seasons = [.. seasons.Where(s => onlySlot.StartsWith($"{s.ShowFolder}|{s.Sub}|", StringComparison.OrdinalIgnoreCase))];
@@ -260,13 +267,14 @@ public sealed partial class ClipExtractor
 
     private sealed record SeasonInfo(Season Season, string ShowFolder, string Sub, int? AniDb, List<Episode> Episodes);
 
-    private List<SeasonInfo> LibrarySeasons()
+    private List<SeasonInfo> LibrarySeasons(Guid[] libraryIds)
     {
         var episodes = _libraryManager.GetItemList(new InternalItemsQuery
         {
             IncludeItemTypes = [BaseItemKind.Episode],
             Recursive = true,
             IsVirtualItem = false,
+            AncestorIds = libraryIds,
         }).OfType<Episode>().Where(e => !string.IsNullOrEmpty(e.Path) && e.Season is not null && e.SeriesId != Guid.Empty);
 
         var result = new List<SeasonInfo>();

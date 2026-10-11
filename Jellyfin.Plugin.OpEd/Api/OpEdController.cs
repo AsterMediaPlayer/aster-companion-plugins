@@ -3,6 +3,7 @@ using Jellyfin.Plugin.OpEd.Themes;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Model.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -20,6 +21,7 @@ namespace Jellyfin.Plugin.OpEd.Api;
 ///   GET  /OpEd/Themes/{themeId}/Audio   the original audio file
 ///   GET  /OpEd/Themes/{themeId}/AudioM4a  the same audio as AAC (or MP3) that every client can play
 ///   POST /OpEd/Scan                     rescan the themes folder (admins)
+///   GET  /OpEd/Admin/Libraries             TV libraries the clip search can be limited to (admins)
 ///   POST /OpEd/Admin/Clips/Extract         cut missing OPs/EDs out of episodes by chapter marker, into the review queue (admins)
 ///   GET  /OpEd/Admin/Clips                 the review queue (admins)
 ///   GET  /OpEd/Admin/Clips/{id}/Video      a queued clip (also /Audio) (admins)
@@ -228,6 +230,17 @@ public sealed class OpEdController : ControllerBase
         var theme = await _index.SaveDetailsAsync(themeId, new ThemeDetailsFile.Details(null, null, null, null, null), ct).ConfigureAwait(false);
         return theme is null ? NotFound() : ToDto(theme, null);
     }
+
+    [HttpGet("Admin/Libraries")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<List<LibraryDto>> GetLibraries() =>
+        _libraryManager.GetVirtualFolders()
+            .Where(v => v.CollectionType is null or CollectionTypeOptions.tvshows)
+            .Select(v => new LibraryDto { Id = v.ItemId ?? string.Empty, Name = v.Name ?? string.Empty })
+            .Where(v => v.Id.Length > 0)
+            .OrderBy(v => v.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     [HttpPost("Admin/Clips/Extract")]
     [Authorize(Policy = "RequiresElevation")]
@@ -538,4 +551,11 @@ public sealed class ClipListDto
     public bool Indexing { get; set; }
 
     public List<PendingClip> Clips { get; set; } = [];
+}
+
+public sealed class LibraryDto
+{
+    public string Id { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
 }

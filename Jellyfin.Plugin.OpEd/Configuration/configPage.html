@@ -50,6 +50,8 @@
                     (<code>anidb-N</code> or <code>Season N</code> subfolder, same as hand-placed files); song details then come from
                     AnimeThemes as usual. Also available as a scheduled task (Cut OP/ED clips from chapters). For endings it also accepts chapters named Credits, End Credits, Outro or Closing (up to 2.5 minutes).
                 </div>
+                <div class="fieldDescription" style="margin-top:1em"><b>Libraries to search</b> (nothing is searched until you tick at least one)</div>
+                <div id="OpEdLibraries" class="checkboxList paperList" style="margin-bottom:1em">Loading…</div>
                 <button is="emby-button" type="button" id="OpEdExtract" class="raised block"><span>Look for clips now</span></button>
                 <div id="OpEdClipStatus" class="fieldDescription" style="margin:.8em 0"></div>
                 <div id="OpEdClips" class="fieldDescription">Loading…</div>
@@ -292,11 +294,26 @@
                 });
             });
 
+            function loadLibraries(page, config) {
+                var chosen = (config.ClipLibraryIds || []).map(function (i) { return String(i).toLowerCase().replace(/-/g, ''); });
+                ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Admin/Libraries'), type: 'GET', dataType: 'json' }).then(function (libs) {
+                    page.querySelector('#OpEdLibraries').innerHTML = libs.length ? libs.map(function (l) {
+                        var on = chosen.indexOf(String(l.Id).toLowerCase().replace(/-/g, '')) >= 0;
+                        return '<div class="checkboxContainer"><label><input type="checkbox" is="emby-checkbox" class="oped-lib" value="' + esc(l.Id) + '"' +
+                            (on ? ' checked' : '') + ' /><span>' + esc(l.Name) + '</span></label></div>';
+                    }).join('') : '<p>No TV libraries found.</p>';
+                });
+            }
+
             function save(page) {
                 return ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                     config.ThemesPath = page.querySelector('#ThemesPath').value.trim();
                     config.FetchMetadata = page.querySelector('#FetchMetadata').checked;
                     config.MetadataRefreshDays = parseInt(page.querySelector('#MetadataRefreshDays').value, 10) || 14;
+                    // Keep the saved choice if the checkboxes haven't loaded yet.
+                    if (page.querySelector('.oped-lib')) {
+                        config.ClipLibraryIds = Array.prototype.map.call(page.querySelectorAll('.oped-lib:checked'), function (c) { return c.value; });
+                    }
                     return ApiClient.updatePluginConfiguration(pluginId, config);
                 });
             }
@@ -308,6 +325,7 @@
                     page.querySelector('#ThemesPath').value = config.ThemesPath || '';
                     page.querySelector('#FetchMetadata').checked = !!config.FetchMetadata;
                     page.querySelector('#MetadataRefreshDays').value = config.MetadataRefreshDays;
+                    loadLibraries(page, config);
                     Dashboard.hideLoadingMsg();
                 });
                 showReport(page);
