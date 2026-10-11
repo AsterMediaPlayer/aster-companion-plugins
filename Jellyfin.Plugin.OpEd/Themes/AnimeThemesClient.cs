@@ -26,6 +26,7 @@ public sealed class AnimeThemesClient
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger _logger;
     private readonly string _cacheDir;
+    private bool _refused;
 
     public AnimeThemesClient(IHttpClientFactory httpClientFactory, ILogger logger, string cacheDir)
     {
@@ -45,6 +46,14 @@ public sealed class AnimeThemesClient
         var stale = aniDbIds.Distinct().Where(id => !File.Exists(CacheFile(id)) || File.GetLastWriteTimeUtc(CacheFile(id)) < cutoff).Order().ToList();
         if (stale.Count == 0)
         {
+            return;
+        }
+
+        // After AnimeThemes refuses us, wait a day before asking again rather than knocking on every scan.
+        var refusedFile = Path.Combine(_cacheDir, "refused-until");
+        if (File.Exists(refusedFile) && DateTime.TryParse(File.ReadAllText(refusedFile), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var until) && until > DateTime.UtcNow)
+        {
+            _logger.LogDebug("OP/ED: AnimeThemes refused recently; not asking again until {Until}", until);
             return;
         }
 
@@ -83,7 +92,14 @@ public sealed class AnimeThemesClient
 
             if (!ok)
             {
-                continue; // keep whatever was cached before; retried on the next scan
+                if (_refused)
+                {
+                    await File.WriteAllTextAsync(refusedFile, DateTime.UtcNow.AddDays(1).ToString("o", System.Globalization.CultureInfo.InvariantCulture), ct).ConfigureAwait(false);
+                    _logger.LogInformation("OP/ED: AnimeThemes is refusing this client; trying again in a day (themes keep any cached or local details)");
+                    return;
+                }
+
+                continue; // network trouble: keep whatever was cached before; retried on the next scan
             }
 
             foreach (var (id, list) in found)
@@ -131,6 +147,7 @@ public sealed class AnimeThemesClient
 
                 if (!response.IsSuccessStatusCode)
                 {
+                    _refused = response.StatusCode is HttpStatusCode.Forbidden or (HttpStatusCode)520 or HttpStatusCode.Unauthorized;
                     // 403/520 here means AnimeThemes is refusing this client; don't retry, just report it.
                     _logger.LogWarning("OP/ED: AnimeThemes refused the metadata request ({Status}); themes keep any cached metadata", (int)response.StatusCode);
                     return null;

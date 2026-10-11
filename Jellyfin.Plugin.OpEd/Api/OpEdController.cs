@@ -47,7 +47,7 @@ public sealed partial class OpEdController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<ThemeListDto> GetThemesForItem([FromRoute] Guid itemId, [FromQuery] string? type)
     {
-        var item = _libraryManager.GetItemById(itemId);
+        var item = itemId == Guid.Empty ? null : _libraryManager.GetItemById(itemId);
         if (item is null || !CanSee(item))
         {
             return NotFound();
