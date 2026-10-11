@@ -127,10 +127,10 @@ public sealed partial class ShowMap
     public SeasonRef? SeasonForAniDb(Guid seriesId, int aniDbId) =>
         _seasonsBySeries.TryGetValue(seriesId, out var all) ? all.Find(s => s.AniDbId == aniDbId) : null;
 
-    private static int? AniDbOf(BaseItem item) =>
+    internal static int? AniDbOf(BaseItem item) =>
         item.ProviderIds.TryGetValue("AniDB", out var v) && int.TryParse(v, out var id) ? id : null;
 
-    private static string RealPath(string path)
+    internal static string RealPath(string path)
     {
         try
         {
@@ -151,7 +151,7 @@ public sealed partial class ShowMap
     }
 
     /// <summary>"…/Show/Season 2/ep.mkv" gives ("Show", 2); "…/Show/ep.mkv" gives ("Show", null).</summary>
-    private static (string? Folder, int? Season) ShowFolderOf(string path)
+    internal static (string? Folder, int? Season) ShowFolderOf(string path)
     {
         var dir = Path.GetDirectoryName(path);
         if (string.IsNullOrEmpty(dir))

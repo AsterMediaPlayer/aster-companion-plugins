@@ -249,7 +249,7 @@ public sealed class VideoConverter
         return (await Codec("V:0").ConfigureAwait(false), await Codec("a:0").ConfigureAwait(false));
     }
 
-    private static async Task<(int Code, string Output)> RunAsync(string exe, IEnumerable<string> args, TimeSpan timeout, CancellationToken ct, bool captureStdout = false)
+    internal static async Task<(int Code, string Output)> RunAsync(string exe, IEnumerable<string> args, TimeSpan timeout, CancellationToken ct, bool captureStdout = false)
     {
         var psi = new ProcessStartInfo(exe)
         {
@@ -303,7 +303,7 @@ public sealed class VideoConverter
         return (process.ExitCode, output.Trim());
     }
 
-    private static void TryDelete(string path)
+    internal static void TryDelete(string path)
     {
         try
         {

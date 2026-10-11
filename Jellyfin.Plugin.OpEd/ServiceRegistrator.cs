@@ -11,5 +11,6 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
     {
         // One index shared by the API, the scheduled task and the settings page.
         serviceCollection.AddSingleton<ThemeIndex>();
+        serviceCollection.AddSingleton<ClipExtractor>();
     }
 }

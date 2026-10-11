@@ -1,5 +1,4 @@
 using System.Net.Mime;
-using System.Text.RegularExpressions;
 using Jellyfin.Plugin.OpEd.Themes;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
@@ -21,6 +20,12 @@ namespace Jellyfin.Plugin.OpEd.Api;
 ///   GET  /OpEd/Themes/{themeId}/Audio   the original audio file
 ///   GET  /OpEd/Themes/{themeId}/AudioM4a  the same audio as AAC (or MP3) that every client can play
 ///   POST /OpEd/Scan                     rescan the themes folder (admins)
+///   POST /OpEd/Admin/Clips/Extract         cut missing OPs/EDs out of episodes by chapter marker, into the review queue (admins)
+///   GET  /OpEd/Admin/Clips                 the review queue (admins)
+///   GET  /OpEd/Admin/Clips/{id}/Video      a queued clip (also /Audio) (admins)
+///   POST /OpEd/Admin/Clips/{id}/Approve    move the clip into the themes folder (admins)
+///   POST /OpEd/Admin/Clips/{id}/Reject     delete the clip and don't cut that slot again (admins)
+///   DELETE /OpEd/Admin/Clips/Rejected      forget rejections (admins)
 ///   GET  /OpEd/Status                   last scan report (admins)
 ///   GET  /OpEd/Admin/Themes             every theme with its song details, for the settings page editor (admins)
 ///   POST /OpEd/Admin/Themes/{id}/Details   save song details to the show's themes.json (admins)
@@ -29,15 +34,17 @@ namespace Jellyfin.Plugin.OpEd.Api;
 [ApiController]
 [Route("OpEd")]
 [Authorize]
-public sealed partial class OpEdController : ControllerBase
+public sealed class OpEdController : ControllerBase
 {
     private readonly ThemeIndex _index;
+    private readonly ClipExtractor _clips;
     private readonly ILibraryManager _libraryManager;
     private readonly IUserManager _userManager;
 
-    public OpEdController(ThemeIndex index, ILibraryManager libraryManager, IUserManager userManager)
+    public OpEdController(ThemeIndex index, ClipExtractor clips, ILibraryManager libraryManager, IUserManager userManager)
     {
         _index = index;
+        _clips = clips;
         _libraryManager = libraryManager;
         _userManager = userManager;
     }
@@ -89,7 +96,7 @@ public sealed partial class OpEdController : ControllerBase
         {
             ItemId = itemId,
             SeriesId = seriesId,
-            Themes = [.. themes.Select(t => ToDto(t, episodeNumber is int n && t.SeasonId == seasonId ? PlaysIn(t.Episodes, n) : null))],
+            Themes = [.. themes.Select(t => ToDto(t, episodeNumber is int n && t.SeasonId == seasonId ? EpisodeRanges.PlaysIn(t.Episodes, n) : null))],
         };
     }
 
@@ -149,7 +156,7 @@ public sealed partial class OpEdController : ControllerBase
     [HttpGet("Status")]
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<object> Status() => new { Scanning = _index.IsScanning, Converting = _index.IsConverting, Report = _index.Report };
+    public ActionResult<object> Status() => new { Scanning = _index.IsScanning, Converting = _index.IsConverting, Extracting = _clips.IsBusy, Report = _index.Report };
 
     [HttpGet("Admin/Themes")]
     [Authorize(Policy = "RequiresElevation")]
@@ -221,6 +228,76 @@ public sealed partial class OpEdController : ControllerBase
         return theme is null ? NotFound() : ToDto(theme, null);
     }
 
+    [HttpPost("Admin/Clips/Extract")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    public ActionResult ExtractClips()
+    {
+        // Re-encoding takes a while; run it after the response. A run already in progress makes this a no-op.
+        _ = Task.Run(() => _clips.ExtractAsync(null, CancellationToken.None), CancellationToken.None);
+        return Accepted();
+    }
+
+    [HttpGet("Admin/Clips")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<ClipListDto> GetClips() => new ClipListDto
+    {
+        Extracting = _clips.IsBusy,
+        Rejected = _clips.RejectedCount,
+        Clips = [.. _clips.Pending.OrderBy(c => c.Show, StringComparer.OrdinalIgnoreCase).ThenBy(c => c.Sub, StringComparer.OrdinalIgnoreCase).ThenBy(c => c.Slug, StringComparer.OrdinalIgnoreCase)],
+    };
+
+    [HttpGet("Admin/Clips/{clipId}/Video")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult GetClipVideo([FromRoute] string clipId) => _clips.Get(clipId) is { } clip ? Stream(_clips.VideoFile(clip)) : NotFound();
+
+    [HttpGet("Admin/Clips/{clipId}/Audio")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult GetClipAudio([FromRoute] string clipId) => _clips.Get(clipId) is { } clip ? Stream(_clips.AudioFile(clip)) : NotFound();
+
+    [HttpPost("Admin/Clips/{clipId}/Approve")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult> ApproveClip([FromRoute] string clipId, CancellationToken ct)
+    {
+        if (_clips.Get(clipId) is null)
+        {
+            return NotFound();
+        }
+
+        if (_clips.Approve(clipId) is { } problem)
+        {
+            return Conflict(new { Message = problem });
+        }
+
+        // The clip is now an ordinary file in the themes folder: index it (matching metadata as usual).
+        await _index.ScanAsync(null, ct).ConfigureAwait(false);
+        _ = Task.Run(() => _index.ConvertVideosAsync(null, CancellationToken.None), CancellationToken.None);
+        return Ok();
+    }
+
+    [HttpPost("Admin/Clips/{clipId}/Reject")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult RejectClip([FromRoute] string clipId) => _clips.Reject(clipId) ? Ok() : NotFound();
+
+    [HttpDelete("Admin/Clips/Rejected")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult ClearRejectedClips()
+    {
+        _clips.ClearRejected();
+        return Ok();
+    }
+
     private Theme? VisibleTheme(string themeId)
     {
         var theme = _index.Get(themeId);
@@ -270,27 +347,6 @@ public sealed partial class OpEdController : ControllerBase
         _ => MediaTypeNames.Application.Octet,
     };
 
-    /// <summary>Whether episode n is in an AnimeThemes episode list like "1-14, 16"; null when the list is unknown.</summary>
-    private static bool? PlaysIn(string? episodes, int n)
-    {
-        if (string.IsNullOrWhiteSpace(episodes))
-        {
-            return null;
-        }
-
-        foreach (Match m in EpisodeRange().Matches(episodes))
-        {
-            var from = int.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
-            var to = m.Groups[2].Success ? int.Parse(m.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture) : from;
-            if (n >= from && n <= to)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private static ThemeDto ToDto(Theme t, bool? playsInEpisode) => new()
     {
         Id = t.Id,
@@ -320,9 +376,6 @@ public sealed partial class OpEdController : ControllerBase
         AudioContainer = t.AudioPath is not null ? Path.GetExtension(t.AudioPath).TrimStart('.').ToLowerInvariant() : null,
         MetadataSource = t.MetadataSource,
     };
-
-    [GeneratedRegex(@"(\d+)\s*(?:-\s*(\d+))?")]
-    private static partial Regex EpisodeRange();
 }
 
 public sealed class ThemeListDto
@@ -435,4 +488,14 @@ public sealed class DetailsDto
     public bool? Spoiler { get; set; }
 
     public bool? Nsfw { get; set; }
+}
+
+public sealed class ClipListDto
+{
+    public bool Extracting { get; set; }
+
+    /// <summary>Slots whose clips were rejected and won't be cut again.</summary>
+    public int Rejected { get; set; }
+
+    public List<PendingClip> Clips { get; set; } = [];
 }

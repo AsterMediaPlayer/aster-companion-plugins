@@ -3,7 +3,7 @@
 A Jellyfin 12 plugin for anime opening and ending themes. You put the theme files in a folder; the plugin matches
 them to your shows and seasons, adds song title, artists and episode ranges from [AnimeThemes.moe](https://animethemes.moe),
 and serves them to clients through an authenticated API. Video and audio that not every client can play
-(AnimeThemes' WebM and Ogg, for example) get MP4/M4A copies that every client can. It doesn't download theme files and doesn't touch Jellyfin's own
+(AnimeThemes' WebM and Ogg, for example) get MP4/M4A copies that every client can. It doesn't download theme files (it can cut missing ones out of your own episodes, see below) and doesn't touch Jellyfin's own
 theme music/video playback.
 
 ## Themes folder
@@ -32,6 +32,24 @@ anime_themes/
   show's AniDB entries, earliest first, that has this OP/ED). Otherwise the theme is show-wide.
 - Rescans run at startup and every 12 hours (Scheduled Tasks → OP/ED), or with "Save and scan now". The settings page
   lists folders that match no show, files that aren't recognisable OPs/EDs, and themes without metadata.
+
+## Clips from chapters
+
+For themes missing from the folder, the plugin can cut them out of your own episodes. Run **Cut OP/ED clips from
+chapters** (Scheduled Tasks, no automatic trigger) or "Look for clips now" in Dashboard → OP/ED.
+
+- Per library season (with an AniDB id, else a season number) it lists the OPs/EDs AnimeThemes has for that AniDB
+  entry (just OP1 and ED1 when it has none) and skips every one that already has a theme, a clip waiting for
+  review, or a rejected clip.
+- For each missing one it takes the first episode in that theme's AnimeThemes episode range with a chapter named
+  `OP`/`Opening`/`ED`/`Ending` (an optional number is honoured: `OP2`) lasting 30–200 s, and re-encodes only that
+  chapter to MP4 (H.264 + AAC, Japanese audio preferred) plus an M4A of the audio. "Intro", "Outro" and "Credits"
+  chapters are ignored on purpose; they usually mean something else.
+- Clips go to the plugin's data folder (`pending-clips/Show Folder/anidb-N/OP1.mp4`), never the themes folder, so
+  they are not served. The settings page plays each one next to what AnimeThemes says it should be. **Approve**
+  moves it into the themes folder with the same subfolder layout, after which it is an ordinary theme with the usual
+  metadata; **Reject** deletes it and the slot isn't cut again (until you choose "Forget rejections").
+- Without AnimeThemes data a season can only yield OP1/ED1 (or the number in the chapter name).
 
 ## Song details
 

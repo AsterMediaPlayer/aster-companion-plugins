@@ -410,7 +410,7 @@ public sealed partial class ThemeIndex
         }
     }
 
-    private static string StableId(string key) =>
+    internal static string StableId(string key) =>
         Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(key.ToUpperInvariant())))[..16].ToLowerInvariant();
 
     [GeneratedRegex(@"^anidb[-_ ]?(\d+)$", RegexOptions.IgnoreCase)]
