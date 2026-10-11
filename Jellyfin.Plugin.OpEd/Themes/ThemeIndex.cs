@@ -209,6 +209,16 @@ public sealed partial class ThemeIndex
                 }
             }
 
+            // A season picked by hand (themes.json "anidb") wins over the folder and the metadata lookup.
+            foreach (var theme in groups.Values)
+            {
+                if (fromDetailsFiles.GetValueOrDefault(theme.ShowFolder)?.GetValueOrDefault(ThemeDetailsFile.NormalizeKey(theme.DetailsKey))?.AniDb is int picked)
+                {
+                    theme.AniDbOverride = picked;
+                    theme.AniDbId = picked;
+                }
+            }
+
             // 2. Themes -> Jellyfin shows/seasons, and metadata.
             var map = ShowMap.Build(_libraryManager, _logger);
             var client = new AnimeThemesClient(_httpClientFactory, _logger, Path.Combine(DataDir, "animethemes-cache"));

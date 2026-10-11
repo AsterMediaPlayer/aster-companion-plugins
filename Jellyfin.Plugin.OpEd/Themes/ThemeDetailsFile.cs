@@ -12,7 +12,8 @@ namespace Jellyfin.Plugin.OpEd.Themes;
 /// {
 ///   "OP1":          { "title": "Yuusha", "artists": ["YOASOBI"], "episodes": "1-16" },
 ///   "ED1-TV":       { "title": "bliss", "artists": "milet", "episodes": "1", "spoiler": false },
-///   "Season 2/OP1": { "title": "lulu.", "artists": ["Mrs. GREEN APPLE"] }
+///   "Season 2/OP1": { "title": "lulu.", "artists": ["Mrs. GREEN APPLE"] },
+///   "OP3":          { "anidb": 18886 }          // belongs to this AniDB entry (a season), whatever the folder says
 /// }
 /// </summary>
 public static partial class ThemeDetailsFile
@@ -22,9 +23,9 @@ public static partial class ThemeDetailsFile
     private static readonly JsonSerializerOptions Pretty = new() { WriteIndented = true };
 
     /// <summary>One entry. Null fields aren't set (fall through to the file name / AnimeThemes).</summary>
-    public sealed record Details(string? Title, List<string>? Artists, string? Episodes, bool? Spoiler, bool? Nsfw)
+    public sealed record Details(string? Title, List<string>? Artists, string? Episodes, bool? Spoiler, bool? Nsfw, int? AniDb = null)
     {
-        public bool IsEmpty => Title is null && Artists is null && Episodes is null && Spoiler is null && Nsfw is null;
+        public bool IsEmpty => Title is null && Artists is null && Episodes is null && Spoiler is null && Nsfw is null && AniDb is null;
     }
 
     /// <summary>The key a theme has in its show's themes.json.</summary>
@@ -69,7 +70,8 @@ public static partial class ThemeDetailsFile
                 artists,
                 Text(entry["episodes"]),
                 Flag(entry["spoiler"]),
-                Flag(entry["nsfw"]));
+                Flag(entry["nsfw"]),
+                int.TryParse(Text(entry["anidb"]), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var aniDb) ? aniDb : null);
         }
 
         return result;
@@ -110,6 +112,11 @@ public static partial class ThemeDetailsFile
             if (details.Spoiler is not null)
             {
                 entry["spoiler"] = details.Spoiler;
+            }
+
+            if (details.AniDb is not null)
+            {
+                entry["anidb"] = details.AniDb;
             }
 
             if (details.Nsfw is not null)

@@ -36,6 +36,9 @@ public sealed class Theme
     /// <summary>AniDB anime the theme belongs to: from an "anidb-N" subfolder, or found by the metadata lookup.</summary>
     public int? AniDbId { get; set; }
 
+    /// <summary>AniDB entry (season) picked by hand in themes.json ("anidb"); null when the season is worked out automatically.</summary>
+    public int? AniDbOverride { get; set; }
+
     public Guid? SeriesId { get; set; }
 
     /// <summary>The Jellyfin season (for Shokofin libraries, one per AniDB entry) the theme belongs to, when known.</summary>

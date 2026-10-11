@@ -51,6 +51,7 @@ chapters** (Scheduled Tasks, no automatic trigger) or "Look for clips now" in Da
   they are not served. The settings page plays each one next to what AnimeThemes says it should be. **Approve**
   moves it into the themes folder with the same subfolder layout, after which it is an ordinary theme with the usual
   metadata; **Reject** deletes it and the slot isn't cut again (until you choose "Forget rejections").
+- Clips are cut as OP1/ED1 unless AnimeThemes or the chapter name says otherwise, so the card has an **Approve as OP/ED number** box (default: the number it was cut as); the file lands in the themes folder under that number, and the metadata lookup uses it.
 - **Reject, try another episode** (when text or credits run over the clip) deletes it and cuts the same slot from the
   next episode in its range that has a usable chapter; episodes already cut for the slot are skipped. When none are
   left it says so, and you can place the file yourself.
@@ -74,6 +75,10 @@ specific first (field by field, so a source only overrides what it sets):
    ```
    Keys are the theme's place in the folder (`OP1`, `OP1v2`, `ED1-TV`, `Season 2/OP1`, `anidb-18886/ED2`); spelling
    is forgiving (`season 02/op1` works). A file that can't be read is listed on the settings page and skipped.
+   An entry can also say which season a theme belongs to: `"OP3": { "anidb": 18886 }` assigns it to that AniDB entry
+   (Shokofin gives each season one), whatever folder the file is in; AnimeThemes metadata is then looked up for that
+   entry. The editor offers this as a **Season** dropdown listing the show's seasons that have an AniDB id.
+
 2. **The file name**: `OP1 - Yuusha - YOASOBI [1-16].webm` (title, then artists separated by commas or `&`, then an
    optional `[episodes]`). A variant is glued on with a hyphen and no spaces (`ED1-TV - bliss - milet.ogg`).
 3. **AnimeThemes.moe**, below.

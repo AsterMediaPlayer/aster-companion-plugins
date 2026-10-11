@@ -124,6 +124,8 @@
                             '<td style="padding:.4em .3em;vertical-align:top">' + field('oped-title', t.Title, 'Song title', '100%') +
                                 '<div style="display:flex;gap:.4em;margin-top:.3em">' + field('oped-artists', (t.Artists || []).join(', '), 'Artists, comma separated', '60%') +
                                 field('oped-episodes', t.Episodes, 'Episodes, e.g. 1-12', '40%') + '</div>' +
+                                (t.Seasons && t.Seasons.length ? '<div style="margin-top:.3em" class="fieldDescription">Season: <select class="oped-season" style="padding:.3em;background:rgba(40,40,40,1);color:inherit;border:1px solid rgba(255,255,255,.15);border-radius:4px"><option value="">Automatic' + (t.Season ? ' (now: ' + esc(t.Season) + ')' : '') + '</option>' +
+                                    t.Seasons.map(function (s) { return '<option value="' + s.AniDbId + '"' + (t.SeasonOverride === s.AniDbId ? ' selected' : '') + '>' + esc(s.Name) + ' (AniDB ' + s.AniDbId + ')</option>'; }).join('') + '</select></div>' : '') +
                                 '<div style="margin-top:.3em" class="fieldDescription">' +
                                 '<label><input class="oped-spoiler" type="checkbox"' + (t.Spoiler ? ' checked' : '') + '> Spoiler</label> &nbsp; ' +
                                 '<label><input class="oped-nsfw" type="checkbox"' + (t.Nsfw ? ' checked' : '') + '> NSFW</label> &nbsp; ' +
@@ -145,7 +147,8 @@
                     Episodes: row.querySelector('.oped-episodes').value,
                     // Only a ticked box is saved; an unticked one leaves the flag to the other sources.
                     Spoiler: row.querySelector('.oped-spoiler').checked ? true : null,
-                    Nsfw: row.querySelector('.oped-nsfw').checked ? true : null
+                    Nsfw: row.querySelector('.oped-nsfw').checked ? true : null,
+                    AniDbId: row.querySelector('.oped-season') && row.querySelector('.oped-season').value ? parseInt(row.querySelector('.oped-season').value, 10) : null
                 };
             }
 
@@ -185,7 +188,8 @@
                     'Cut from episode ' + esc(c.EpisodeNumber == null ? '?' : c.EpisodeNumber) + (c.EpisodeName ? ' "' + esc(c.EpisodeName) + '"' : '') +
                     ', chapter "' + esc(c.Chapter) + '", ' + mins + ':' + (secs < 10 ? '0' : '') + secs + '<br>' +
                     'Expected: ' + song + (c.Episodes ? ' [episodes ' + esc(c.Episodes) + ']' : '') + '<br>' +
-                    '<div style="margin-top:.6em"><button is="emby-button" type="button" class="raised oped-approve" style="margin:0 .5em 0 0"><span>Approve</span></button>' +
+                    '<div style="margin-top:.6em"><label class="fieldDescription" style="margin-right:.8em">Approve as ' + esc(c.Type) + ' number <input class="oped-seq" type="number" min="1" max="99" value="' + esc(c.Sequence || 1) + '" style="width:4em;padding:.3em;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.15);border-radius:4px" /></label>' +
+                    '<button is="emby-button" type="button" class="raised oped-approve" style="margin:0 .5em 0 0"><span>Approve</span></button>' +
                     '<button is="emby-button" type="button" class="raised oped-reject" style="margin:0 .5em 0 0"><span>Reject</span></button>' +
                     '<button is="emby-button" type="button" class="raised oped-retry" style="margin:0" title="Delete this clip and cut the next episode that has an OP/ED chapter, e.g. when text or credits run over it"><span>Reject, try another episode</span></button></div></div>';
                 return div;
@@ -276,7 +280,7 @@
                         url = 'OpEd/Admin/Clips/Apply';
                     } else {
                         url = 'OpEd/Admin/Clips/' + btn.closest('.oped-clip').getAttribute('data-id') +
-                            (btn.classList.contains('oped-approve') ? '/Approve' : btn.classList.contains('oped-retry') ? '/Reject?tryAnother=true' : '/Reject');
+                            (btn.classList.contains('oped-approve') ? '/Approve?sequence=' + (parseInt(btn.closest('.oped-clip').querySelector('.oped-seq').value, 10) || 1) : btn.classList.contains('oped-retry') ? '/Reject?tryAnother=true' : '/Reject');
                     }
                 }
                 Dashboard.showLoadingMsg();

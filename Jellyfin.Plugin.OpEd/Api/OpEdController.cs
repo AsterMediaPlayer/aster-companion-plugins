@@ -1,5 +1,6 @@
 using System.Net.Mime;
 using Jellyfin.Plugin.OpEd.Themes;
+using Jellyfin.Data.Enums;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
@@ -25,7 +26,7 @@ namespace Jellyfin.Plugin.OpEd.Api;
 ///   POST /OpEd/Admin/Clips/Extract         cut missing OPs/EDs out of episodes by chapter marker, into the review queue (admins)
 ///   GET  /OpEd/Admin/Clips                 the review queue (admins)
 ///   GET  /OpEd/Admin/Clips/{id}/Video      a queued clip (also /Audio) (admins)
-///   POST /OpEd/Admin/Clips/{id}/Approve    move the clip into the themes folder (admins)
+///   POST /OpEd/Admin/Clips/{id}/Approve    move the clip into the themes folder; ?sequence=N files it as OPN/EDN (admins)
 ///   POST /OpEd/Admin/Clips/Apply           index approved clips and fetch their AnimeThemes metadata, in one batch (admins)
 ///   POST /OpEd/Admin/Clips/{id}/Reject     delete the clip and don't cut that slot again; ?tryAnother=true cuts it from the next episode instead (admins)
 ///   DELETE /OpEd/Admin/Clips/Rejected      forget rejections (admins)
@@ -182,6 +183,27 @@ public sealed class OpEdController : ControllerBase
             return name;
         }
 
+        var seasonCache = new Dictionary<Guid, List<SeasonOptionDto>>();
+        List<SeasonOptionDto> SeasonsOf(Guid? seriesId)
+        {
+            if (seriesId is not Guid sid)
+            {
+                return [];
+            }
+
+            if (!seasonCache.TryGetValue(sid, out var options))
+            {
+                options = [.. _libraryManager.GetItemList(new InternalItemsQuery { IncludeItemTypes = [BaseItemKind.Season], ParentId = sid })
+                    .OfType<Season>()
+                    .Where(s => s.ProviderIds.TryGetValue("AniDB", out var v) && int.TryParse(v, out _))
+                    .OrderBy(s => s.IndexNumber ?? int.MaxValue)
+                    .Select(s => new SeasonOptionDto { AniDbId = int.Parse(s.ProviderIds["AniDB"], System.Globalization.CultureInfo.InvariantCulture), Name = s.Name })];
+                seasonCache[sid] = options;
+            }
+
+            return options;
+        }
+
         return _index.All
             .OrderBy(t => NameOf(t.SeriesId) ?? t.ShowFolder, StringComparer.OrdinalIgnoreCase)
             .ThenBy(t => t.DetailsKey, StringComparer.OrdinalIgnoreCase)
@@ -190,6 +212,9 @@ public sealed class OpEdController : ControllerBase
                 Id = t.Id,
                 Show = NameOf(t.SeriesId) ?? t.ShowFolder,
                 Season = NameOf(t.SeasonId),
+                AniDbId = t.AniDbId,
+                SeasonOverride = t.AniDbOverride,
+                Seasons = SeasonsOf(t.SeriesId),
                 Key = t.DetailsKey,
                 Title = t.SongTitle,
                 Artists = t.Artists,
@@ -216,7 +241,8 @@ public sealed class OpEdController : ControllerBase
             artists is { Count: > 0 } ? artists : null,
             Clean(body.Episodes),
             body.Spoiler,
-            body.Nsfw);
+            body.Nsfw,
+            body.AniDbId);
         var theme = await _index.SaveDetailsAsync(themeId, details, ct).ConfigureAwait(false);
         return theme is null ? NotFound() : ToDto(theme, null);
     }
@@ -285,7 +311,7 @@ public sealed class OpEdController : ControllerBase
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult ApproveClip([FromRoute] string clipId)
+    public ActionResult ApproveClip([FromRoute] string clipId, [FromQuery] int? sequence)
     {
         if (_clips.Get(clipId) is null)
         {
@@ -293,7 +319,7 @@ public sealed class OpEdController : ControllerBase
         }
 
         // Only moves the files. Indexing (and the AnimeThemes metadata match) happens once for the whole batch: Admin/Clips/Apply.
-        return _clips.Approve(clipId) is { } problem ? Conflict(new { Message = problem }) : Ok();
+        return _clips.Approve(clipId, sequence) is { } problem ? Conflict(new { Message = problem }) : Ok();
     }
 
     [HttpPost("Admin/Clips/Apply")]
@@ -491,6 +517,15 @@ public sealed class EditorThemeDto
 
     public string? Season { get; set; }
 
+    /// <summary>AniDB entry the theme is currently assigned to (automatically or by hand).</summary>
+    public int? AniDbId { get; set; }
+
+    /// <summary>Set when the season was picked by hand in the editor.</summary>
+    public int? SeasonOverride { get; set; }
+
+    /// <summary>The show's seasons that have an AniDB id (Shokofin sets one per season): the choices for the season dropdown.</summary>
+    public List<SeasonOptionDto> Seasons { get; set; } = [];
+
     /// <summary>Key in the show's themes.json, e.g. "OP1" or "Season 2/OP1".</summary>
     public string Key { get; set; } = string.Empty;
 
@@ -516,6 +551,9 @@ public sealed class EditorThemeDto
 public sealed class DetailsDto
 {
     public string? Title { get; set; }
+
+    /// <summary>AniDB entry (season) to assign the theme to; null leaves the season automatic.</summary>
+    public int? AniDbId { get; set; }
 
     public List<string>? Artists { get; set; }
 
@@ -556,6 +594,13 @@ public sealed class ClipListDto
 public sealed class LibraryDto
 {
     public string Id { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+}
+
+public sealed class SeasonOptionDto
+{
+    public int AniDbId { get; set; }
 
     public string Name { get; set; } = string.Empty;
 }

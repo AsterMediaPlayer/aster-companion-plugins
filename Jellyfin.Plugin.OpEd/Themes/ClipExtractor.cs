@@ -106,8 +106,11 @@ public sealed partial class ClipExtractor
 
     public string? AudioFile(PendingClip clip) => Path.Combine(PendingDir, clip.RelativeDir, clip.Slug + ".m4a");
 
-    /// <summary>Moves an approved clip into the themes folder. Returns an error message, or null on success.</summary>
-    public string? Approve(string id)
+    /// <summary>
+    /// Moves an approved clip into the themes folder as OP/ED <paramref name="sequence"/> (default: the number it was cut as).
+    /// Returns an error message, or null on success.
+    /// </summary>
+    public string? Approve(string id, int? sequence = null)
     {
         var clip = Get(id);
         var root = (Plugin.Instance?.Configuration.ThemesPath ?? string.Empty).Trim();
@@ -121,9 +124,15 @@ public sealed partial class ClipExtractor
             return "The themes folder isn't set or doesn't exist.";
         }
 
+        var number = sequence ?? clip.Sequence;
+        if (number is < 1 or > 99)
+        {
+            return "The OP/ED number must be between 1 and 99.";
+        }
+
         var targetDir = Path.Combine(root, clip.RelativeDir);
         var moves = new[] { VideoFile(clip)!, AudioFile(clip)! }.Where(File.Exists)
-            .Select(f => (From: f, To: Path.Combine(targetDir, Path.GetFileName(f)))).ToList();
+            .Select(f => (From: f, To: Path.Combine(targetDir, clip.Type + number + Path.GetExtension(f)))).ToList();
         if (moves.Find(m => File.Exists(m.To)).To is { } existing)
         {
             return $"{Path.GetRelativePath(root, existing)} already exists in the themes folder.";
@@ -143,8 +152,7 @@ public sealed partial class ClipExtractor
         }
 
         Data.Clips.Remove(clip);
-        Data.Tried.Remove(clip.SlotKey);
-        Data.Approved.Add(Path.Combine(clip.RelativeDir, clip.Slug));
+        Data.Approved.Add(Path.Combine(clip.RelativeDir, clip.Type + number));
         Save();
         PruneEmptyDirs();
         return null;
@@ -575,6 +583,9 @@ public sealed class PendingClip
     public string Slug { get; set; } = string.Empty;
 
     public string Type { get; set; } = string.Empty;
+
+    /// <summary>The OP/ED number the clip was cut as (the digits of its slug); the reviewer can change it on approval.</summary>
+    public int Sequence => int.TryParse(new string(Slug.SkipWhile(c => !char.IsDigit(c)).TakeWhile(char.IsDigit).ToArray()), out var n) ? n : 1;
 
     public string Show { get; set; } = string.Empty;
 
