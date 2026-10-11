@@ -27,6 +27,12 @@ public sealed class Theme
     /// <summary>Season number from a "Season N" subfolder, if the theme sits in one.</summary>
     public int? FolderSeason { get; set; }
 
+    /// <summary>AniDB id from an "anidb-N" subfolder, if the theme sits in one.</summary>
+    public int? FolderAniDb { get; set; }
+
+    /// <summary>This theme's key in its show's themes.json ("OP1", "Season 2/OP1", "anidb-18886/ED2").</summary>
+    public string DetailsKey { get; set; } = string.Empty;
+
     /// <summary>AniDB anime the theme belongs to: from an "anidb-N" subfolder, or found by the metadata lookup.</summary>
     public int? AniDbId { get; set; }
 
@@ -56,7 +62,7 @@ public sealed class Theme
 
     public bool Nsfw { get; set; }
 
-    /// <summary>"animethemes" when metadata was found, otherwise null.</summary>
+    /// <summary>Most specific source of the song details: "themes.json", "filename" or "animethemes"; null when none.</summary>
     public string? MetadataSource { get; set; }
 }
 

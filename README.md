@@ -33,7 +33,30 @@ anime_themes/
 - Rescans run at startup and every 12 hours (Scheduled Tasks → OP/ED), or with "Save and scan now". The settings page
   lists folders that match no show, files that aren't recognisable OPs/EDs, and themes without metadata.
 
-## Metadata and AnimeThemes
+## Song details
+
+Each theme can carry a song title, artists, the episodes it plays in, and spoiler/NSFW flags. They come from, most
+specific first (field by field, so a source only overrides what it sets):
+
+1. **themes.json** in the show's theme folder, written by hand or by the editor in Dashboard → OP/ED:
+   ```json
+   {
+     "OP1":          { "title": "Yuusha", "artists": ["YOASOBI"], "episodes": "1-16" },
+     "ED1-TV":       { "title": "bliss", "artists": "milet", "episodes": "1", "spoiler": false },
+     "Season 2/OP1": { "title": "lulu.", "artists": ["Mrs. GREEN APPLE"] }
+   }
+   ```
+   Keys are the theme's place in the folder (`OP1`, `OP1v2`, `ED1-TV`, `Season 2/OP1`, `anidb-18886/ED2`); spelling
+   is forgiving (`season 02/op1` works). A file that can't be read is listed on the settings page and skipped.
+2. **The file name**: `OP1 - Yuusha - YOASOBI [1-16].webm` (title, then artists separated by commas or `&`, then an
+   optional `[episodes]`). A variant is glued on with a hyphen and no spaces (`ED1-TV - bliss - milet.ogg`).
+3. **AnimeThemes.moe**, below.
+
+The settings page lists every theme with its current details and where they came from. Save writes that theme's entry
+to themes.json; Clear removes it so the other sources apply again. Ticking Spoiler/NSFW saves the flag; leaving it
+unticked leaves the flag to the other sources. The themes folder must be writable by Jellyfin for the editor.
+
+## Metadata from AnimeThemes
 
 Metadata needs AniDB ids on the seasons (Shokofin sets them). AnimeThemes runs on one small server and has blocked
 Jellyfin plugins before because of the load they caused. This plugin follows the approach they asked for: one request
@@ -56,6 +79,9 @@ usual Jellyfin `Authorization: MediaBrowser Token="…"` header. Fields that are
 | GET | `/OpEd/Themes/{themeId}/Audio` | The audio file |
 | POST | `/OpEd/Scan` | Rescan now (administrators) |
 | GET | `/OpEd/Status` | Last scan report (administrators) |
+| GET | `/OpEd/Admin/Themes` | Every theme with its song details and their source, for the editor (administrators) |
+| POST | `/OpEd/Admin/Themes/{themeId}/Details` | Save song details to themes.json: `{Title, Artists[], Episodes, Spoiler, Nsfw}` (administrators) |
+| DELETE | `/OpEd/Admin/Themes/{themeId}/Details` | Remove them from themes.json (administrators) |
 
 For a season, the result is that season's themes plus show-wide ones whose season isn't known. For an episode, it's the
 same, and each theme also carries `PlaysInEpisode` (from AnimeThemes' episode list, matched against the episode
@@ -75,7 +101,7 @@ number). Example:
       "VideoUrl": "/OpEd/Themes/4176c129755c36cf/Video", "VideoContainer": "webm",
       "VideoMp4Url": "/OpEd/Themes/4176c129755c36cf/VideoMp4", "VideoMp4Status": "ready",
       "AudioUrl": "/OpEd/Themes/4176c129755c36cf/Audio", "AudioContainer": "ogg",
-      "MetadataSource": "animethemes"
+      "MetadataSource": "animethemes"     // or "themes.json", "filename"
     }
   ]
 }

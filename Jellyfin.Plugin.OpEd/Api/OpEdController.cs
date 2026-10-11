@@ -21,6 +21,9 @@ namespace Jellyfin.Plugin.OpEd.Api;
 ///   GET  /OpEd/Themes/{themeId}/Audio   the audio file
 ///   POST /OpEd/Scan                     rescan the themes folder (admins)
 ///   GET  /OpEd/Status                   last scan report (admins)
+///   GET  /OpEd/Admin/Themes             every theme with its song details, for the settings page editor (admins)
+///   POST /OpEd/Admin/Themes/{id}/Details   save song details to the show's themes.json (admins)
+///   DELETE /OpEd/Admin/Themes/{id}/Details remove them again, falling back to the file name / AnimeThemes (admins)
 /// </summary>
 [ApiController]
 [Route("OpEd")]
@@ -136,6 +139,76 @@ public sealed partial class OpEdController : ControllerBase
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<object> Status() => new { Scanning = _index.IsScanning, Converting = _index.IsConverting, Report = _index.Report };
+
+    [HttpGet("Admin/Themes")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<List<EditorThemeDto>> GetEditorThemes()
+    {
+        var names = new Dictionary<Guid, string?>();
+        string? NameOf(Guid? id)
+        {
+            if (id is not Guid g)
+            {
+                return null;
+            }
+
+            if (!names.TryGetValue(g, out var name))
+            {
+                names[g] = name = _libraryManager.GetItemById(g)?.Name;
+            }
+
+            return name;
+        }
+
+        return _index.All
+            .OrderBy(t => NameOf(t.SeriesId) ?? t.ShowFolder, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(t => t.DetailsKey, StringComparer.OrdinalIgnoreCase)
+            .Select(t => new EditorThemeDto
+            {
+                Id = t.Id,
+                Show = NameOf(t.SeriesId) ?? t.ShowFolder,
+                Season = NameOf(t.SeasonId),
+                Key = t.DetailsKey,
+                Title = t.SongTitle,
+                Artists = t.Artists,
+                Episodes = t.Episodes,
+                Spoiler = t.Spoiler,
+                Nsfw = t.Nsfw,
+                Source = t.MetadataSource,
+                HasVideo = t.VideoPath is not null,
+                HasAudio = t.AudioPath is not null,
+            })
+            .ToList();
+    }
+
+    [HttpPost("Admin/Themes/{themeId}/Details")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ThemeDto>> SaveDetails([FromRoute] string themeId, [FromBody] DetailsDto body, CancellationToken ct)
+    {
+        static string? Clean(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+        var artists = body.Artists?.Select(a => a.Trim()).Where(a => a.Length > 0).ToList();
+        var details = new ThemeDetailsFile.Details(
+            Clean(body.Title),
+            artists is { Count: > 0 } ? artists : null,
+            Clean(body.Episodes),
+            body.Spoiler,
+            body.Nsfw);
+        var theme = await _index.SaveDetailsAsync(themeId, details, ct).ConfigureAwait(false);
+        return theme is null ? NotFound() : ToDto(theme, null);
+    }
+
+    [HttpDelete("Admin/Themes/{themeId}/Details")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ThemeDto>> ClearDetails([FromRoute] string themeId, CancellationToken ct)
+    {
+        var theme = await _index.SaveDetailsAsync(themeId, new ThemeDetailsFile.Details(null, null, null, null, null), ct).ConfigureAwait(false);
+        return theme is null ? NotFound() : ToDto(theme, null);
+    }
 
     private Theme? VisibleTheme(string themeId)
     {
@@ -300,4 +373,47 @@ public sealed class ThemeDto
     public string? AudioContainer { get; set; }
 
     public string? MetadataSource { get; set; }
+}
+
+public sealed class EditorThemeDto
+{
+    public string Id { get; set; } = string.Empty;
+
+    public string Show { get; set; } = string.Empty;
+
+    public string? Season { get; set; }
+
+    /// <summary>Key in the show's themes.json, e.g. "OP1" or "Season 2/OP1".</summary>
+    public string Key { get; set; } = string.Empty;
+
+    public string? Title { get; set; }
+
+    public List<string> Artists { get; set; } = [];
+
+    public string? Episodes { get; set; }
+
+    public bool Spoiler { get; set; }
+
+    public bool Nsfw { get; set; }
+
+    /// <summary>Where the current details come from: "themes.json", "filename", "animethemes" or null.</summary>
+    public string? Source { get; set; }
+
+    public bool HasVideo { get; set; }
+
+    public bool HasAudio { get; set; }
+}
+
+/// <summary>Song details sent by the editor. Empty values are not saved (they fall through to other sources).</summary>
+public sealed class DetailsDto
+{
+    public string? Title { get; set; }
+
+    public List<string>? Artists { get; set; }
+
+    public string? Episodes { get; set; }
+
+    public bool? Spoiler { get; set; }
+
+    public bool? Nsfw { get; set; }
 }

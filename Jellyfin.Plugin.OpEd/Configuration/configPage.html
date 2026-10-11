@@ -42,6 +42,14 @@
 
                 <h2>Last scan</h2>
                 <div id="OpEdReport" class="fieldDescription">Loading…</div>
+
+                <h2>Song details</h2>
+                <div class="fieldDescription">
+                    Fill in what's missing or wrong. Saving writes the theme's entry to <code>themes.json</code> in its show's
+                    theme folder, which overrides song details from the file name and AnimeThemes; Clear removes the entry
+                    again. You can also put details in file names: <code>OP1 - Yuusha - YOASOBI [1-16].webm</code>.
+                </div>
+                <div id="OpEdEditor">Loading…</div>
             </div>
         </div>
         <script type="text/javascript">
@@ -76,6 +84,79 @@
                 });
             }
 
+            var SOURCE = { 'themes.json': 'themes.json', 'filename': 'file name', 'animethemes': 'AnimeThemes' };
+
+            function field(cls, value, placeholder, width) {
+                return '<input class="' + cls + '" type="text" value="' + esc(value || '') + '" placeholder="' + esc(placeholder) +
+                    '" style="width:' + width + ';padding:.4em;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.15);border-radius:4px" />';
+            }
+
+            function loadEditor(page) {
+                ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Admin/Themes'), type: 'GET', dataType: 'json' }).then(function (themes) {
+                    if (!themes.length) {
+                        page.querySelector('#OpEdEditor').innerHTML = '<p class="fieldDescription">No themes yet. Set the folder above and scan.</p>';
+                        return;
+                    }
+                    var html = '', show = null;
+                    themes.forEach(function (t) {
+                        if (t.Show !== show) {
+                            if (show !== null) html += '</table>';
+                            show = t.Show;
+                            html += '<h3 style="margin:1.4em 0 .4em">' + esc(show) + '</h3><table style="width:100%;border-collapse:collapse">';
+                        }
+                        var media = (t.HasVideo ? 'video' : '') + (t.HasVideo && t.HasAudio ? ' + ' : '') + (t.HasAudio ? 'audio' : '');
+                        html += '<tr data-id="' + esc(t.Id) + '" style="border-top:1px solid rgba(255,255,255,.08)">' +
+                            '<td style="width:1%;padding:.4em 1em .4em 0;white-space:nowrap;vertical-align:top"><b>' + esc(t.Key) + '</b><br><span class="fieldDescription">' +
+                                esc(media) + (t.Season ? '<br>' + esc(t.Season) : '') + '</span></td>' +
+                            '<td style="padding:.4em .3em;vertical-align:top">' + field('oped-title', t.Title, 'Song title', '100%') +
+                                '<div style="display:flex;gap:.4em;margin-top:.3em">' + field('oped-artists', (t.Artists || []).join(', '), 'Artists, comma separated', '60%') +
+                                field('oped-episodes', t.Episodes, 'Episodes, e.g. 1-12', '40%') + '</div>' +
+                                '<div style="margin-top:.3em" class="fieldDescription">' +
+                                '<label><input class="oped-spoiler" type="checkbox"' + (t.Spoiler ? ' checked' : '') + '> Spoiler</label> &nbsp; ' +
+                                '<label><input class="oped-nsfw" type="checkbox"' + (t.Nsfw ? ' checked' : '') + '> NSFW</label> &nbsp; ' +
+                                '<span class="oped-source">' + (t.Source ? 'from ' + esc(SOURCE[t.Source] || t.Source) : 'no details yet') + '</span></div></td>' +
+                            '<td style="padding:.4em 0 .4em .3em;white-space:nowrap;vertical-align:top">' +
+                                '<button is="emby-button" type="button" class="raised oped-save" style="margin:0 0 .3em"><span>Save</span></button>' +
+                                (t.Source === 'themes.json' ? '<br><button is="emby-button" type="button" class="raised oped-clear" style="margin:0"><span>Clear</span></button>' : '') +
+                                '</td></tr>';
+                    });
+                    page.querySelector('#OpEdEditor').innerHTML = html + '</table>';
+                });
+            }
+
+            function rowDetails(row) {
+                var artists = row.querySelector('.oped-artists').value.split(',').map(function (a) { return a.trim(); }).filter(Boolean);
+                return {
+                    Title: row.querySelector('.oped-title').value,
+                    Artists: artists,
+                    Episodes: row.querySelector('.oped-episodes').value,
+                    // Only a ticked box is saved; an unticked one leaves the flag to the other sources.
+                    Spoiler: row.querySelector('.oped-spoiler').checked ? true : null,
+                    Nsfw: row.querySelector('.oped-nsfw').checked ? true : null
+                };
+            }
+
+            document.querySelector('#OpEdEditor').addEventListener('click', function (e) {
+                var btn = e.target.closest('.oped-save, .oped-clear');
+                if (!btn) return;
+                var row = btn.closest('tr'), page = document.querySelector('#OpEdConfigPage');
+                var clear = btn.classList.contains('oped-clear');
+                Dashboard.showLoadingMsg();
+                ApiClient.fetch({
+                    url: ApiClient.getUrl('OpEd/Admin/Themes/' + row.getAttribute('data-id') + '/Details'),
+                    type: clear ? 'DELETE' : 'POST',
+                    data: clear ? undefined : JSON.stringify(rowDetails(row)),
+                    contentType: 'application/json'
+                }).then(function () {
+                    Dashboard.hideLoadingMsg();
+                    loadEditor(page);
+                    showReport(page);
+                }, function () {
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert('Couldn\'t save. Is the themes folder writable by Jellyfin?');
+                });
+            });
+
             function save(page) {
                 return ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                     config.ThemesPath = page.querySelector('#ThemesPath').value.trim();
@@ -95,6 +176,7 @@
                     Dashboard.hideLoadingMsg();
                 });
                 showReport(page);
+                loadEditor(page);
             });
 
             document.querySelector('#OpEdConfigForm').addEventListener('submit', function (e) {
@@ -115,6 +197,7 @@
                 }).then(function () {
                     Dashboard.hideLoadingMsg();
                     showReport(page);
+                    loadEditor(page);
                 }, function () {
                     Dashboard.hideLoadingMsg();
                     showReport(page);

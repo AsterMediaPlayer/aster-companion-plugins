@@ -79,12 +79,33 @@ public sealed partial class ThemeIndex
 
     public Theme? Get(string id) => Data.Themes.Find(t => t.Id == id);
 
+    public IReadOnlyList<Theme> All => Data.Themes;
+
+    /// <summary>
+    /// Writes song details for one theme into its show's themes.json (an empty <paramref name="details"/> removes the
+    /// entry), then rescans without contacting AnimeThemes so the change shows straight away.
+    /// </summary>
+    public async Task<Theme?> SaveDetailsAsync(string themeId, ThemeDetailsFile.Details details, CancellationToken ct)
+    {
+        var theme = Get(themeId);
+        var root = (Plugin.Instance?.Configuration.ThemesPath ?? string.Empty).Trim();
+        if (theme is null || root.Length == 0)
+        {
+            return null;
+        }
+
+        ThemeDetailsFile.Save(Path.Combine(root, theme.ShowFolder), theme.DetailsKey, details);
+        await ScanAsync(null, ct, allowRemote: false).ConfigureAwait(false);
+        return Get(themeId);
+    }
+
     public IEnumerable<Theme> ForSeries(Guid seriesId) =>
         Data.Themes.Where(t => t.SeriesId == seriesId)
             .OrderBy(t => t.SeasonId is null ? 1 : 0).ThenBy(t => t.AniDbId).ThenBy(t => t.Type == "OP" ? 0 : 1)
             .ThenBy(t => t.Sequence).ThenBy(t => t.Version).ThenBy(t => t.Variant, StringComparer.Ordinal);
 
-    public async Task<ScanReport> ScanAsync(IProgress<double>? progress, CancellationToken ct)
+    /// <param name="allowRemote">False skips AnimeThemes requests (cached answers are still used), e.g. after an edit.</param>
+    public async Task<ScanReport> ScanAsync(IProgress<double>? progress, CancellationToken ct, bool allowRemote = true)
     {
         await _scanLock.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -101,9 +122,20 @@ public sealed partial class ThemeIndex
 
             // 1. Files -> themes, grouped by (show folder, subfolder, OP/ED identity).
             var groups = new Dictionary<string, Theme>(StringComparer.OrdinalIgnoreCase);
+            var fromFileNames = new Dictionary<Theme, ThemeFileName.Parsed>();
+            var fromDetailsFiles = new Dictionary<string, Dictionary<string, ThemeDetailsFile.Details>>(StringComparer.OrdinalIgnoreCase);
             foreach (var showDir in Directory.EnumerateDirectories(root).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
             {
                 var showFolder = Path.GetFileName(showDir);
+                try
+                {
+                    fromDetailsFiles[showFolder] = ThemeDetailsFile.Load(showDir);
+                }
+                catch (Exception e) when (e is JsonException or IOException or InvalidOperationException)
+                {
+                    report.UnparsedFiles.Add($"{Path.Combine(showFolder, ThemeDetailsFile.FileName)}  (couldn't read it: {e.Message})");
+                }
+
                 foreach (var file in Directory.EnumerateFiles(showDir, "*", new EnumerationOptions { RecurseSubdirectories = true, MaxRecursionDepth = 1 }))
                 {
                     if (!ThemeFileName.IsVideo(file) && !ThemeFileName.IsAudio(file))
@@ -112,11 +144,14 @@ public sealed partial class ThemeIndex
                     }
 
                     var rel = Path.GetRelativePath(root, file);
-                    if (!ThemeFileName.TryParse(Path.GetFileName(file), out var type, out var seq, out var ver, out var variant))
+                    var parsed = ThemeFileName.Parse(Path.GetFileName(file));
+                    if (parsed is null)
                     {
                         report.UnparsedFiles.Add(rel);
                         continue;
                     }
+
+                    var (type, seq, ver, variant) = (parsed.Type, parsed.Sequence, parsed.Version, parsed.Variant);
 
                     var sub = Path.GetDirectoryName(Path.GetRelativePath(showDir, file)) ?? string.Empty;
                     int? folderSeason = null;
@@ -152,8 +187,15 @@ public sealed partial class ThemeIndex
                             Variant = variant,
                             ShowFolder = showFolder,
                             FolderSeason = folderSeason,
+                            FolderAniDb = folderAniDb,
                             AniDbId = folderAniDb,
                         };
+                        theme.DetailsKey = ThemeDetailsFile.KeyFor(theme);
+                    }
+
+                    if ((parsed.Title is not null || parsed.Artists.Count > 0 || parsed.Episodes is not null) && !fromFileNames.ContainsKey(theme))
+                    {
+                        fromFileNames[theme] = parsed;
                     }
 
                     if (ThemeFileName.IsVideo(file))
@@ -175,7 +217,7 @@ public sealed partial class ThemeIndex
 
             // AnimeThemes asked API users to batch lookups rather than send one request per show, so fetch every AniDB
             // entry this scan could need up front, many ids per request; the per-theme lookups below then read the cache.
-            if (config.FetchMetadata)
+            if (config.FetchMetadata && allowRemote)
             {
                 var wanted = new HashSet<int>();
                 foreach (var theme in groups.Values)
@@ -220,6 +262,8 @@ public sealed partial class ThemeIndex
                     AttachMetadata(theme, map, client);
                 }
 
+                ApplyLocalDetails(theme, fromFileNames.GetValueOrDefault(theme), fromDetailsFiles.GetValueOrDefault(theme.ShowFolder));
+
                 // Without metadata: a theme whose folder (season folder, or the whole show) maps to a single AniDB entry
                 // still gets that entry.
                 if (theme.SeasonId is null && theme.AniDbId is null)
@@ -262,6 +306,31 @@ public sealed partial class ThemeIndex
         finally
         {
             _scanLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Song details you supplied override AnimeThemes field by field: the file name first, then themes.json on top.
+    /// <see cref="Theme.MetadataSource"/> names the most specific source that contributed anything.
+    /// </summary>
+    private static void ApplyLocalDetails(Theme theme, ThemeFileName.Parsed? fromName, Dictionary<string, ThemeDetailsFile.Details>? detailsFile)
+    {
+        if (fromName is not null)
+        {
+            theme.SongTitle = fromName.Title ?? theme.SongTitle;
+            theme.Artists = fromName.Artists.Count > 0 ? fromName.Artists : theme.Artists;
+            theme.Episodes = fromName.Episodes ?? theme.Episodes;
+            theme.MetadataSource = "filename";
+        }
+
+        if (detailsFile is not null && detailsFile.TryGetValue(ThemeDetailsFile.NormalizeKey(theme.DetailsKey), out var d) && !d.IsEmpty)
+        {
+            theme.SongTitle = d.Title ?? theme.SongTitle;
+            theme.Artists = d.Artists ?? theme.Artists;
+            theme.Episodes = d.Episodes ?? theme.Episodes;
+            theme.Spoiler = d.Spoiler ?? theme.Spoiler;
+            theme.Nsfw = d.Nsfw ?? theme.Nsfw;
+            theme.MetadataSource = ThemeDetailsFile.FileName;
         }
     }
 
