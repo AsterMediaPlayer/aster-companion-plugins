@@ -175,13 +175,13 @@
                     if (!r.Clips.length) {
                         html += r.Extracting ? '<p>No clips yet; they appear here as they finish.</p>' : '<p>No clips waiting for review.</p>';
                     }
-                    var token = encodeURIComponent(ApiClient.accessToken());
                     r.Clips.forEach(function (c) {
                         var base = ApiClient.getUrl('OpEd/Admin/Clips/' + c.Id);
                         var mins = Math.floor(c.DurationSeconds / 60), secs = Math.round(c.DurationSeconds % 60);
                         var song = c.SongTitle ? esc(c.SongTitle) + (c.Artists && c.Artists.length ? ' – ' + esc(c.Artists.join(', ')) : '') : 'no AnimeThemes details';
                         html += '<div class="oped-clip" data-id="' + esc(c.Id) + '" style="display:flex;gap:1em;margin:1em 0;padding-top:1em;border-top:1px solid rgba(255,255,255,.08);flex-wrap:wrap">' +
-                            '<video controls preload="metadata" style="width:320px;max-width:100%;background:#000" src="' + esc(base + '/Video?api_key=' + token) + '"></video>' +
+                            '<div class="oped-preview" data-url="' + esc(base + '/Video') + '" style="width:320px;max-width:100%;aspect-ratio:16/9;background:#000;display:flex;align-items:center;justify-content:center;text-align:center">' +
+                            '<button is="emby-button" type="button" class="raised oped-load"><span>Load preview</span></button></div>' +
                             '<div style="flex:1;min-width:220px"><b>' + esc(c.Show) + '</b> – ' + esc(c.Slug) + '<br>' +
                             esc(c.Sub) + (c.Season ? ' (' + esc(c.Season) + ')' : '') + '<br>' +
                             'Cut from episode ' + esc(c.EpisodeNumber == null ? '?' : c.EpisodeNumber) + (c.EpisodeName ? ' "' + esc(c.EpisodeName) + '"' : '') +
@@ -241,6 +241,29 @@
                         Dashboard.alert('Failed.');
                     }
                     loadClips(page);
+                });
+            });
+
+            // The preview is fetched with the sign-in header and played from a typed blob: a plain <video src> can't send
+            // the header, and loading every clip up front would pull tens of MB each.
+            document.querySelector('#OpEdClips').addEventListener('click', function (e) {
+                var load = e.target.closest('.oped-load');
+                if (!load) return;
+                var box = load.closest('.oped-preview');
+                box.innerHTML = '<span style="color:#fff">Loading…</span>';
+                fetch(box.getAttribute('data-url'), { headers: { 'Authorization': 'MediaBrowser Token="' + ApiClient.accessToken() + '"' } }).then(function (res) {
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return res.blob();
+                }).then(function (blob) {
+                    var video = document.createElement('video');
+                    video.controls = true;
+                    video.style.cssText = 'width:100%;height:100%';
+                    video.src = URL.createObjectURL(new Blob([blob], { type: 'video/mp4' }));
+                    video.onerror = function () { box.innerHTML = '<span style="color:#fff">This browser couldn\'t play the clip.</span>'; };
+                    box.innerHTML = '';
+                    box.appendChild(video);
+                }, function (err) {
+                    box.innerHTML = '<span style="color:#fff">Couldn\'t load the clip (' + esc(err.message) + ').</span>';
                 });
             });
 
