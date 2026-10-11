@@ -48,9 +48,10 @@
                     For OPs and EDs missing from the themes folder, finds the episode chapters named OP/Opening or ED/Ending, re-encodes
                     just that section and queues it here. Nothing is served until you approve it, which moves it into the themes folder
                     (<code>anidb-N</code> or <code>Season N</code> subfolder, same as hand-placed files); song details then come from
-                    AnimeThemes as usual. Also available as a scheduled task (Cut OP/ED clips from chapters).
+                    AnimeThemes as usual. Also available as a scheduled task (Cut OP/ED clips from chapters). For endings it also accepts chapters named Credits, End Credits, Outro or Closing (up to 2.5 minutes).
                 </div>
                 <button is="emby-button" type="button" id="OpEdExtract" class="raised block"><span>Look for clips now</span></button>
+                <div id="OpEdClipStatus" class="fieldDescription" style="margin:.8em 0"></div>
                 <div id="OpEdClips" class="fieldDescription">Loading…</div>
 
                 <h2>Song details</h2>
@@ -170,9 +171,9 @@
             function loadClips(page) {
                 ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Admin/Clips'), type: 'GET', dataType: 'json' }).then(function (r) {
                     var el = page.querySelector('#OpEdClips');
-                    var html = r.Extracting ? '<p>Cutting clips… this can take a while; they appear here as they finish.</p>' : '';
+                    var html = '';
                     if (!r.Clips.length) {
-                        html += r.Extracting ? '' : '<p>No clips waiting for review.</p>';
+                        html += r.Extracting ? '<p>No clips yet; they appear here as they finish.</p>' : '<p>No clips waiting for review.</p>';
                     }
                     var token = encodeURIComponent(ApiClient.accessToken());
                     r.Clips.forEach(function (c) {
@@ -192,8 +193,24 @@
                     if (r.Rejected) {
                         html += '<p>' + r.Rejected + ' rejected slot(s) won\'t be cut again. <a href="#" class="oped-clear-rejected">Forget rejections</a></p>';
                     }
-                    el.innerHTML = html;
-                    if (r.Extracting) setTimeout(function () { loadClips(page); }, 5000);
+                    var status = page.querySelector('#OpEdClipStatus'), btn = page.querySelector('#OpEdExtract');
+                    if (r.Extracting) {
+                        var pct = r.SeasonsTotal ? ' (' + r.SeasonsDone + ' of ' + r.SeasonsTotal + ' seasons)' : '';
+                        status.innerHTML = '<b>Working…</b> ' + esc(r.Activity || 'Starting…') + esc(pct) + '. Cut so far: ' + r.CutThisRun +
+                            '. Each clip takes about 15–25 seconds; they show up below as they finish.';
+                    } else {
+                        status.innerHTML = r.LastResult ? 'Last run: ' + esc(r.LastResult) : '';
+                    }
+                    btn.disabled = !!r.Extracting;
+                    btn.querySelector('span').textContent = r.Extracting ? 'Looking for clips…' : 'Look for clips now';
+                    // Only redraw the list when it changed, so a clip being previewed isn't reset by the next poll.
+                    var sig = html;
+                    if (el.getAttribute('data-sig') !== sig) {
+                        el.setAttribute('data-sig', sig);
+                        el.innerHTML = html;
+                    }
+                    clearTimeout(window.opedClipTimer);
+                    if (r.Extracting) window.opedClipTimer = setTimeout(function () { loadClips(page); }, 4000);
                 });
             }
 
@@ -229,6 +246,8 @@
 
             document.querySelector('#OpEdExtract').addEventListener('click', function () {
                 var page = document.querySelector('#OpEdConfigPage');
+                page.querySelector('#OpEdClipStatus').innerHTML = '<b>Starting…</b>';
+                page.querySelector('#OpEdExtract').disabled = true;
                 save(page).then(function () {
                     return ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Admin/Clips/Extract'), type: 'POST' });
                 }).then(function () {

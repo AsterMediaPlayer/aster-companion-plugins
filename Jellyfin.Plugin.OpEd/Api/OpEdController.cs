@@ -244,6 +244,11 @@ public sealed class OpEdController : ControllerBase
     public ActionResult<ClipListDto> GetClips() => new ClipListDto
     {
         Extracting = _clips.IsBusy,
+        Activity = _clips.Activity,
+        SeasonsDone = _clips.SeasonsDone,
+        SeasonsTotal = _clips.SeasonsTotal,
+        CutThisRun = _clips.CutThisRun,
+        LastResult = _clips.LastResult,
         Rejected = _clips.RejectedCount,
         Clips = [.. _clips.Pending.OrderBy(c => c.Show, StringComparer.OrdinalIgnoreCase).ThenBy(c => c.Sub, StringComparer.OrdinalIgnoreCase).ThenBy(c => c.Slug, StringComparer.OrdinalIgnoreCase)],
     };
@@ -493,6 +498,18 @@ public sealed class DetailsDto
 public sealed class ClipListDto
 {
     public bool Extracting { get; set; }
+
+    /// <summary>While extracting: what it is doing right now.</summary>
+    public string Activity { get; set; } = string.Empty;
+
+    public int SeasonsDone { get; set; }
+
+    public int SeasonsTotal { get; set; }
+
+    public int CutThisRun { get; set; }
+
+    /// <summary>Outcome of the last finished run.</summary>
+    public string LastResult { get; set; } = string.Empty;
 
     /// <summary>Slots whose clips were rejected and won't be cut again.</summary>
     public int Rejected { get; set; }

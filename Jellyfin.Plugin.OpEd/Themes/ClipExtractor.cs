@@ -29,6 +29,7 @@ public sealed partial class ClipExtractor
 {
     private const double MinSeconds = 30;
     private const double MaxSeconds = 200;
+    private const double MaxGenericSeconds = 150;
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private readonly ILibraryManager _libraryManager;
     private readonly IChapterManager _chapterManager;
@@ -57,6 +58,18 @@ public sealed partial class ClipExtractor
     }
 
     public bool IsBusy => _lock.CurrentCount == 0;
+
+    /// <summary>What a running extraction is doing, for the settings page.</summary>
+    public string Activity { get; private set; } = string.Empty;
+
+    public int SeasonsDone { get; private set; }
+
+    public int SeasonsTotal { get; private set; }
+
+    public int CutThisRun { get; private set; }
+
+    /// <summary>Outcome of the last finished run, kept until the next one starts.</summary>
+    public string LastResult { get; private set; } = string.Empty;
 
     private static string DataDir => Plugin.Instance?.DataFolderPath ?? Path.Combine(Path.GetTempPath(), "oped");
 
@@ -169,6 +182,11 @@ public sealed partial class ClipExtractor
             return;
         }
 
+        CutThisRun = 0;
+        SeasonsDone = 0;
+        SeasonsTotal = 0;
+        LastResult = string.Empty;
+        Activity = "Starting…";
         try
         {
             var config = Plugin.Instance?.Configuration ?? new Configuration.PluginConfiguration();
@@ -176,29 +194,36 @@ public sealed partial class ClipExtractor
             if (root.Length == 0 || !Directory.Exists(root))
             {
                 _logger.LogInformation("OP/ED: set the themes folder before looking for clips");
+                LastResult = "Set the themes folder first.";
                 return;
             }
 
             var seasons = LibrarySeasons();
+            SeasonsTotal = seasons.Count;
             var client = new AnimeThemesClient(_httpClientFactory, _logger, Path.Combine(DataDir, "animethemes-cache"));
             if (config.FetchMetadata)
             {
+                Activity = $"Asking AnimeThemes about {seasons.Count(s => s.AniDb is not null)} seasons (cached answers are skipped)…";
                 await client.PrefetchAsync(seasons.Where(s => s.AniDb is not null).Select(s => s.AniDb!.Value), config.MetadataRefreshDays, ct).ConfigureAwait(false);
             }
 
-            var found = 0;
             for (var i = 0; i < seasons.Count; i++)
             {
                 ct.ThrowIfCancellationRequested();
                 progress?.Report(100.0 * i / Math.Max(1, seasons.Count));
-                found += await ExtractSeasonAsync(seasons[i], client, ct).ConfigureAwait(false);
+                SeasonsDone = i;
+                Activity = $"Checking {seasons[i].ShowFolder} / {seasons[i].Sub}";
+                CutThisRun += await ExtractSeasonAsync(seasons[i], client, ct).ConfigureAwait(false);
             }
 
             progress?.Report(100);
-            _logger.LogInformation("OP/ED: chapter scan cut {Count} new clip(s); {Pending} waiting for review", found, Data.Clips.Count);
+            SeasonsDone = seasons.Count;
+            LastResult = $"Checked {seasons.Count} seasons: cut {CutThisRun} new clip(s); {Data.Clips.Count} waiting for review.";
+            _logger.LogInformation("OP/ED: chapter scan cut {Count} new clip(s); {Pending} waiting for review", CutThisRun, Data.Clips.Count);
         }
         finally
         {
+            Activity = string.Empty;
             _lock.Release();
         }
     }
@@ -334,12 +359,12 @@ public sealed partial class ClipExtractor
             }
 
             var seconds = (end - chapters[i].StartPositionTicks) / (double)TimeSpan.TicksPerSecond;
-            if (seconds < MinSeconds || seconds > MaxSeconds)
+            if (seconds < MinSeconds || seconds > (m.Groups["gen"].Success ? MaxGenericSeconds : MaxSeconds))
             {
                 continue;
             }
 
-            var type = m.Groups["t"].Value.StartsWith("O", StringComparison.OrdinalIgnoreCase) ? "OP" : "ED";
+            var type = m.Groups["op"].Success ? "OP" : "ED";
             int? sequence = m.Groups["n"].Success ? int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture) : null;
             result.Add(new Marker(type, sequence, chapters[i].Name ?? string.Empty, chapters[i].StartPositionTicks / (double)TimeSpan.TicksPerSecond, seconds));
         }
@@ -475,8 +500,11 @@ public sealed partial class ClipExtractor
         }
     }
 
-    /// <summary>"OP", "OP2", "Opening", "Opening 2", "ED", "Ending"…; not "Intro" or "Credits", which also mean other things.</summary>
-    [GeneratedRegex(@"^\s*(?<t>Opening|Ending|OP|ED)(?:\s*(?:Theme|Song|Credits))?[\s_-]*(?<n>\d+)?\s*$", RegexOptions.IgnoreCase)]
+    /// <summary>
+    /// "OP", "OP2", "Opening", "ED", "Ending 2"…, and for endings also the generic "Credits", "End Credits", "Outro",
+    /// "Closing". Not "Intro" or "Preview". The generic names are only trusted up to <see cref="MaxGenericSeconds"/>.
+    /// </summary>
+    [GeneratedRegex(@"^\s*(?:(?<op>Opening|OP)|(?<ed>Ending|ED)|(?<gen>End(?:ing)?\s*Credits|Closing(?:\s*Credits)?|Outro|Credits))(?:\s*(?:Theme|Song|Credits))?[\s_-]*(?<n>\d+)?\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex ChapterName();
 }
 

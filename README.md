@@ -42,8 +42,9 @@ chapters** (Scheduled Tasks, no automatic trigger) or "Look for clips now" in Da
   entry (just OP1 and ED1 when it has none) and skips every one that already has a theme, a clip waiting for
   review, or a rejected clip.
 - For each missing one it takes the first episode in that theme's AnimeThemes episode range with a chapter named
-  `OP`/`Opening`/`ED`/`Ending` (an optional number is honoured: `OP2`) lasting 30–200 s, and re-encodes only that
-  chapter to MP4 (H.264 + AAC, Japanese audio preferred) plus an M4A of the audio. "Intro", "Outro" and "Credits"
+  `OP`/`Opening`/`ED`/`Ending` (an optional number is honoured: `OP2`) lasting 30–200 s, or for an ending also `Credits`,
+  `End Credits`, `Outro` or `Closing` lasting 30–150 s, and re-encodes only that
+  chapter to MP4 (H.264 + AAC, Japanese audio preferred) plus an M4A of the audio. "Intro" and "Preview"
   chapters are ignored on purpose; they usually mean something else.
 - Clips go to the plugin's data folder (`pending-clips/Show Folder/anidb-N/OP1.mp4`), never the themes folder, so
   they are not served. The settings page plays each one next to what AnimeThemes says it should be. **Approve**
