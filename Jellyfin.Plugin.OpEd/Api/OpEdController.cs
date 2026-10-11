@@ -18,7 +18,8 @@ namespace Jellyfin.Plugin.OpEd.Api;
 ///   GET  /OpEd/Themes/{themeId}         one theme
 ///   GET  /OpEd/Themes/{themeId}/Video   the original video file (supports HTTP range requests, so clients can seek)
 ///   GET  /OpEd/Themes/{themeId}/VideoMp4  the same video as MP4 (H.264/HEVC + AAC) that every client can play
-///   GET  /OpEd/Themes/{themeId}/Audio   the audio file
+///   GET  /OpEd/Themes/{themeId}/Audio   the original audio file
+///   GET  /OpEd/Themes/{themeId}/AudioM4a  the same audio as AAC (or MP3) that every client can play
 ///   POST /OpEd/Scan                     rescan the themes folder (admins)
 ///   GET  /OpEd/Status                   last scan report (admins)
 ///   GET  /OpEd/Admin/Themes             every theme with its song details, for the settings page editor (admins)
@@ -122,6 +123,16 @@ public sealed partial class OpEdController : ControllerBase
     [ProducesResponseType(StatusCodes.Status206PartialContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult GetAudio([FromRoute] string themeId) => Stream(VisibleTheme(themeId)?.AudioPath);
+
+    [HttpGet("Themes/{themeId}/AudioM4a")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status206PartialContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult GetAudioM4a([FromRoute] string themeId)
+    {
+        var theme = VisibleTheme(themeId);
+        return theme?.M4aStatus == "ready" ? Stream(theme.M4aPath) : NotFound();
+    }
 
     [HttpPost("Scan")]
     [Authorize(Policy = "RequiresElevation")]
@@ -303,6 +314,8 @@ public sealed partial class OpEdController : ControllerBase
         VideoMp4Url = t.Mp4Status == "ready" ? $"/OpEd/Themes/{t.Id}/VideoMp4" : null,
         VideoMp4Status = t.Mp4Status,
         AudioUrl = t.AudioPath is not null ? $"/OpEd/Themes/{t.Id}/Audio" : null,
+        AudioM4aUrl = t.M4aStatus == "ready" ? $"/OpEd/Themes/{t.Id}/AudioM4a" : null,
+        AudioM4aStatus = t.M4aStatus,
         VideoContainer = t.VideoPath is not null ? Path.GetExtension(t.VideoPath).TrimStart('.').ToLowerInvariant() : null,
         AudioContainer = t.AudioPath is not null ? Path.GetExtension(t.AudioPath).TrimStart('.').ToLowerInvariant() : null,
         MetadataSource = t.MetadataSource,
@@ -367,6 +380,12 @@ public sealed class ThemeDto
     public string? VideoMp4Status { get; set; }
 
     public string? AudioUrl { get; set; }
+
+    /// <summary>The audio as AAC (or MP3, when the original already is) that every client, including Apple TV, can play. Set once it's ready.</summary>
+    public string? AudioM4aUrl { get; set; }
+
+    /// <summary>"pending", "converting", "ready" or "failed"; null when the theme has no audio.</summary>
+    public string? AudioM4aStatus { get; set; }
 
     public string? VideoContainer { get; set; }
 

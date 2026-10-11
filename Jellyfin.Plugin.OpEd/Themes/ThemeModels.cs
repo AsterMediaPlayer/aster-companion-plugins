@@ -51,6 +51,12 @@ public sealed class Theme
     /// <summary>"pending", "converting", "ready" or "failed"; null when the theme has no video.</summary>
     public string? Mp4Status { get; set; }
 
+    /// <summary>M4A (AAC, or MP3) every client can play: the original audio when it already qualifies, else a converted copy.</summary>
+    public string? M4aPath { get; set; }
+
+    /// <summary>"pending", "converting", "ready" or "failed"; null when the theme has no audio.</summary>
+    public string? M4aStatus { get; set; }
+
     public string? SongTitle { get; set; }
 
     public List<string> Artists { get; set; } = [];

@@ -15,8 +15,9 @@ on 2026-10-10 unless marked otherwise.
   libraries, each Jellyfin season corresponds to one AniDB entry).
 - Each theme can carry **song details**: song title, artists, which episodes it plays in, and spoiler/NSFW flags. These
   come from the owner (a `themes.json` file, file names, or an editor in the Jellyfin dashboard) or from AnimeThemes.moe.
-- Every video gets an **MP4 (H.264 + AAC) copy** that Apple's AVPlayer plays natively. The original might be WebM/VP9,
-  which AVPlayer can't play.
+- Every video gets an **MP4 (H.264 + AAC) copy** and every audio file an **M4A (AAC) copy** that Apple's AVPlayer
+  plays natively. The originals might be WebM/VP9 or Ogg/Opus, which AVPlayer can't play. Originals that already play
+  on Apple devices are served as they are.
 - The client discovers themes via a JSON API keyed by normal Jellyfin item ids and streams the media over HTTP with
   range support (seeking works).
 
@@ -102,13 +103,14 @@ Returns a single `Theme` (without `PlaysInEpisode`). Status: 200, 401, 404 (unkn
 | Endpoint | Content | Content-Type |
 |---|---|---|
 | `GET /OpEd/Themes/{themeId}/VideoMp4` | **Use this for video.** MP4, H.264 High profile, yuv420p, ≤1080p wide, AAC-LC stereo 192 kbps, `moov` atom at the front (fast start) | `video/mp4` |
-| `GET /OpEd/Themes/{themeId}/Audio` | The owner's audio file, unchanged (see §5 on formats) | per file: `audio/ogg`, `audio/mpeg`, `audio/mp4`, `audio/flac`, `audio/wav` |
+| `GET /OpEd/Themes/{themeId}/AudioM4a` | **Use this for audio.** AAC-LC 256 kbps stereo in M4A, or the original file when it's already MP3/AAC | `audio/mp4` (or `audio/mpeg` for an original MP3) |
+| `GET /OpEd/Themes/{themeId}/Audio` | The owner's audio file, unchanged (often Ogg/Opus, which tvOS can't play) | per file: `audio/ogg`, `audio/mpeg`, `audio/mp4`, `audio/flac`, `audio/wav` |
 | `GET /OpEd/Themes/{themeId}/Video` | The owner's original video file, unchanged (often WebM/VP9, which tvOS can't play) | per file: `video/webm`, `video/mp4`, `video/x-matroska`, `video/quicktime` |
 
 - HTTP range requests are supported: `Range: bytes=…` returns **206 Partial Content**, so AVPlayer can seek and start
   quickly.
 - `HEAD` is **not** supported (405). AVPlayer uses ranged GETs, so this doesn't affect it.
-- 404 if the theme has no such file, the copy isn't ready yet (`VideoMp4`), or the user can't see the series.
+- 404 if the theme has no such file, the copy isn't ready yet (`VideoMp4`, `AudioM4a`), or the user can't see the series.
 - Build media URLs as `{server}{VideoMp4Url}?ApiKey={accessToken}` (the `*Url` fields are server-relative paths
   without a query string).
 
@@ -139,13 +141,16 @@ Returns a single `Theme` (without `PlaysInEpisode`). Status: 200, 401, 404 (unkn
 | `VideoContainer` | string | no | Original video's extension: `webm`, `mp4`, `mkv`, `m4v`, `mov` |
 | `VideoMp4Url` | string | no | Path to the playable MP4 (`/OpEd/Themes/{Id}/VideoMp4`). **Present only when `VideoMp4Status` is `"ready"`** |
 | `VideoMp4Status` | string | no | `"pending"`, `"converting"`, `"ready"` or `"failed"`; omitted when `HasVideo` is false |
-| `AudioUrl` | string | no | Path to the audio file (`/OpEd/Themes/{Id}/Audio`) |
+| `AudioUrl` | string | no | Path to the original audio file (`/OpEd/Themes/{Id}/Audio`) |
+| `AudioM4aUrl` | string | no | Path to the playable audio (`/OpEd/Themes/{Id}/AudioM4a`). **Present only when `AudioM4aStatus` is `"ready"`** |
+| `AudioM4aStatus` | string | no | `"pending"`, `"converting"`, `"ready"` or `"failed"`; omitted when `HasAudio` is false |
 | `AudioContainer` | string | no | Audio file's extension: `ogg`, `opus`, `mp3`, `flac`, `m4a`, `aac`, `wav` |
 | `MetadataSource` | string | no | Where the song details came from: `"themes.json"`, `"filename"`, `"animethemes"`. Omitted = no song details yet |
 
-`VideoMp4Status` lifecycle: a new video is `pending`, becomes `converting` and then `ready`, usually within seconds (a
-90-second 720p OP converts in about 15 s; one already in H.264 is ready almost instantly). Only one video converts at a
-time, so a batch of new files can take a few minutes. `failed` means the server couldn't convert it and won't retry
+`VideoMp4Status` / `AudioM4aStatus` lifecycle: a new file is `pending`, becomes `converting` and then `ready`, usually
+within seconds (a 90-second 720p OP video converts in about 15–25 s, its audio in about 1.5 s; files already in an
+Apple format are ready almost instantly). Only one file converts at a time, so a batch of new files can take a few
+minutes. `failed` means the server couldn't convert it and won't retry
 until the owner replaces the file. If the client shows a theme whose status is `pending` or `converting`, re-fetch the
 theme (`GET /OpEd/Themes/{id}`) every ~10–15 s, or simply on the next screen load. Don't poll faster.
 
@@ -153,18 +158,13 @@ theme (`GET /OpEd/Themes/{id}`) every ~10–15 s, or simply on the next screen l
 
 ## 5. Media formats on tvOS — what to play
 
-**Video:** always play `VideoMp4Url` (H.264/AAC MP4). Never hand `VideoUrl` to AVPlayer; it may be WebM/VP9.
-
-**Audio:** check `AudioContainer`:
-
-| AudioContainer | AVPlayer on tvOS | What to do |
-|---|---|---|
-| `mp3`, `m4a`, `aac`, `wav`, `flac` | Plays | Use `AudioUrl` |
-| `ogg`, `opus` | **Doesn't play** (Ogg container) | Play `VideoMp4Url` and just don't show the picture (its audio track is AAC); if there's no video, treat the theme as not playable on tvOS |
-
-Today the audio files on this server are Ogg/Opus (from AnimeThemes), so for audio-only playback on tvOS, use the
-audio track of `VideoMp4Url` where a video exists. (A server-side audio conversion to M4A, like the video one, may be
-added later; if so, it will appear as new fields `AudioM4aUrl` / `AudioM4aStatus`. Treat unknown fields as ignorable.)
+- **Video:** play `VideoMp4Url` (H.264/AAC MP4). Never hand `VideoUrl` to AVPlayer; it may be WebM/VP9.
+- **Audio only:** play `AudioM4aUrl` (AAC M4A, or an original MP3). Never hand `AudioUrl` to AVPlayer; it may be
+  Ogg/Opus.
+- A theme can have just a video, just audio, or both. With only a video, you can still play it audio-only: use
+  `VideoMp4Url` and don't show the picture (its audio track is AAC).
+- If the `…Url` you want is missing, check its status: `pending`/`converting` means "ready in a moment" (re-fetch
+  later); `failed` means that file can't be played on this device.
 
 ---
 
@@ -186,6 +186,7 @@ Series request — `GET /OpEd/Items/03e4ecbedc176e73cd47fb3032c6b189/Themes`:
       "Spoiler": false, "Nsfw": false,
       "HasVideo": false, "HasAudio": true,
       "AudioUrl": "/OpEd/Themes/0eed5cc8d676a9c8/Audio", "AudioContainer": "ogg",
+      "AudioM4aUrl": "/OpEd/Themes/0eed5cc8d676a9c8/AudioM4a", "AudioM4aStatus": "ready",
       "MetadataSource": "animethemes"
     },
     {
@@ -199,6 +200,7 @@ Series request — `GET /OpEd/Items/03e4ecbedc176e73cd47fb3032c6b189/Themes`:
       "VideoUrl": "/OpEd/Themes/4176c129755c36cf/Video", "VideoContainer": "webm",
       "VideoMp4Url": "/OpEd/Themes/4176c129755c36cf/VideoMp4", "VideoMp4Status": "ready",
       "AudioUrl": "/OpEd/Themes/4176c129755c36cf/Audio", "AudioContainer": "ogg",
+      "AudioM4aUrl": "/OpEd/Themes/4176c129755c36cf/AudioM4a", "AudioM4aStatus": "ready",
       "MetadataSource": "animethemes"
     },
     {
@@ -210,6 +212,7 @@ Series request — `GET /OpEd/Items/03e4ecbedc176e73cd47fb3032c6b189/Themes`:
       "Spoiler": false, "Nsfw": false,
       "HasVideo": false, "HasAudio": true,
       "AudioUrl": "/OpEd/Themes/10c93ded3eea1c53/Audio", "AudioContainer": "ogg",
+      "AudioM4aUrl": "/OpEd/Themes/10c93ded3eea1c53/AudioM4a", "AudioM4aStatus": "ready",
       "MetadataSource": "animethemes"
     }
   ]
@@ -273,6 +276,8 @@ struct OpEdTheme: Decodable, Identifiable {
     let videoMp4Status: String?
     let audioUrl: String?
     let audioContainer: String?
+    let audioM4aUrl: String?
+    let audioM4aStatus: String?
     let metadataSource: String?
 }
 
@@ -327,15 +332,17 @@ final class OpEdClient {
         return comps.url!
     }
 
-    /// What to play on tvOS: the MP4 video if ready; for audio-only, Apple-playable audio or the MP4's audio track.
-    func playableURL(for theme: OpEdTheme, preferAudioOnly: Bool = false) -> URL? {
-        let appleAudio: Set<String> = ["mp3", "m4a", "aac", "wav", "flac"]
-        if preferAudioOnly, let a = theme.audioUrl, let c = theme.audioContainer, appleAudio.contains(c) {
-            return mediaURL(a)
+    /// What to play on tvOS. Video: the MP4. Audio only: the M4A, or the MP4's audio track when there's no audio file.
+    /// nil while the copy is still being made (re-fetch the theme later) or when it couldn't be made.
+    func playableURL(for theme: OpEdTheme, audioOnly: Bool = false) -> URL? {
+        if audioOnly {
+            if let a = theme.audioM4aUrl { return mediaURL(a) }
+            if let v = theme.videoMp4Url { return mediaURL(v) }   // play it without showing the picture
+            return nil
         }
-        if let v = theme.videoMp4Url { return mediaURL(v) }   // also fine audio-only: just hide the video layer
-        if let a = theme.audioUrl, let c = theme.audioContainer, appleAudio.contains(c) { return mediaURL(a) }
-        return nil   // not playable on tvOS yet (e.g. Ogg audio only, or MP4 still converting)
+        if let v = theme.videoMp4Url { return mediaURL(v) }
+        if let a = theme.audioM4aUrl { return mediaURL(a) }       // no video: fall back to the song
+        return nil
     }
 }
 

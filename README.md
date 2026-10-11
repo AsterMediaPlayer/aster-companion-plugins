@@ -2,8 +2,8 @@
 
 A Jellyfin 12 plugin for anime opening and ending themes. You put the theme files in a folder; the plugin matches
 them to your shows and seasons, adds song title, artists and episode ranges from [AnimeThemes.moe](https://animethemes.moe),
-and serves them to clients through an authenticated API. Videos that not every client can play (AnimeThemes' WebM,
-for example) get an MP4 copy that every client can. It doesn't download theme files and doesn't touch Jellyfin's own
+and serves them to clients through an authenticated API. Video and audio that not every client can play
+(AnimeThemes' WebM and Ogg, for example) get MP4/M4A copies that every client can. It doesn't download theme files and doesn't touch Jellyfin's own
 theme music/video playback.
 
 ## Themes folder
@@ -76,7 +76,8 @@ usual Jellyfin `Authorization: MediaBrowser Token="…"` header. Fields that are
 | GET | `/OpEd/Themes/{themeId}` | One theme |
 | GET | `/OpEd/Themes/{themeId}/Video` | The original video file. Supports HTTP range requests, so players can seek |
 | GET | `/OpEd/Themes/{themeId}/VideoMp4` | The video as MP4 (H.264/HEVC + AAC) that every client can play, with range requests |
-| GET | `/OpEd/Themes/{themeId}/Audio` | The audio file |
+| GET | `/OpEd/Themes/{themeId}/AudioM4a` | The audio as AAC M4A (or an original MP3) that every client can play, with range requests |
+| GET | `/OpEd/Themes/{themeId}/Audio` | The original audio file |
 | POST | `/OpEd/Scan` | Rescan now (administrators) |
 | GET | `/OpEd/Status` | Last scan report (administrators) |
 | GET | `/OpEd/Admin/Themes` | Every theme with its song details and their source, for the editor (administrators) |
@@ -109,9 +110,9 @@ number). Example:
 
 Theme ids are derived from the theme's place in the themes folder, so they stay the same across rescans.
 
-## Playable video for every client
+## Playable video and audio for every client
 
-Clients should play `VideoMp4Url`. AnimeThemes' videos are WebM (VP9/Opus), which Apple's player (AVPlayer, so
+Clients should play `VideoMp4Url` and `AudioM4aUrl`. AnimeThemes' videos are WebM (VP9/Opus), which Apple's player (AVPlayer, so
 Apple TV and iOS) doesn't play. After each scan the plugin makes a copy every client can play, using Jellyfin's own
 ffmpeg:
 
@@ -120,7 +121,11 @@ ffmpeg:
 - Anything else (VP9, AV1, …) is converted to H.264 High (CRF 19, at most 1080p wide) + AAC stereo with libx264. It
   runs one file at a time at low CPU priority and takes about 15 s for a 90-second 720p OP.
 
-`VideoMp4Status` is `pending`, `converting`, `ready` or `failed`; `VideoMp4Url` appears once it is `ready`. Copies
+Audio: MP3 and AAC (.mp3, .m4a, .aac) are served as-is; anything else (AnimeThemes' Opus-in-Ogg, Vorbis, FLAC,
+WAV) is converted to AAC-LC 256 kbps stereo M4A, about 1.5 s per song.
+
+`VideoMp4Status`/`AudioM4aStatus` are `pending`, `converting`, `ready` or `failed`; `VideoMp4Url`/`AudioM4aUrl` appear
+once it is `ready`. Copies
 are kept in the plugin's data folder, are redone when the source file changes, and are deleted once no theme uses them.
 A failed conversion isn't retried until its source file changes; its ffmpeg error is kept next to where the copy would
 be (`*.mp4.failed`).
