@@ -29,7 +29,7 @@
                     <h2>Metadata</h2>
                     <div class="checkboxContainer">
                         <label><input id="FetchMetadata" type="checkbox" is="emby-checkbox" /><span>Look up song, artists and episodes on AnimeThemes.moe</span></label>
-                        <div class="fieldDescription">Uses the AniDB IDs on your seasons (Shokofin sets them). Answers are cached.</div>
+                        <div class="fieldDescription">Song data comes from <a href="https://animethemes.moe" target="_blank" rel="noopener">AnimeThemes.moe</a> (not affiliated). Uses the AniDB IDs on your seasons (Shokofin sets them). Requests are batched (50 IDs each, 2 s apart), answers are cached, and lookups pause for a day if AnimeThemes refuses. Untick to never contact them; the editor below still lets you fill in details by hand.</div>
                     </div>
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="MetadataRefreshDays">Days before cached metadata is fetched again</label>

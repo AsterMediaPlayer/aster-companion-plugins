@@ -111,12 +111,24 @@ unticked leaves the flag to the other sources. The themes folder must be writabl
 
 ## Metadata from AnimeThemes
 
-Metadata needs AniDB ids on the seasons (Shokofin sets them). AnimeThemes runs on one small server and has blocked
-Jellyfin plugins before because of the load they caused. This plugin follows the approach they asked for: one request
-per 50 AniDB ids, two seconds apart, with answers cached for 14 days (configurable). It identifies itself as
-`Jellyfin-Plugin-OpEd`. At the time of writing, AnimeThemes refuses requests whose User-Agent contains "Jellyfin", so
-metadata lookups fail until they allow this plugin. The plugin doesn't disguise itself to get around that. Themes still
-work without metadata; only song title, artists, episode ranges and the spoiler/NSFW flags are missing.
+Song titles, artists, episode ranges and spoiler/NSFW flags come from [AnimeThemes.moe](https://animethemes.moe), a
+community project; please credit it wherever you show this data. This plugin is not affiliated with or endorsed by
+AnimeThemes.
+
+It needs AniDB ids on the seasons (Shokofin sets them), and it keeps the load on their server small:
+
+- one request per 50 AniDB ids, at least two seconds apart, never in parallel;
+- answers are cached on disk per AniDB id for 14 days (configurable), including "nothing for this id";
+- after a refusal (403) it stops asking for a day;
+- it never downloads video or audio from AnimeThemes.
+
+Requests identify themselves as `OpEd-Themes/0.1 (+https://github.com/peppy6582)`. In testing, AnimeThemes refused agent
+strings that contained "jellyfin", so the agent avoids the word; it is the plugin's own name, not a browser's. If
+AnimeThemes asks for different handling (another agent string, an API key, a different data source), that will be
+changed.
+
+To never contact AnimeThemes, untick **Look up song, artists and episodes on AnimeThemes.moe** in Dashboard → OP/ED.
+Everything else works without it, and the editor on that page lets you fill in song details by hand.
 
 ## API
 
