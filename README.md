@@ -6,6 +6,22 @@ and serves them to clients through an authenticated API. Video and audio that no
 (AnimeThemes' WebM and Ogg, for example) get MP4/M4A copies that every client can. It doesn't download theme files (it can cut missing ones out of your own episodes, see below) and doesn't touch Jellyfin's own
 theme music/video playback.
 
+## Install
+
+Needs Jellyfin 12.
+
+**From the plugin repository** (Dashboard → Plugins → Repositories → add):
+
+```
+https://raw.githubusercontent.com/peppy6582/jellyfin-oped/main/manifest.json
+```
+
+Then Catalog → Metadata → OP/ED → Install, and restart Jellyfin.
+
+**By hand:** download `jellyfin-oped_<version>.zip` from the [releases](https://github.com/peppy6582/jellyfin-oped/releases),
+unzip `Jellyfin.Plugin.OpEd.dll` into a new `OpEd_<version>` folder under Jellyfin's `data/plugins/` directory, and
+restart Jellyfin. Then set the themes folder in Dashboard → OP/ED.
+
 ## Themes folder
 
 Set the folder in Dashboard → OP/ED. It is a path *inside the Jellyfin container*, and should be outside every
@@ -182,3 +198,9 @@ This plugin was developed primarily with an AI coding assistant (Claude Code) an
 server.
 
 License: GPL-3.0.
+
+## Releasing
+
+`bash scripts/package.sh` builds the plugin, writes `dist/jellyfin-oped_<version>.zip` (just the DLL) and adds the
+version, with the zip's MD5, to `manifest.json`. Create a GitHub release tagged `v<version>`, attach the zip, and push
+the updated `manifest.json`. Bump `version` in `Jellyfin.Plugin.OpEd/build.yaml` and the csproj first for a new release.

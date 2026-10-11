@@ -1,0 +1,20 @@
+[
+  {
+    "guid": "d459e0a2-e073-4e1e-b0ec-71883075cf4a",
+    "name": "OP/ED",
+    "description": "Indexes opening and ending theme files (video and/or audio) that you put in a themes folder, one folder per show, matches them to your Jellyfin shows and seasons, fills in song title, artists and episode ranges from AnimeThemes.moe, and serves them to clients through an authenticated API. Developed primarily with an AI coding assistant (Claude Code); see the README.",
+    "overview": "Anime opening and ending themes for your shows, with an API for clients.",
+    "owner": "peppy6582",
+    "category": "Metadata",
+    "versions": [
+      {
+        "version": "0.1.0.0",
+        "changelog": "- 0.1.0.0: First version. Indexes OP/ED theme files, matches them to shows and seasons, song details from AnimeThemes.moe, themes.json and file names, MP4/M4A copies for Apple TV, client API, and cutting missing OPs/EDs from episode chapters into a review queue.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/peppy6582/jellyfin-oped/releases/download/v0.1.0.0/jellyfin-oped_0.1.0.0.zip",
+        "checksum": "92f35f4ad1dfad2d63517d9596eff54d",
+        "timestamp": "2026-10-11T14:11:00Z"
+      }
+    ]
+  }
+]
