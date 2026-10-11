@@ -30,6 +30,9 @@ public sealed partial class ClipExtractor
     private const double MinSeconds = 30;
     private const double MaxSeconds = 200;
     private const double MaxGenericSeconds = 150;
+
+    /// <summary>Chapter lengths within this many seconds count as "the same length".</summary>
+    private const double SameLengthSeconds = 3;
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private readonly ILibraryManager _libraryManager;
     private readonly IChapterManager _chapterManager;
@@ -153,6 +156,8 @@ public sealed partial class ClipExtractor
 
         Data.Clips.Remove(clip);
         Data.Approved.Add(Path.Combine(clip.RelativeDir, clip.Type + number));
+        Data.Verified.RemoveAll(v => v.ShowFolder == clip.ShowFolder && v.Sub == clip.Sub && v.Type == clip.Type && v.Sequence == number);
+        Data.Verified.Add(new VerifiedClip { ShowFolder = clip.ShowFolder, Sub = clip.Sub, Type = clip.Type, Sequence = number, Seconds = clip.DurationSeconds });
         Save();
         PruneEmptyDirs();
         return null;
@@ -309,7 +314,8 @@ public sealed partial class ClipExtractor
         return result;
     }
 
-    private sealed record Slot(string Type, int Sequence, string Slug, string? Episodes, string? Song, List<string> Artists);
+    /// <param name="Listed">True when AnimeThemes lists this theme (so its number is known); false for the OP1/ED1 guesses.</param>
+    private sealed record Slot(string Type, int Sequence, string Slug, string? Episodes, string? Song, List<string> Artists, bool Listed);
 
     private async Task<int> ExtractSeasonAsync(SeasonInfo info, AnimeThemesClient client, string? onlySlot, CancellationToken ct)
     {
@@ -320,13 +326,13 @@ public sealed partial class ClipExtractor
             slots.AddRange(listed.GroupBy(e => e.Slug, StringComparer.OrdinalIgnoreCase)
                 .Select(g => g.OrderBy(e => e.Version).First())
                 .Where(e => e.Type is "OP" or "ED")
-                .Select(e => new Slot(e.Type, e.Sequence, e.Slug, e.Episodes, e.Song, e.Artists)));
+                .Select(e => new Slot(e.Type, e.Sequence, e.Slug, e.Episodes, e.Song, e.Artists, true)));
         }
         else
         {
             // AnimeThemes has nothing for this season (or isn't being asked): take whichever OP and ED the chapters show.
-            slots.Add(new Slot("OP", 1, "OP1", null, null, []));
-            slots.Add(new Slot("ED", 1, "ED1", null, null, []));
+            slots.Add(new Slot("OP", 1, "OP1", null, null, [], false));
+            slots.Add(new Slot("ED", 1, "ED1", null, null, [], false));
         }
 
         var chapters = new Dictionary<Guid, List<Marker>>();
@@ -465,6 +471,7 @@ public sealed partial class ClipExtractor
             VideoConverter.TryDelete(audio + ".tmp");
         }
 
+        var (hint, suggested) = CompareLength(info, slot, marker.Seconds);
         var clip = new PendingClip
         {
             Id = ThemeIndex.StableId(SlotKey(info.ShowFolder, info.Sub, slot.Slug)),
@@ -483,6 +490,8 @@ public sealed partial class ClipExtractor
             StartSeconds = marker.Start,
             DurationSeconds = marker.Seconds,
             SongTitle = slot.Song,
+            Hint = hint,
+            SuggestedSequence = suggested,
             Artists = slot.Artists,
             Episodes = slot.Episodes,
             HasAudio = File.Exists(audio),
@@ -498,6 +507,33 @@ public sealed partial class ClipExtractor
         Save();
         _logger.LogInformation("OP/ED: cut {Slug} for {Show} / {Sub} from episode {Episode} in {Seconds:0.0}s", slot.Slug, clip.Show, info.Sub, episode.IndexNumber, started.Elapsed.TotalSeconds);
         return true;
+    }
+
+    /// <summary>
+    /// Compares a new clip's length with the approved clips of the same show and type. A clearly different length means a
+    /// different OP/ED; a matching one only means it may be the same (two themes can be equally long), so it is a hint.
+    /// For themes AnimeThemes didn't list, the number is also suggested: the matching one's, or the next free one.
+    /// </summary>
+    private (string? Hint, int? Suggested) CompareLength(SeasonInfo info, Slot slot, double seconds)
+    {
+        var known = Data.Verified.Where(v => v.Type == slot.Type && string.Equals(v.ShowFolder, info.ShowFolder, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(v.Sub, info.Sub, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (known.Count == 0)
+        {
+            return (null, null);
+        }
+
+        var closest = known.OrderBy(v => Math.Abs(v.Seconds - seconds)).First();
+        var inv = CultureInfo.InvariantCulture;
+        if (Math.Abs(closest.Seconds - seconds) <= SameLengthSeconds)
+        {
+            return ($"{string.Format(inv, "{0:0.#}", seconds)}s: same length as the approved {slot.Type}{closest.Sequence} ({closest.Sub}, {string.Format(inv, "{0:0.#}", closest.Seconds)}s), so possibly the same {slot.Type}.",
+                slot.Listed ? null : closest.Sequence);
+        }
+
+        var all = string.Join(", ", known.OrderBy(v => v.Sequence).Select(v => $"{slot.Type}{v.Sequence} {string.Format(inv, "{0:0.#}", v.Seconds)}s"));
+        return ($"{string.Format(inv, "{0:0.#}", seconds)}s: different length from the approved {all}, so probably a different {slot.Type}.",
+            slot.Listed ? null : known.Max(v => v.Sequence) + 1);
     }
 
     /// <summary>"0:a:N" for the first Japanese audio stream, else the first one ("0:a:0?" lets silent files through).</summary>
@@ -614,6 +650,12 @@ public sealed class PendingClip
 
     public bool HasAudio { get; set; }
 
+    /// <summary>How this clip's length compares with the approved ones of the same show, e.g. "Different length from OP1 (Season 1): probably a different OP".</summary>
+    public string? Hint { get; set; }
+
+    /// <summary>The OP/ED number to pre-fill on approval when the length comparison suggests one; null to use <see cref="Sequence"/>.</summary>
+    public int? SuggestedSequence { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     [System.Text.Json.Serialization.JsonIgnore]
@@ -631,4 +673,21 @@ public sealed class PendingData
 
     /// <summary>Approved clips (as themes-folder-relative paths) that the theme index hasn't picked up yet.</summary>
     public List<string> Approved { get; set; } = [];
+
+    /// <summary>Lengths of approved clips, to tell whether a later season's OP/ED is the same one or a different one.</summary>
+    public List<VerifiedClip> Verified { get; set; } = [];
+}
+
+/// <summary>An approved clip's place and length: the reference later clips of the same show are compared with.</summary>
+public sealed class VerifiedClip
+{
+    public string ShowFolder { get; set; } = string.Empty;
+
+    public string Sub { get; set; } = string.Empty;
+
+    public string Type { get; set; } = string.Empty;
+
+    public int Sequence { get; set; }
+
+    public double Seconds { get; set; }
 }

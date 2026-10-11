@@ -58,6 +58,12 @@ chapters** (Scheduled Tasks, no automatic trigger) or "Look for clips now" in Da
 - Approving only moves the files. Once you've gone through the queue, **Index approved clips and fetch metadata**
   does one scan for the whole batch, matching song details from AnimeThemes (cached answers are reused; only what
   is missing is requested, in batches).
+- Approving a clip records its length. Clips cut later for the same show (another season, say) are compared with
+  those: a length within 3 s of an approved one is flagged "possibly the same OP", a clearly different one
+  "probably a different OP". For themes AnimeThemes doesn't list, the number box is pre-filled to match: the same
+  number when the length matches, the next free number when it doesn't. It's a hint, not a decision: two different
+  themes can be equally long, and it only compares with approved clips (creditless AnimeThemes files run a few
+  seconds different from in-episode chapters).
 - Without AnimeThemes data a season can only yield OP1/ED1 (or the number in the chapter name).
 
 ## Song details

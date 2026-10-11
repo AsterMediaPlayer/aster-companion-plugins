@@ -188,7 +188,8 @@
                     'Cut from episode ' + esc(c.EpisodeNumber == null ? '?' : c.EpisodeNumber) + (c.EpisodeName ? ' "' + esc(c.EpisodeName) + '"' : '') +
                     ', chapter "' + esc(c.Chapter) + '", ' + mins + ':' + (secs < 10 ? '0' : '') + secs + '<br>' +
                     'Expected: ' + song + (c.Episodes ? ' [episodes ' + esc(c.Episodes) + ']' : '') + '<br>' +
-                    '<div style="margin-top:.6em"><label class="fieldDescription" style="margin-right:.8em">Approve as ' + esc(c.Type) + ' number <input class="oped-seq" type="number" min="1" max="99" value="' + esc(c.Sequence || 1) + '" style="width:4em;padding:.3em;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.15);border-radius:4px" /></label>' +
+                    (c.Hint ? '<b>' + esc(c.Hint) + '</b><br>' : '') +
+                    '<div style="margin-top:.6em"><label class="fieldDescription" style="margin-right:.8em">Approve as ' + esc(c.Type) + ' number <input class="oped-seq" type="number" min="1" max="99" value="' + esc(c.SuggestedSequence || c.Sequence || 1) + '" style="width:4em;padding:.3em;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.15);border-radius:4px" /></label>' +
                     '<button is="emby-button" type="button" class="raised oped-approve" style="margin:0 .5em 0 0"><span>Approve</span></button>' +
                     '<button is="emby-button" type="button" class="raised oped-reject" style="margin:0 .5em 0 0"><span>Reject</span></button>' +
                     '<button is="emby-button" type="button" class="raised oped-retry" style="margin:0" title="Delete this clip and cut the next episode that has an OP/ED chapter, e.g. when text or credits run over it"><span>Reject, try another episode</span></button></div></div>';
