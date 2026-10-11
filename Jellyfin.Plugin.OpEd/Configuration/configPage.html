@@ -188,7 +188,7 @@
                     'Cut from episode ' + esc(c.EpisodeNumber == null ? '?' : c.EpisodeNumber) + (c.EpisodeName ? ' "' + esc(c.EpisodeName) + '"' : '') +
                     ', chapter "' + esc(c.Chapter) + '", ' + mins + ':' + (secs < 10 ? '0' : '') + secs + '<br>' +
                     'Expected: ' + song + (c.Episodes ? ' [episodes ' + esc(c.Episodes) + ']' : '') + '<br>' +
-                    (c.Hint ? '<b>' + esc(c.Hint) + '</b><br>' : '') +
+                    '<div class="oped-hint" style="font-weight:bold">' + esc(c.Hint || '') + '</div>' +
                     '<div style="margin-top:.6em"><label class="fieldDescription" style="margin-right:.8em">Approve as ' + esc(c.Type) + ' number <input class="oped-seq" type="number" min="1" max="99" value="' + esc(c.SuggestedSequence || c.Sequence || 1) + '" style="width:4em;padding:.3em;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.15);border-radius:4px" /></label>' +
                     '<button is="emby-button" type="button" class="raised oped-approve" style="margin:0 .5em 0 0"><span>Approve</span></button>' +
                     '<button is="emby-button" type="button" class="raised oped-reject" style="margin:0 .5em 0 0"><span>Reject</span></button>' +
@@ -227,6 +227,15 @@
                             var existing = list.querySelector('.oped-clip[data-id="' + c.Id + '"]');
                             if (!existing) list.insertBefore(clipCard(c), cursor);
                         }
+                    });
+                    // Hints depend on what has been approved since the card was drawn: refresh them, and the pre-filled number
+                    // unless the reviewer has already typed one.
+                    r.Clips.forEach(function (c) {
+                        var card = list.querySelector('.oped-clip[data-id="' + c.Id + '"]');
+                        if (!card) return;
+                        var hint = card.querySelector('.oped-hint'), seq = card.querySelector('.oped-seq');
+                        if (hint && hint.textContent !== (c.Hint || '')) hint.textContent = c.Hint || '';
+                        if (seq && !seq.getAttribute('data-touched')) seq.value = c.SuggestedSequence || c.Sequence || 1;
                     });
                     var empty = list.querySelector('.oped-empty');
                     if (!r.Clips.length) {
@@ -322,6 +331,10 @@
                 }, function (err) {
                     box.innerHTML = '<span style="color:#fff">Couldn\'t load the clip (' + esc(err.message) + ').</span>';
                 });
+            });
+
+            document.querySelector('#OpEdClips').addEventListener('input', function (e) {
+                if (e.target.classList && e.target.classList.contains('oped-seq')) e.target.setAttribute('data-touched', '1');
             });
 
             document.querySelector('#OpEdExtract').addEventListener('click', function () {

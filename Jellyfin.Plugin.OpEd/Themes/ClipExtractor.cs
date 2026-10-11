@@ -101,7 +101,19 @@ public sealed partial class ClipExtractor
         }
     }
 
-    public IReadOnlyList<PendingClip> Pending => Data.Clips;
+    /// <summary>The queue, with each clip's length hint worked out now: whatever has been approved so far counts, even if it was approved after the clip was cut.</summary>
+    public IReadOnlyList<PendingClip> Pending
+    {
+        get
+        {
+            foreach (var clip in Data.Clips)
+            {
+                (clip.Hint, clip.SuggestedSequence) = CompareLength(clip.ShowFolder, clip.Sub, clip.Type, clip.Listed, clip.DurationSeconds);
+            }
+
+            return Data.Clips;
+        }
+    }
 
     public PendingClip? Get(string id) => Data.Clips.Find(c => c.Id == id);
 
@@ -471,7 +483,6 @@ public sealed partial class ClipExtractor
             VideoConverter.TryDelete(audio + ".tmp");
         }
 
-        var (hint, suggested) = CompareLength(info, slot, marker.Seconds);
         var clip = new PendingClip
         {
             Id = ThemeIndex.StableId(SlotKey(info.ShowFolder, info.Sub, slot.Slug)),
@@ -490,8 +501,7 @@ public sealed partial class ClipExtractor
             StartSeconds = marker.Start,
             DurationSeconds = marker.Seconds,
             SongTitle = slot.Song,
-            Hint = hint,
-            SuggestedSequence = suggested,
+            Listed = slot.Listed,
             Artists = slot.Artists,
             Episodes = slot.Episodes,
             HasAudio = File.Exists(audio),
@@ -514,10 +524,10 @@ public sealed partial class ClipExtractor
     /// different OP/ED; a matching one only means it may be the same (two themes can be equally long), so it is a hint.
     /// For themes AnimeThemes didn't list, the number is also suggested: the matching one's, or the next free one.
     /// </summary>
-    private (string? Hint, int? Suggested) CompareLength(SeasonInfo info, Slot slot, double seconds)
+    private (string? Hint, int? Suggested) CompareLength(string showFolder, string sub, string type, bool listed, double seconds)
     {
-        var known = Data.Verified.Where(v => v.Type == slot.Type && string.Equals(v.ShowFolder, info.ShowFolder, StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(v.Sub, info.Sub, StringComparison.OrdinalIgnoreCase)).ToList();
+        var known = Data.Verified.Where(v => v.Type == type && string.Equals(v.ShowFolder, showFolder, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(v.Sub, sub, StringComparison.OrdinalIgnoreCase)).ToList();
         if (known.Count == 0)
         {
             return (null, null);
@@ -527,13 +537,13 @@ public sealed partial class ClipExtractor
         var inv = CultureInfo.InvariantCulture;
         if (Math.Abs(closest.Seconds - seconds) <= SameLengthSeconds)
         {
-            return ($"{string.Format(inv, "{0:0.#}", seconds)}s: same length as the approved {slot.Type}{closest.Sequence} ({closest.Sub}, {string.Format(inv, "{0:0.#}", closest.Seconds)}s), so possibly the same {slot.Type}.",
-                slot.Listed ? null : closest.Sequence);
+            return ($"{string.Format(inv, "{0:0.#}", seconds)}s: same length as the approved {type}{closest.Sequence} ({closest.Sub}, {string.Format(inv, "{0:0.#}", closest.Seconds)}s), so possibly the same {type}.",
+                listed ? null : closest.Sequence);
         }
 
-        var all = string.Join(", ", known.OrderBy(v => v.Sequence).Select(v => $"{slot.Type}{v.Sequence} {string.Format(inv, "{0:0.#}", v.Seconds)}s"));
-        return ($"{string.Format(inv, "{0:0.#}", seconds)}s: different length from the approved {all}, so probably a different {slot.Type}.",
-            slot.Listed ? null : known.Max(v => v.Sequence) + 1);
+        var all = string.Join(", ", known.OrderBy(v => v.Sequence).Select(v => $"{type}{v.Sequence} {string.Format(inv, "{0:0.#}", v.Seconds)}s"));
+        return ($"{string.Format(inv, "{0:0.#}", seconds)}s: different length from the approved {all}, so probably a different {type}.",
+            listed ? null : known.Max(v => v.Sequence) + 1);
     }
 
     /// <summary>"0:a:N" for the first Japanese audio stream, else the first one ("0:a:0?" lets silent files through).</summary>
@@ -650,11 +660,14 @@ public sealed class PendingClip
 
     public bool HasAudio { get; set; }
 
-    /// <summary>How this clip's length compares with the approved ones of the same show, e.g. "Different length from OP1 (Season 1): probably a different OP".</summary>
+    /// <summary>Worked out whenever the queue is read. How this clip's length compares with the approved ones of the same show, e.g. "Different length from OP1 (Season 1): probably a different OP".</summary>
     public string? Hint { get; set; }
 
     /// <summary>The OP/ED number to pre-fill on approval when the length comparison suggests one; null to use <see cref="Sequence"/>.</summary>
     public int? SuggestedSequence { get; set; }
+
+    /// <summary>Whether AnimeThemes listed this theme (so its number is known) when the clip was cut; false for the OP1/ED1 guesses.</summary>
+    public bool Listed { get; set; } = true;
 
     public DateTime CreatedAt { get; set; }
 
