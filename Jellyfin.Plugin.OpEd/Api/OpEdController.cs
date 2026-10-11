@@ -24,7 +24,8 @@ namespace Jellyfin.Plugin.OpEd.Api;
 ///   GET  /OpEd/Admin/Clips                 the review queue (admins)
 ///   GET  /OpEd/Admin/Clips/{id}/Video      a queued clip (also /Audio) (admins)
 ///   POST /OpEd/Admin/Clips/{id}/Approve    move the clip into the themes folder (admins)
-///   POST /OpEd/Admin/Clips/{id}/Reject     delete the clip and don't cut that slot again (admins)
+///   POST /OpEd/Admin/Clips/Apply           index approved clips and fetch their AnimeThemes metadata, in one batch (admins)
+///   POST /OpEd/Admin/Clips/{id}/Reject     delete the clip and don't cut that slot again; ?tryAnother=true cuts it from the next episode instead (admins)
 ///   DELETE /OpEd/Admin/Clips/Rejected      forget rejections (admins)
 ///   GET  /OpEd/Status                   last scan report (admins)
 ///   GET  /OpEd/Admin/Themes             every theme with its song details, for the settings page editor (admins)
@@ -250,6 +251,8 @@ public sealed class OpEdController : ControllerBase
         CutThisRun = _clips.CutThisRun,
         LastResult = _clips.LastResult,
         Rejected = _clips.RejectedCount,
+        ApprovedWaiting = _clips.ApprovedWaiting,
+        Indexing = _index.IsScanning,
         Clips = [.. _clips.Pending.OrderBy(c => c.Show, StringComparer.OrdinalIgnoreCase).ThenBy(c => c.Sub, StringComparer.OrdinalIgnoreCase).ThenBy(c => c.Slug, StringComparer.OrdinalIgnoreCase)],
     };
 
@@ -269,30 +272,45 @@ public sealed class OpEdController : ControllerBase
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult> ApproveClip([FromRoute] string clipId, CancellationToken ct)
+    public ActionResult ApproveClip([FromRoute] string clipId)
     {
         if (_clips.Get(clipId) is null)
         {
             return NotFound();
         }
 
-        if (_clips.Approve(clipId) is { } problem)
-        {
-            return Conflict(new { Message = problem });
-        }
+        // Only moves the files. Indexing (and the AnimeThemes metadata match) happens once for the whole batch: Admin/Clips/Apply.
+        return _clips.Approve(clipId) is { } problem ? Conflict(new { Message = problem }) : Ok();
+    }
 
-        // The clip is now an ordinary file in the themes folder: index it (matching metadata as usual).
-        await _index.ScanAsync(null, ct).ConfigureAwait(false);
-        _ = Task.Run(() => _index.ConvertVideosAsync(null, CancellationToken.None), CancellationToken.None);
-        return Ok();
+    [HttpPost("Admin/Clips/Apply")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    public ActionResult ApplyApprovedClips()
+    {
+        _ = Task.Run(() => _clips.ApplyApprovedAsync(CancellationToken.None), CancellationToken.None);
+        return Accepted();
     }
 
     [HttpPost("Admin/Clips/{clipId}/Reject")]
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult RejectClip([FromRoute] string clipId) => _clips.Reject(clipId) ? Ok() : NotFound();
+    public ActionResult RejectClip([FromRoute] string clipId, [FromQuery] bool tryAnother = false)
+    {
+        if (_clips.Reject(clipId, tryAnother) is not { } slot)
+        {
+            return NotFound();
+        }
+
+        if (tryAnother)
+        {
+            // Cut the same slot from the next episode that has a usable chapter, after the response.
+            _ = Task.Run(() => _clips.ExtractAsync(null, CancellationToken.None, slot), CancellationToken.None);
+        }
+
+        return Ok();
+    }
 
     [HttpDelete("Admin/Clips/Rejected")]
     [Authorize(Policy = "RequiresElevation")]
@@ -513,6 +531,11 @@ public sealed class ClipListDto
 
     /// <summary>Slots whose clips were rejected and won't be cut again.</summary>
     public int Rejected { get; set; }
+
+    /// <summary>Approved clips not yet indexed; "Apply" indexes them all in one scan and matches AnimeThemes metadata.</summary>
+    public int ApprovedWaiting { get; set; }
+
+    public bool Indexing { get; set; }
 
     public List<PendingClip> Clips { get; set; } = [];
 }

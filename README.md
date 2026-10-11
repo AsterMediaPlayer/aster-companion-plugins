@@ -50,6 +50,12 @@ chapters** (Scheduled Tasks, no automatic trigger) or "Look for clips now" in Da
   they are not served. The settings page plays each one next to what AnimeThemes says it should be. **Approve**
   moves it into the themes folder with the same subfolder layout, after which it is an ordinary theme with the usual
   metadata; **Reject** deletes it and the slot isn't cut again (until you choose "Forget rejections").
+- **Reject, try another episode** (when text or credits run over the clip) deletes it and cuts the same slot from the
+  next episode in its range that has a usable chapter; episodes already cut for the slot are skipped. When none are
+  left it says so, and you can place the file yourself.
+- Approving only moves the files. Once you've gone through the queue, **Index approved clips and fetch metadata**
+  does one scan for the whole batch, matching song details from AnimeThemes (cached answers are reused; only what
+  is missing is requested, in batches).
 - Without AnimeThemes data a season can only yield OP1/ED1 (or the number in the chapter name).
 
 ## Song details

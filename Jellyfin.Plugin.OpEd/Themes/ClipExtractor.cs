@@ -143,39 +143,62 @@ public sealed partial class ClipExtractor
         }
 
         Data.Clips.Remove(clip);
+        Data.Tried.Remove(clip.SlotKey);
+        Data.Approved.Add(Path.Combine(clip.RelativeDir, clip.Slug));
         Save();
         PruneEmptyDirs();
         return null;
     }
 
-    /// <summary>Deletes a clip and remembers the slot so it isn't cut again.</summary>
-    public bool Reject(string id)
+    /// <summary>
+    /// Deletes a clip. By default the slot is remembered and not cut again; with <paramref name="tryAnother"/> it stays
+    /// open, and the episode just rejected is skipped next time. Returns the clip's slot key, or null if there was no such clip.
+    /// </summary>
+    public string? Reject(string id, bool tryAnother = false)
     {
         var clip = Get(id);
         if (clip is null)
         {
-            return false;
+            return null;
         }
 
         VideoConverter.TryDelete(VideoFile(clip)!);
         VideoConverter.TryDelete(AudioFile(clip)!);
         Data.Clips.Remove(clip);
-        Data.Rejected.Add(clip.SlotKey);
+        if (!tryAnother)
+        {
+            Data.Rejected.Add(clip.SlotKey);
+        }
+
         Save();
         PruneEmptyDirs();
-        return true;
+        return clip.SlotKey;
+    }
+
+    /// <summary>Approved clips the theme index may not have seen yet.</summary>
+    public int ApprovedWaiting => Data.Approved.Count;
+
+    /// <summary>Indexes approved clips (matching AnimeThemes metadata, fetching what isn't cached) in one scan.</summary>
+    public async Task ApplyApprovedAsync(CancellationToken ct)
+    {
+        await _index.ScanAsync(null, ct).ConfigureAwait(false);
+        Data.Approved.Clear();
+        Save();
+        await _index.ConvertVideosAsync(null, ct).ConfigureAwait(false);
     }
 
     /// <summary>Forgets rejections so rejected slots are looked at again by the next run.</summary>
     public void ClearRejected()
     {
         Data.Rejected.Clear();
+        Data.Tried.Clear();
         Save();
     }
 
     public int RejectedCount => Data.Rejected.Count;
 
-    public async Task ExtractAsync(IProgress<double>? progress, CancellationToken ct)
+    /// <param name="onlySlot">Limit the run to one slot (see <see cref="PendingClip.SlotKey"/>), e.g. to try another episode after a rejection.</param>
+    public async Task ExtractAsync(IProgress<double>? progress, CancellationToken ct, string? onlySlot = null)
     {
         if (!await _lock.WaitAsync(0, ct).ConfigureAwait(false))
         {
@@ -199,6 +222,11 @@ public sealed partial class ClipExtractor
             }
 
             var seasons = LibrarySeasons();
+            if (onlySlot is not null)
+            {
+                seasons = [.. seasons.Where(s => onlySlot.StartsWith($"{s.ShowFolder}|{s.Sub}|", StringComparison.OrdinalIgnoreCase))];
+            }
+
             SeasonsTotal = seasons.Count;
             var client = new AnimeThemesClient(_httpClientFactory, _logger, Path.Combine(DataDir, "animethemes-cache"));
             if (config.FetchMetadata)
@@ -213,12 +241,14 @@ public sealed partial class ClipExtractor
                 progress?.Report(100.0 * i / Math.Max(1, seasons.Count));
                 SeasonsDone = i;
                 Activity = $"Checking {seasons[i].ShowFolder} / {seasons[i].Sub}";
-                CutThisRun += await ExtractSeasonAsync(seasons[i], client, ct).ConfigureAwait(false);
+                CutThisRun += await ExtractSeasonAsync(seasons[i], client, onlySlot, ct).ConfigureAwait(false);
             }
 
             progress?.Report(100);
             SeasonsDone = seasons.Count;
-            LastResult = $"Checked {seasons.Count} seasons: cut {CutThisRun} new clip(s); {Data.Clips.Count} waiting for review.";
+            LastResult = onlySlot is not null && CutThisRun == 0
+                ? "No other episode has a usable OP/ED chapter for that slot. Edit the file yourself or leave it out."
+                : $"Checked {seasons.Count} seasons: cut {CutThisRun} new clip(s); {Data.Clips.Count} waiting for review.";
             _logger.LogInformation("OP/ED: chapter scan cut {Count} new clip(s); {Pending} waiting for review", CutThisRun, Data.Clips.Count);
         }
         finally
@@ -265,7 +295,7 @@ public sealed partial class ClipExtractor
 
     private sealed record Slot(string Type, int Sequence, string Slug, string? Episodes, string? Song, List<string> Artists);
 
-    private async Task<int> ExtractSeasonAsync(SeasonInfo info, AnimeThemesClient client, CancellationToken ct)
+    private async Task<int> ExtractSeasonAsync(SeasonInfo info, AnimeThemesClient client, string? onlySlot, CancellationToken ct)
     {
         var slots = new List<Slot>();
         var listed = info.AniDb is int a ? client.GetThemes(a) : null;
@@ -288,6 +318,11 @@ public sealed partial class ClipExtractor
         foreach (var slot in slots)
         {
             ct.ThrowIfCancellationRequested();
+            if (onlySlot is not null && !string.Equals(onlySlot, SlotKey(info.ShowFolder, info.Sub, slot.Slug), StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             if (IsTaken(info, slot))
             {
                 continue;
@@ -295,7 +330,8 @@ public sealed partial class ClipExtractor
 
             foreach (var episode in info.Episodes)
             {
-                if (episode.IndexNumber is not int number || EpisodeRanges.PlaysIn(slot.Episodes, number) == false)
+                if (episode.IndexNumber is not int number || EpisodeRanges.PlaysIn(slot.Episodes, number) == false
+                    || (Data.Tried.TryGetValue(SlotKey(info.ShowFolder, info.Sub, slot.Slug), out var tried) && tried.Contains(episode.Id)))
                 {
                     continue;
                 }
@@ -424,6 +460,7 @@ public sealed partial class ClipExtractor
             Show = info.Season.Series?.Name ?? info.ShowFolder,
             Season = info.Season.Name,
             AniDbId = info.AniDb,
+            EpisodeId = episode.Id,
             EpisodeNumber = episode.IndexNumber,
             EpisodeName = episode.Name,
             Chapter = marker.Name,
@@ -436,6 +473,12 @@ public sealed partial class ClipExtractor
             CreatedAt = DateTime.UtcNow,
         };
         Data.Clips.Add(clip);
+        if (!Data.Tried.TryGetValue(clip.SlotKey, out var tried))
+        {
+            Data.Tried[clip.SlotKey] = tried = [];
+        }
+
+        tried.Add(episode.Id);
         Save();
         _logger.LogInformation("OP/ED: cut {Slug} for {Show} / {Sub} from episode {Episode} in {Seconds:0.0}s", slot.Slug, clip.Show, info.Sub, episode.IndexNumber, started.Elapsed.TotalSeconds);
         return true;
@@ -531,6 +574,8 @@ public sealed class PendingClip
 
     public int? AniDbId { get; set; }
 
+    public Guid EpisodeId { get; set; }
+
     public int? EpisodeNumber { get; set; }
 
     public string? EpisodeName { get; set; }
@@ -561,4 +606,10 @@ public sealed class PendingData
     public List<PendingClip> Clips { get; set; } = [];
 
     public List<string> Rejected { get; set; } = [];
+
+    /// <summary>Episodes already cut for a slot (slot key → episode ids), so "try another episode" moves on.</summary>
+    public Dictionary<string, List<Guid>> Tried { get; set; } = [];
+
+    /// <summary>Approved clips (as themes-folder-relative paths) that the theme index hasn't picked up yet.</summary>
+    public List<string> Approved { get; set; } = [];
 }

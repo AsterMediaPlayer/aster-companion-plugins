@@ -159,9 +159,8 @@
                     data: clear ? undefined : JSON.stringify(rowDetails(row)),
                     contentType: 'application/json'
                 }).then(function () {
-                    Dashboard.hideLoadingMsg();
-                    loadEditor(page);
-                    showReport(page);
+                    loadClips(page);
+                    setTimeout(function () { loadClips(page); }, 1500); // a started run shows up as busy a moment later
                 }, function () {
                     Dashboard.hideLoadingMsg();
                     Dashboard.alert('Couldn\'t save. Is the themes folder writable by Jellyfin?');
@@ -188,8 +187,13 @@
                             ', chapter "' + esc(c.Chapter) + '", ' + mins + ':' + (secs < 10 ? '0' : '') + secs + '<br>' +
                             'Expected: ' + song + (c.Episodes ? ' [episodes ' + esc(c.Episodes) + ']' : '') + '<br>' +
                             '<div style="margin-top:.6em"><button is="emby-button" type="button" class="raised oped-approve" style="margin:0 .5em 0 0"><span>Approve</span></button>' +
-                            '<button is="emby-button" type="button" class="raised oped-reject" style="margin:0"><span>Reject</span></button></div></div></div>';
+                            '<button is="emby-button" type="button" class="raised oped-reject" style="margin:0 .5em 0 0"><span>Reject</span></button>' +
+                            '<button is="emby-button" type="button" class="raised oped-retry" style="margin:0" title="Delete this clip and cut the next episode that has an OP/ED chapter, e.g. when text or credits run over it"><span>Reject, try another episode</span></button></div></div></div>';
                     });
+                    if (r.ApprovedWaiting) {
+                        html = '<p><b>' + r.ApprovedWaiting + ' approved clip(s)</b> are in the themes folder but not indexed yet. Approve the rest first, then index them together: one scan, and AnimeThemes is only asked for what isn\'t cached. ' +
+                            '<button is="emby-button" type="button" class="raised oped-apply"><span>Index approved clips and fetch metadata</span></button></p>' + html;
+                    }
                     if (r.Rejected) {
                         html += '<p>' + r.Rejected + ' rejected slot(s) won\'t be cut again. <a href="#" class="oped-clear-rejected">Forget rejections</a></p>';
                     }
@@ -199,7 +203,7 @@
                         status.innerHTML = '<b>Working…</b> ' + esc(r.Activity || 'Starting…') + esc(pct) + '. Cut so far: ' + r.CutThisRun +
                             '. Each clip takes about 15–25 seconds; they show up below as they finish.';
                     } else {
-                        status.innerHTML = r.LastResult ? 'Last run: ' + esc(r.LastResult) : '';
+                        status.innerHTML = r.Indexing ? '<b>Indexing themes and fetching metadata…</b>' : (r.LastResult ? 'Last run: ' + esc(r.LastResult) : '');
                     }
                     btn.disabled = !!r.Extracting;
                     btn.querySelector('span').textContent = r.Extracting ? 'Looking for clips…' : 'Look for clips now';
@@ -210,14 +214,19 @@
                         el.innerHTML = html;
                     }
                     clearTimeout(window.opedClipTimer);
-                    if (r.Extracting) window.opedClipTimer = setTimeout(function () { loadClips(page); }, 4000);
+                    if (r.Extracting || r.Indexing) window.opedClipTimer = setTimeout(function () { loadClips(page); }, 4000);
+                    if (window.opedWasIndexing && !r.Indexing) {
+                        loadEditor(page);
+                        showReport(page);
+                    }
+                    window.opedWasIndexing = r.Indexing;
                 });
             }
 
             document.querySelector('#OpEdClips').addEventListener('click', function (e) {
                 var page = document.querySelector('#OpEdConfigPage');
                 var clear = e.target.closest('.oped-clear-rejected');
-                var btn = e.target.closest('.oped-approve, .oped-reject');
+                var btn = e.target.closest('.oped-approve, .oped-reject, .oped-retry, .oped-apply');
                 if (!clear && !btn) return;
                 e.preventDefault();
                 var url, type = 'POST';
@@ -225,7 +234,12 @@
                     url = 'OpEd/Admin/Clips/Rejected';
                     type = 'DELETE';
                 } else {
-                    url = 'OpEd/Admin/Clips/' + btn.closest('.oped-clip').getAttribute('data-id') + (btn.classList.contains('oped-approve') ? '/Approve' : '/Reject');
+                    if (btn.classList.contains('oped-apply')) {
+                        url = 'OpEd/Admin/Clips/Apply';
+                    } else {
+                        url = 'OpEd/Admin/Clips/' + btn.closest('.oped-clip').getAttribute('data-id') +
+                            (btn.classList.contains('oped-approve') ? '/Approve' : btn.classList.contains('oped-retry') ? '/Reject?tryAnother=true' : '/Reject');
+                    }
                 }
                 Dashboard.showLoadingMsg();
                 ApiClient.fetch({ url: ApiClient.getUrl(url), type: type }).then(function () {
