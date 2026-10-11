@@ -54,7 +54,7 @@
                 <div id="OpEdLibraries" class="checkboxList paperList" style="margin-bottom:1em">Loading…</div>
                 <button is="emby-button" type="button" id="OpEdExtract" class="raised block"><span>Look for clips now</span></button>
                 <div id="OpEdClipStatus" class="fieldDescription" style="margin:.8em 0"></div>
-                <div id="OpEdClips" class="fieldDescription">Loading…</div>
+                <div id="OpEdClips" class="fieldDescription"><div class="oped-head"></div><div class="oped-list">Loading…</div><div class="oped-foot"></div></div>
 
                 <h2>Song details</h2>
                 <div class="fieldDescription">
@@ -169,36 +169,78 @@
                 });
             });
 
+            function clipCard(c) {
+                var base = ApiClient.getUrl('OpEd/Admin/Clips/' + c.Id);
+                var mins = Math.floor(c.DurationSeconds / 60), secs = Math.round(c.DurationSeconds % 60);
+                var song = c.SongTitle ? esc(c.SongTitle) + (c.Artists && c.Artists.length ? ' – ' + esc(c.Artists.join(', ')) : '') : 'no AnimeThemes details';
+                var div = document.createElement('div');
+                div.className = 'oped-clip';
+                div.setAttribute('data-id', c.Id);
+                div.style.cssText = 'display:flex;gap:1em;margin:1em 0;padding-top:1em;border-top:1px solid rgba(255,255,255,.08);flex-wrap:wrap';
+                div.innerHTML =
+                    '<div class="oped-preview" data-url="' + esc(base + '/Video') + '" style="width:320px;max-width:100%;aspect-ratio:16/9;background:#000;display:flex;align-items:center;justify-content:center;text-align:center">' +
+                    '<button is="emby-button" type="button" class="raised oped-load"><span>Load preview</span></button></div>' +
+                    '<div style="flex:1;min-width:220px"><b>' + esc(c.Show) + '</b> – ' + esc(c.Slug) + '<br>' +
+                    esc(c.Sub) + (c.Season ? ' (' + esc(c.Season) + ')' : '') + '<br>' +
+                    'Cut from episode ' + esc(c.EpisodeNumber == null ? '?' : c.EpisodeNumber) + (c.EpisodeName ? ' "' + esc(c.EpisodeName) + '"' : '') +
+                    ', chapter "' + esc(c.Chapter) + '", ' + mins + ':' + (secs < 10 ? '0' : '') + secs + '<br>' +
+                    'Expected: ' + song + (c.Episodes ? ' [episodes ' + esc(c.Episodes) + ']' : '') + '<br>' +
+                    '<div style="margin-top:.6em"><button is="emby-button" type="button" class="raised oped-approve" style="margin:0 .5em 0 0"><span>Approve</span></button>' +
+                    '<button is="emby-button" type="button" class="raised oped-reject" style="margin:0 .5em 0 0"><span>Reject</span></button>' +
+                    '<button is="emby-button" type="button" class="raised oped-retry" style="margin:0" title="Delete this clip and cut the next episode that has an OP/ED chapter, e.g. when text or credits run over it"><span>Reject, try another episode</span></button></div></div>';
+                return div;
+            }
+
+            // Updates a region only when its markup changed.
+            function setIfChanged(el, html) {
+                if (el.getAttribute('data-sig') !== html) {
+                    el.setAttribute('data-sig', html);
+                    el.innerHTML = html;
+                }
+            }
+
             function loadClips(page) {
                 ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Admin/Clips'), type: 'GET', dataType: 'json' }).then(function (r) {
-                    var el = page.querySelector('#OpEdClips');
-                    var html = '';
-                    if (!r.Clips.length) {
-                        html += r.Extracting ? '<p>No clips yet; they appear here as they finish.</p>' : '<p>No clips waiting for review.</p>';
+                    var head = page.querySelector('#OpEdClips .oped-head'), list = page.querySelector('#OpEdClips .oped-list'), foot = page.querySelector('#OpEdClips .oped-foot');
+
+                    // The list is reconciled by clip id: cards already on the page are left alone (a preview that is loading or
+                    // playing must survive new clips turning up), only new ones are inserted and finished ones removed.
+                    if (!list.hasAttribute('data-init')) {
+                        list.setAttribute('data-init', '1');
+                        list.textContent = ''; // drops the initial "Loading…" text
                     }
-                    r.Clips.forEach(function (c) {
-                        var base = ApiClient.getUrl('OpEd/Admin/Clips/' + c.Id);
-                        var mins = Math.floor(c.DurationSeconds / 60), secs = Math.round(c.DurationSeconds % 60);
-                        var song = c.SongTitle ? esc(c.SongTitle) + (c.Artists && c.Artists.length ? ' – ' + esc(c.Artists.join(', ')) : '') : 'no AnimeThemes details';
-                        html += '<div class="oped-clip" data-id="' + esc(c.Id) + '" style="display:flex;gap:1em;margin:1em 0;padding-top:1em;border-top:1px solid rgba(255,255,255,.08);flex-wrap:wrap">' +
-                            '<div class="oped-preview" data-url="' + esc(base + '/Video') + '" style="width:320px;max-width:100%;aspect-ratio:16/9;background:#000;display:flex;align-items:center;justify-content:center;text-align:center">' +
-                            '<button is="emby-button" type="button" class="raised oped-load"><span>Load preview</span></button></div>' +
-                            '<div style="flex:1;min-width:220px"><b>' + esc(c.Show) + '</b> – ' + esc(c.Slug) + '<br>' +
-                            esc(c.Sub) + (c.Season ? ' (' + esc(c.Season) + ')' : '') + '<br>' +
-                            'Cut from episode ' + esc(c.EpisodeNumber == null ? '?' : c.EpisodeNumber) + (c.EpisodeName ? ' "' + esc(c.EpisodeName) + '"' : '') +
-                            ', chapter "' + esc(c.Chapter) + '", ' + mins + ':' + (secs < 10 ? '0' : '') + secs + '<br>' +
-                            'Expected: ' + song + (c.Episodes ? ' [episodes ' + esc(c.Episodes) + ']' : '') + '<br>' +
-                            '<div style="margin-top:.6em"><button is="emby-button" type="button" class="raised oped-approve" style="margin:0 .5em 0 0"><span>Approve</span></button>' +
-                            '<button is="emby-button" type="button" class="raised oped-reject" style="margin:0 .5em 0 0"><span>Reject</span></button>' +
-                            '<button is="emby-button" type="button" class="raised oped-retry" style="margin:0" title="Delete this clip and cut the next episode that has an OP/ED chapter, e.g. when text or credits run over it"><span>Reject, try another episode</span></button></div></div></div>';
+                    var wanted = {};
+                    r.Clips.forEach(function (c) { wanted[c.Id] = true; });
+                    Array.prototype.slice.call(list.children).forEach(function (child) {
+                        if (!child.classList.contains('oped-clip') || !wanted[child.getAttribute('data-id')]) list.removeChild(child);
                     });
-                    if (r.ApprovedWaiting) {
-                        html = '<p><b>' + r.ApprovedWaiting + ' approved clip(s)</b> are in the themes folder but not indexed yet. Approve the rest first, then index them together: one scan, and AnimeThemes is only asked for what isn\'t cached. ' +
-                            '<button is="emby-button" type="button" class="raised oped-apply"><span>Index approved clips and fetch metadata</span></button></p>' + html;
+                    var cursor = list.firstElementChild;
+                    r.Clips.forEach(function (c) {
+                        if (cursor && cursor.getAttribute('data-id') === c.Id) {
+                            cursor = cursor.nextElementSibling;
+                        } else {
+                            var existing = list.querySelector('.oped-clip[data-id="' + c.Id + '"]');
+                            if (!existing) list.insertBefore(clipCard(c), cursor);
+                        }
+                    });
+                    var empty = list.querySelector('.oped-empty');
+                    if (!r.Clips.length) {
+                        if (!empty) {
+                            empty = document.createElement('p');
+                            empty.className = 'oped-empty';
+                            list.appendChild(empty);
+                        }
+                        empty.textContent = r.Extracting ? 'No clips yet; they appear here as they finish.' : 'No clips waiting for review.';
+                    } else if (empty) {
+                        list.removeChild(empty);
                     }
-                    if (r.Rejected) {
-                        html += '<p>' + r.Rejected + ' rejected slot(s) won\'t be cut again. <a href="#" class="oped-clear-rejected">Forget rejections</a></p>';
-                    }
+
+                    setIfChanged(head, r.ApprovedWaiting
+                        ? '<p><b>' + r.ApprovedWaiting + ' approved clip(s)</b> are in the themes folder but not indexed yet. Approve the rest first, then index them together: one scan, and AnimeThemes is only asked for what isn\'t cached. ' +
+                            '<button is="emby-button" type="button" class="raised oped-apply"><span>Index approved clips and fetch metadata</span></button></p>'
+                        : '');
+                    setIfChanged(foot, r.Rejected ? '<p>' + r.Rejected + ' rejected slot(s) won\'t be cut again. <a href="#" class="oped-clear-rejected">Forget rejections</a></p>' : '');
+
                     var status = page.querySelector('#OpEdClipStatus'), btn = page.querySelector('#OpEdExtract');
                     if (r.Extracting) {
                         var pct = r.SeasonsTotal ? ' (' + r.SeasonsDone + ' of ' + r.SeasonsTotal + ' seasons)' : '';
@@ -209,12 +251,6 @@
                     }
                     btn.disabled = !!r.Extracting;
                     btn.querySelector('span').textContent = r.Extracting ? 'Looking for clips…' : 'Look for clips now';
-                    // Only redraw the list when it changed, so a clip being previewed isn't reset by the next poll.
-                    var sig = html;
-                    if (el.getAttribute('data-sig') !== sig) {
-                        el.setAttribute('data-sig', sig);
-                        el.innerHTML = html;
-                    }
                     clearTimeout(window.opedClipTimer);
                     if (r.Extracting || r.Indexing) window.opedClipTimer = setTimeout(function () { loadClips(page); }, 4000);
                     if (window.opedWasIndexing && !r.Indexing) {
