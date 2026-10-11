@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <title>OP/ED</title>
+</head>
+<body>
+    <div id="OpEdConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="OpEdConfigForm">
+                    <p>
+                        Anime opening and ending themes from a folder you fill, matched to your shows, for clients that use the
+                        OP/ED API (for example AsterFIN). Jellyfin's own theme music/video playback is not affected.
+                    </p>
+
+                    <h2>Themes folder</h2>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="ThemesPath">Folder (as Jellyfin sees it)</label>
+                        <input id="ThemesPath" type="text" is="emby-input" placeholder="/data/tvshows/general/anime_themes" />
+                        <div class="fieldDescription">
+                            One folder per show, named exactly like the show's folder in your media library. Inside it:
+                            <code>OP1.webm</code>, <code>OP1.ogg</code>, <code>ED2.webm</code> … (AnimeThemes file names such as
+                            <code>SousouNoFrieren-OP1.webm</code> work too). Optional subfolders: <code>Season 2</code> to limit a
+                            theme to that season, or <code>anidb-18886</code> for one exact AniDB entry. Keep this folder outside
+                            every library, so no library picks the themes up as ordinary videos.
+                        </div>
+                    </div>
+
+                    <h2>Metadata</h2>
+                    <div class="checkboxContainer">
+                        <label><input id="FetchMetadata" type="checkbox" is="emby-checkbox" /><span>Look up song, artists and episodes on AnimeThemes.moe</span></label>
+                        <div class="fieldDescription">Uses the AniDB IDs on your seasons (Shokofin sets them). Answers are cached.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MetadataRefreshDays">Days before cached metadata is fetched again</label>
+                        <input id="MetadataRefreshDays" type="number" min="1" max="365" is="emby-input" />
+                    </div>
+
+                    <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
+                    <button is="emby-button" type="button" id="OpEdScan" class="raised block"><span>Save and scan now</span></button>
+                </form>
+
+                <h2>Last scan</h2>
+                <div id="OpEdReport" class="fieldDescription">Loading…</div>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var pluginId = 'd459e0a2-e073-4e1e-b0ec-71883075cf4a';
+
+            function esc(s) {
+                return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
+            }
+
+            function list(title, items) {
+                if (!items || !items.length) return '';
+                return '<p><b>' + esc(title) + ' (' + items.length + ')</b></p><ul>' +
+                    items.map(function (i) { return '<li>' + esc(i) + '</li>'; }).join('') + '</ul>';
+            }
+
+            function showReport(page) {
+                ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Status'), type: 'GET', dataType: 'json' }).then(function (s) {
+                    var r = s.Report || {};
+                    var html = s.Scanning ? '<p>Scanning…</p>' : '';
+                    if (r.Error) html += '<p><b>Problem:</b> ' + esc(r.Error) + '</p>';
+                    if (r.FinishedAt) {
+                        html += '<p>' + esc(new Date(r.FinishedAt).toLocaleString()) + ': ' + r.Themes + ' themes, ' +
+                            r.WithMetadata + ' with song metadata.</p>';
+                    } else if (!s.Scanning) {
+                        html += '<p>No scan yet.</p>';
+                    }
+                    html += list('Folders that match no show', r.UnmatchedFolders);
+                    html += list('Files not recognised as an OP or ED', r.UnparsedFiles);
+                    html += list('Themes without AnimeThemes metadata', r.NoMetadata);
+                    page.querySelector('#OpEdReport').innerHTML = html;
+                    if (s.Scanning) setTimeout(function () { showReport(page); }, 3000);
+                });
+            }
+
+            function save(page) {
+                return ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    config.ThemesPath = page.querySelector('#ThemesPath').value.trim();
+                    config.FetchMetadata = page.querySelector('#FetchMetadata').checked;
+                    config.MetadataRefreshDays = parseInt(page.querySelector('#MetadataRefreshDays').value, 10) || 14;
+                    return ApiClient.updatePluginConfiguration(pluginId, config);
+                });
+            }
+
+            document.querySelector('#OpEdConfigPage').addEventListener('pageshow', function () {
+                var page = this;
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    page.querySelector('#ThemesPath').value = config.ThemesPath || '';
+                    page.querySelector('#FetchMetadata').checked = !!config.FetchMetadata;
+                    page.querySelector('#MetadataRefreshDays').value = config.MetadataRefreshDays;
+                    Dashboard.hideLoadingMsg();
+                });
+                showReport(page);
+            });
+
+            document.querySelector('#OpEdConfigForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                Dashboard.showLoadingMsg();
+                save(document.querySelector('#OpEdConfigPage')).then(function (result) {
+                    Dashboard.processPluginConfigurationUpdateResult(result);
+                });
+                return false;
+            });
+
+            document.querySelector('#OpEdScan').addEventListener('click', function () {
+                var page = document.querySelector('#OpEdConfigPage');
+                Dashboard.showLoadingMsg();
+                save(page).then(function () {
+                    page.querySelector('#OpEdReport').innerHTML = '<p>Scanning…</p>';
+                    return ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Scan'), type: 'POST', dataType: 'json' });
+                }).then(function () {
+                    Dashboard.hideLoadingMsg();
+                    showReport(page);
+                }, function () {
+                    Dashboard.hideLoadingMsg();
+                    showReport(page);
+                });
+            });
+        </script>
+    </div>
+</body>
+</html>

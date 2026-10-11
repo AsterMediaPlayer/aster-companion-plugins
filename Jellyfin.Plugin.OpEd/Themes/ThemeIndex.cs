@@ -1,0 +1,329 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using MediaBrowser.Controller.Library;
+using Microsoft.Extensions.Logging;
+
+namespace Jellyfin.Plugin.OpEd.Themes;
+
+/// <summary>
+/// The themes found in the themes folder, matched to shows and seasons, with metadata. Rebuilt by <see cref="ScanAsync"/>
+/// (scheduled task, or POST /OpEd/Scan) and kept in memory plus a JSON file in the plugin's data folder so a restart
+/// doesn't need a rescan.
+///
+/// Folder layout (under the configured themes folder):
+///   Show Folder/OP1.webm, OP1.ogg, ED1.webm …        themes for the show; season worked out from metadata
+///   Show Folder/Season 2/OP1.webm                     only the AniDB entries in that library season folder
+///   Show Folder/anidb-18886/OP1.webm                  exactly that AniDB entry
+/// A video and an audio file with the same OP/ED identity in the same folder are one theme.
+/// </summary>
+public sealed partial class ThemeIndex
+{
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = false };
+    private readonly ILibraryManager _libraryManager;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<ThemeIndex> _logger;
+    private readonly SemaphoreSlim _scanLock = new(1, 1);
+    private ThemeIndexData _data = new();
+    private bool _loaded;
+
+    public ThemeIndex(ILibraryManager libraryManager, IHttpClientFactory httpClientFactory, ILogger<ThemeIndex> logger)
+    {
+        _libraryManager = libraryManager;
+        _httpClientFactory = httpClientFactory;
+        _logger = logger;
+    }
+
+    private static string DataDir => Plugin.Instance?.DataFolderPath ?? Path.Combine(Path.GetTempPath(), "oped");
+
+    private static string IndexFile => Path.Combine(DataDir, "index.json");
+
+    public ScanReport Report => Data.Report;
+
+    public bool IsScanning => _scanLock.CurrentCount == 0;
+
+    private ThemeIndexData Data
+    {
+        get
+        {
+            if (!_loaded)
+            {
+                _loaded = true;
+                try
+                {
+                    if (File.Exists(IndexFile))
+                    {
+                        _data = JsonSerializer.Deserialize<ThemeIndexData>(File.ReadAllText(IndexFile)) ?? new();
+                    }
+                }
+                catch (Exception e) when (e is IOException or JsonException)
+                {
+                    _logger.LogWarning(e, "OP/ED: couldn't read the saved index; a rescan will rebuild it");
+                }
+            }
+
+            return _data;
+        }
+    }
+
+    public Theme? Get(string id) => Data.Themes.Find(t => t.Id == id);
+
+    public IEnumerable<Theme> ForSeries(Guid seriesId) =>
+        Data.Themes.Where(t => t.SeriesId == seriesId)
+            .OrderBy(t => t.SeasonId is null ? 1 : 0).ThenBy(t => t.AniDbId).ThenBy(t => t.Type == "OP" ? 0 : 1)
+            .ThenBy(t => t.Sequence).ThenBy(t => t.Version).ThenBy(t => t.Variant, StringComparer.Ordinal);
+
+    public async Task<ScanReport> ScanAsync(IProgress<double>? progress, CancellationToken ct)
+    {
+        await _scanLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var report = new ScanReport();
+            var themes = new List<Theme>();
+            var config = Plugin.Instance?.Configuration ?? new Configuration.PluginConfiguration();
+            var root = config.ThemesPath.Trim();
+            if (root.Length == 0 || !Directory.Exists(root))
+            {
+                report.Error = root.Length == 0 ? "No themes folder is set." : $"Themes folder not found: {root}";
+                return Save(themes, report);
+            }
+
+            // 1. Files -> themes, grouped by (show folder, subfolder, OP/ED identity).
+            var groups = new Dictionary<string, Theme>(StringComparer.OrdinalIgnoreCase);
+            foreach (var showDir in Directory.EnumerateDirectories(root).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
+            {
+                var showFolder = Path.GetFileName(showDir);
+                foreach (var file in Directory.EnumerateFiles(showDir, "*", new EnumerationOptions { RecurseSubdirectories = true, MaxRecursionDepth = 1 }))
+                {
+                    if (!ThemeFileName.IsVideo(file) && !ThemeFileName.IsAudio(file))
+                    {
+                        continue;
+                    }
+
+                    var rel = Path.GetRelativePath(root, file);
+                    if (!ThemeFileName.TryParse(Path.GetFileName(file), out var type, out var seq, out var ver, out var variant))
+                    {
+                        report.UnparsedFiles.Add(rel);
+                        continue;
+                    }
+
+                    var sub = Path.GetDirectoryName(Path.GetRelativePath(showDir, file)) ?? string.Empty;
+                    int? folderSeason = null;
+                    int? folderAniDb = null;
+                    if (sub.Length > 0)
+                    {
+                        var sm = ShowMap.SeasonFolder().Match(sub);
+                        var am = AniDbFolder().Match(sub);
+                        if (am.Success)
+                        {
+                            folderAniDb = int.Parse(am.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+                        }
+                        else if (sm.Success)
+                        {
+                            folderSeason = sm.Groups[1].Success ? int.Parse(sm.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) : 0;
+                        }
+                        else
+                        {
+                            report.UnparsedFiles.Add(rel + "  (subfolder must be \"Season N\" or \"anidb-N\")");
+                            continue;
+                        }
+                    }
+
+                    var key = $"{showFolder}|{sub}|{type}{seq}v{ver}|{variant}";
+                    if (!groups.TryGetValue(key, out var theme))
+                    {
+                        groups[key] = theme = new Theme
+                        {
+                            Id = StableId(key),
+                            Type = type,
+                            Sequence = seq,
+                            Version = ver,
+                            Variant = variant,
+                            ShowFolder = showFolder,
+                            FolderSeason = folderSeason,
+                            AniDbId = folderAniDb,
+                        };
+                    }
+
+                    if (ThemeFileName.IsVideo(file))
+                    {
+                        theme.VideoPath ??= file;
+                    }
+                    else
+                    {
+                        theme.AudioPath ??= file;
+                    }
+                }
+            }
+
+            // 2. Themes -> Jellyfin shows/seasons, and metadata.
+            var map = ShowMap.Build(_libraryManager, _logger);
+            var client = new AnimeThemesClient(_httpClientFactory, _logger, Path.Combine(DataDir, "animethemes-cache"));
+            var unmatched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var done = 0;
+
+            // AnimeThemes asked API users to batch lookups rather than send one request per show, so fetch every AniDB
+            // entry this scan could need up front, many ids per request; the per-theme lookups below then read the cache.
+            if (config.FetchMetadata)
+            {
+                var wanted = new HashSet<int>();
+                foreach (var theme in groups.Values)
+                {
+                    if (theme.AniDbId is int fixedId)
+                    {
+                        wanted.Add(fixedId);
+                    }
+                    else if (map.SeriesFor(theme.ShowFolder) is Guid sid)
+                    {
+                        foreach (var s in map.CandidateSeasons(theme.ShowFolder, sid, theme.FolderSeason))
+                        {
+                            if (s.AniDbId is int a)
+                            {
+                                wanted.Add(a);
+                            }
+                        }
+                    }
+                }
+
+                await client.PrefetchAsync(wanted, config.MetadataRefreshDays, ct).ConfigureAwait(false);
+            }
+            foreach (var theme in groups.Values)
+            {
+                ct.ThrowIfCancellationRequested();
+                progress?.Report(100.0 * done++ / Math.Max(1, groups.Count));
+                var seriesId = map.SeriesFor(theme.ShowFolder);
+                if (seriesId is null)
+                {
+                    unmatched.Add(theme.ShowFolder);
+                    continue;
+                }
+
+                theme.SeriesId = seriesId;
+                if (theme.AniDbId is int fixedAniDb)
+                {
+                    theme.SeasonId = map.SeasonForAniDb(seriesId.Value, fixedAniDb)?.SeasonId;
+                }
+
+                if (config.FetchMetadata)
+                {
+                    AttachMetadata(theme, map, client);
+                }
+
+                // Without metadata: a theme whose folder (season folder, or the whole show) maps to a single AniDB entry
+                // still gets that entry.
+                if (theme.SeasonId is null && theme.AniDbId is null)
+                {
+                    var candidates = map.CandidateSeasons(theme.ShowFolder, seriesId.Value, theme.FolderSeason)
+                        .Where(s => s.AniDbId is not null).ToList();
+                    if (candidates.Count == 1)
+                    {
+                        theme.SeasonId = candidates[0].SeasonId;
+                        theme.AniDbId = candidates[0].AniDbId;
+                    }
+                }
+
+                themes.Add(theme);
+                if (theme.MetadataSource is null)
+                {
+                    report.NoMetadata.Add(Path.Combine(theme.ShowFolder, theme.FolderSeason is int s ? $"Season {s}" : string.Empty, theme.Slug));
+                }
+            }
+
+            report.UnmatchedFolders = [.. unmatched.Order(StringComparer.OrdinalIgnoreCase)];
+            report.Themes = themes.Count;
+            report.WithMetadata = themes.Count(t => t.MetadataSource is not null);
+            progress?.Report(100);
+            _logger.LogInformation(
+                "OP/ED: scan found {Themes} themes ({Meta} with metadata) for {Shows} shows; {Unmatched} folders unmatched, {Unparsed} files not recognised",
+                report.Themes, report.WithMetadata, themes.Select(t => t.SeriesId).Distinct().Count(), report.UnmatchedFolders.Count, report.UnparsedFiles.Count);
+            return Save(themes, report);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _logger.LogError(e, "OP/ED: scan failed");
+            var report = Data.Report;
+            report.Error = e.Message;
+            return report;
+        }
+        finally
+        {
+            _scanLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Finds the theme on AnimeThemes. Candidate AniDB entries are the folder's fixed one, else the seasons of the
+    /// library season folder, else every season of the show, earliest first; the first entry that has this OP/ED
+    /// (by slug, then ignoring the variant) wins.
+    /// </summary>
+    private static void AttachMetadata(Theme theme, ShowMap map, AnimeThemesClient client)
+    {
+        var candidates = theme.AniDbId is int fixedId
+            ? [new ShowMap.SeasonRef(theme.SeasonId ?? Guid.Empty, fixedId, 0)]
+            : map.CandidateSeasons(theme.ShowFolder, theme.SeriesId!.Value, theme.FolderSeason);
+
+        foreach (var withVariant in new[] { true, false })
+        {
+            if (!withVariant && theme.Variant.Length == 0)
+            {
+                break;
+            }
+
+            foreach (var season in candidates)
+            {
+                if (season.AniDbId is not int aniDb)
+                {
+                    continue;
+                }
+
+                var entries = client.GetThemes(aniDb);
+                var slug = withVariant ? theme.Slug : theme.Type + theme.Sequence;
+                var matches = entries?.Where(e => string.Equals(e.Slug, slug, StringComparison.OrdinalIgnoreCase)
+                    || (withVariant && theme.Variant.Length == 0 && string.Equals(e.Type, theme.Type, StringComparison.OrdinalIgnoreCase) && e.Sequence == theme.Sequence)).ToList();
+                if (matches is null || matches.Count == 0)
+                {
+                    continue;
+                }
+
+                // "ED1" also loosely matches "ED1-TV" (same type and number); an exact slug beats that.
+                var exact = matches.FindAll(e => string.Equals(e.Slug, slug, StringComparison.OrdinalIgnoreCase));
+                var pool = exact.Count > 0 ? exact : matches;
+                var entry = pool.Find(e => e.Version == theme.Version) ?? pool[0];
+                theme.AniDbId = aniDb;
+                theme.SeasonId = season.SeasonId == Guid.Empty ? map.SeasonForAniDb(theme.SeriesId!.Value, aniDb)?.SeasonId : season.SeasonId;
+                theme.SongTitle = entry.Song;
+                theme.Artists = entry.Artists;
+                theme.Episodes = entry.Episodes;
+                theme.Spoiler = entry.Spoiler;
+                theme.Nsfw = entry.Nsfw;
+                theme.MetadataSource = "animethemes";
+                return;
+            }
+        }
+    }
+
+    private ScanReport Save(List<Theme> themes, ScanReport report)
+    {
+        report.FinishedAt = DateTime.UtcNow;
+        _data = new ThemeIndexData { Themes = themes, Report = report };
+        _loaded = true;
+        try
+        {
+            Directory.CreateDirectory(DataDir);
+            File.WriteAllText(IndexFile, JsonSerializer.Serialize(_data, JsonOptions));
+        }
+        catch (IOException e)
+        {
+            _logger.LogWarning(e, "OP/ED: couldn't save the index");
+        }
+
+        return report;
+    }
+
+    private static string StableId(string key) =>
+        Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(key.ToUpperInvariant())))[..16].ToLowerInvariant();
+
+    [GeneratedRegex(@"^anidb[-_ ]?(\d+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex AniDbFolder();
+}

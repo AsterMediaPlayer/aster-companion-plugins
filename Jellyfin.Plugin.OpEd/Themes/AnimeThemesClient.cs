@@ -1,0 +1,215 @@
+using System.Net;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging;
+
+namespace Jellyfin.Plugin.OpEd.Themes;
+
+/// <summary>
+/// Song metadata from AnimeThemes.moe, looked up by AniDB id.
+///
+/// AnimeThemes runs on a single small server and has asked API users (after blocking an earlier Jellyfin plugin for
+/// the load it caused) to batch lookups. So: <see cref="PrefetchAsync"/> fetches every id a scan needs, up to 50 per
+/// request, one request at a time with a gap between them; answers are cached on disk per AniDB id (including "nothing
+/// for this id") and only re-fetched after the configured number of days; <see cref="GetThemes"/> reads that cache
+/// only. Requests identify the plugin honestly in the User-Agent.
+/// </summary>
+public sealed class AnimeThemesClient
+{
+    private const string Api = "https://api.animethemes.moe/anime";
+    private const string UserAgent = "Jellyfin-Plugin-OpEd/0.1 (+https://github.com/peppy6582/jellyfin-oped)";
+    private const int BatchSize = 50;
+    private static readonly TimeSpan MinGap = TimeSpan.FromSeconds(2);
+    private static readonly SemaphoreSlim Gate = new(1, 1);
+    private static DateTime _lastRequest = DateTime.MinValue;
+
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger _logger;
+    private readonly string _cacheDir;
+
+    public AnimeThemesClient(IHttpClientFactory httpClientFactory, ILogger logger, string cacheDir)
+    {
+        _httpClientFactory = httpClientFactory;
+        _logger = logger;
+        _cacheDir = cacheDir;
+        Directory.CreateDirectory(cacheDir);
+    }
+
+    /// <summary>One theme as AnimeThemes describes it, flattened to what we use.</summary>
+    public sealed record Entry(string Type, int Sequence, string Slug, int Version, string? Song, List<string> Artists, string? Episodes, bool Spoiler, bool Nsfw);
+
+    /// <summary>Fetches, in batches, every id whose cached answer is missing or older than <paramref name="refreshDays"/>.</summary>
+    public async Task PrefetchAsync(IEnumerable<int> aniDbIds, int refreshDays, CancellationToken ct)
+    {
+        var cutoff = DateTime.UtcNow.AddDays(-Math.Max(1, refreshDays));
+        var stale = aniDbIds.Distinct().Where(id => !File.Exists(CacheFile(id)) || File.GetLastWriteTimeUtc(CacheFile(id)) < cutoff).Order().ToList();
+        if (stale.Count == 0)
+        {
+            return;
+        }
+
+        _logger.LogInformation("OP/ED: fetching AnimeThemes metadata for {Count} AniDB entries in {Batches} request(s)", stale.Count, (stale.Count + BatchSize - 1) / BatchSize);
+        foreach (var batch in stale.Chunk(BatchSize))
+        {
+            var found = batch.ToDictionary(id => id, _ => new JsonArray());
+            var url = $"{Api}?filter[has]=resources&filter[site]=AniDB&filter[external_id]={string.Join(',', batch)}"
+                + "&include=resources,animethemes.animethemeentries,animethemes.song.artists&page[size]=100";
+            var ok = true;
+            while (url is not null)
+            {
+                var json = await FetchAsync(url, ct).ConfigureAwait(false);
+                if (json is null)
+                {
+                    ok = false;
+                    break;
+                }
+
+                var page = JsonNode.Parse(json);
+                foreach (var anime in page?["anime"]?.AsArray() ?? [])
+                {
+                    foreach (var resource in anime?["resources"]?.AsArray() ?? [])
+                    {
+                        if (string.Equals((string?)resource?["site"], "AniDB", StringComparison.OrdinalIgnoreCase) // the API says "aniDB"
+                            && int.TryParse(resource?["external_id"]?.ToString(), out var id)
+                            && found.TryGetValue(id, out var list))
+                        {
+                            list.Add(anime!.DeepClone());
+                        }
+                    }
+                }
+
+                url = (string?)page?["links"]?["next"];
+            }
+
+            if (!ok)
+            {
+                continue; // keep whatever was cached before; retried on the next scan
+            }
+
+            foreach (var (id, list) in found)
+            {
+                await File.WriteAllTextAsync(CacheFile(id), new JsonObject { ["anime"] = list }.ToJsonString(), ct).ConfigureAwait(false);
+            }
+        }
+    }
+
+    /// <summary>Cached themes for an AniDB anime: empty when AnimeThemes has none, null when it was never fetched.</summary>
+    public List<Entry>? GetThemes(int aniDbId)
+    {
+        var file = CacheFile(aniDbId);
+        return File.Exists(file) ? Parse(File.ReadAllText(file)) : null;
+    }
+
+    private string CacheFile(int aniDbId) => Path.Combine(_cacheDir, $"anidb-{aniDbId}.json");
+
+    private async Task<string?> FetchAsync(string url, CancellationToken ct)
+    {
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            await Gate.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                var wait = _lastRequest + MinGap - DateTime.UtcNow;
+                if (wait > TimeSpan.Zero)
+                {
+                    await Task.Delay(wait, ct).ConfigureAwait(false);
+                }
+
+                _lastRequest = DateTime.UtcNow;
+                using var client = _httpClientFactory.CreateClient();
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.UserAgent.ParseAdd(UserAgent);
+                request.Headers.Accept.ParseAdd("application/json");
+                using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+                if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    var retry = response.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(60);
+                    _logger.LogInformation("OP/ED: AnimeThemes rate limit hit, waiting {Seconds}s", retry.TotalSeconds);
+                    await Task.Delay(retry, ct).ConfigureAwait(false);
+                    continue;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    // 403/520 here means AnimeThemes is refusing this client; don't retry, just report it.
+                    _logger.LogWarning("OP/ED: AnimeThemes refused the metadata request ({Status}); themes keep any cached metadata", (int)response.StatusCode);
+                    return null;
+                }
+
+                return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            }
+            catch (HttpRequestException e)
+            {
+                _logger.LogWarning("OP/ED: AnimeThemes request failed: {Message}", e.Message);
+            }
+            finally
+            {
+                Gate.Release();
+            }
+        }
+
+        return null;
+    }
+
+    private static List<Entry> Parse(string json)
+    {
+        var result = new List<Entry>();
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("anime", out var animeList))
+        {
+            return result;
+        }
+
+        foreach (var anime in animeList.EnumerateArray())
+        {
+            if (!anime.TryGetProperty("animethemes", out var themes))
+            {
+                continue;
+            }
+
+            foreach (var t in themes.EnumerateArray())
+            {
+                var type = Str(t, "type") ?? string.Empty;
+                var sequence = t.TryGetProperty("sequence", out var s) && s.ValueKind == JsonValueKind.Number ? s.GetInt32() : 1;
+                var slug = Str(t, "slug") ?? type + sequence;
+                string? song = null;
+                var artists = new List<string>();
+                if (t.TryGetProperty("song", out var songEl) && songEl.ValueKind == JsonValueKind.Object)
+                {
+                    song = Str(songEl, "title");
+                    if (songEl.TryGetProperty("artists", out var artistsEl) && artistsEl.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var a in artistsEl.EnumerateArray())
+                        {
+                            if (Str(a, "name") is { } name)
+                            {
+                                artists.Add(name);
+                            }
+                        }
+                    }
+                }
+
+                if (!t.TryGetProperty("animethemeentries", out var entries) || entries.ValueKind != JsonValueKind.Array || entries.GetArrayLength() == 0)
+                {
+                    result.Add(new Entry(type, sequence, slug, 1, song, artists, null, false, false));
+                    continue;
+                }
+
+                foreach (var e in entries.EnumerateArray())
+                {
+                    var version = e.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : 1;
+                    result.Add(new Entry(type, sequence, slug, version, song, artists, Str(e, "episodes"),
+                        Bool(e, "spoiler"), Bool(e, "nsfw")));
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static string? Str(JsonElement el, string name) =>
+        el.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+    private static bool Bool(JsonElement el, string name) =>
+        el.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
+}
