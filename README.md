@@ -201,6 +201,9 @@ License: GPL-3.0.
 
 ## Releasing
 
-`bash scripts/package.sh` builds the plugin, writes `dist/jellyfin-oped_<version>.zip` (just the DLL) and adds the
-version, with the zip's MD5, to `manifest.json`. Create a GitHub release tagged `v<version>`, attach the zip, and push
-the updated `manifest.json`. Bump `version` in `Jellyfin.Plugin.OpEd/build.yaml` and the csproj first for a new release.
+Bump `version` in `Jellyfin.Plugin.OpEd/build.yaml` and the csproj, commit, then push a matching tag (`git tag v0.1.0.0 && git push origin v0.1.0.0`).
+`.github/workflows/release.yml` builds the plugin, creates the GitHub release with `jellyfin-oped_<version>.zip`, and
+records the version and the zip's MD5 in `manifest.json` on main.
+
+To package by hand instead: `bash scripts/package.sh` writes `dist/jellyfin-oped_<version>.zip` (just the DLL) and updates
+`manifest.json`; attach the zip to a release yourself.

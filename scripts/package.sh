@@ -25,8 +25,8 @@ block() { awk -v key="$1" '$0 ~ "^"key": *>" {on=1; next} on && /^[^ ]/ {on=0} o
 description=$(block description)
 changelog=$(block changelog)
 
-out=${OPED_OUT:-/mnt/cache/appdata/jellyfin-oped-build}   # where `docker compose run --rm build` leaves the DLL
-docker compose run --rm build
+out=${OPED_OUT:-/mnt/cache/appdata/jellyfin-oped-build}   # where the build leaves the DLL (`docker compose run --rm build` -> here)
+if [ -z "${OPED_SKIP_BUILD:-}" ]; then docker compose run --rm build; fi   # CI builds with dotnet itself
 dll="$out/Jellyfin.Plugin.OpEd.dll"
 
 mkdir -p dist
