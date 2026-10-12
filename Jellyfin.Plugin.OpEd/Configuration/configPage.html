@@ -9,8 +9,9 @@
             <div class="content-primary">
                 <form id="OpEdConfigForm">
                     <p>
-                        Anime opening and ending themes from a folder you fill, matched to your shows, for clients that use the
-                        OP/ED API (for example AsterFIN). Jellyfin's own theme music/video playback is not affected.
+                        Plays anime openings and endings for your shows. Put theme files in a folder and the plugin matches them
+                        to your shows and seasons, then hands them to clients that support it (for example AsterFIN).
+                        Jellyfin's own theme music and video are not affected.
                     </p>
 
                     <h2>Themes folder</h2>
@@ -18,21 +19,21 @@
                         <label class="inputLabel inputLabelUnfocused" for="ThemesPath">Folder (as Jellyfin sees it)</label>
                         <input id="ThemesPath" type="text" is="emby-input" placeholder="/data/tvshows/general/anime_themes" />
                         <div class="fieldDescription">
-                            One folder per show, named exactly like the show's folder in your media library. Inside it:
-                            <code>OP1.webm</code>, <code>OP1.ogg</code>, <code>ED2.webm</code> … (AnimeThemes file names such as
-                            <code>SousouNoFrieren-OP1.webm</code> work too). Optional subfolders: <code>Season 2</code> to limit a
-                            theme to that season, or <code>anidb-18886</code> for one exact AniDB entry. Keep this folder outside
-                            every library, so no library picks the themes up as ordinary videos.
+                            Make one folder per show, named exactly like the show's folder in your library, and put the files
+                            inside: <code>OP1.webm</code>, <code>OP1.ogg</code>, <code>ED2.webm</code>. AnimeThemes file names such as
+                            <code>SousouNoFrieren-OP1.webm</code> work too. To limit a theme to one season, use a subfolder
+                            like <code>Season 2</code>, or <code>anidb-18886</code> to target one AniDB entry.
+                            Keep this folder outside your libraries so they don't treat the themes as ordinary videos.
                         </div>
                     </div>
 
                     <h2>Metadata</h2>
                     <div class="checkboxContainer">
                         <label><input id="FetchMetadata" type="checkbox" is="emby-checkbox" /><span>Look up song, artists and episodes on AnimeThemes.moe</span></label>
-                        <div class="fieldDescription">Song data comes from <a href="https://animethemes.moe" target="_blank" rel="noopener">AnimeThemes.moe</a> (not affiliated). Uses the AniDB IDs on your seasons (Shokofin sets them). Requests are batched (50 IDs each, 2 s apart), answers are cached, and lookups pause for a day if AnimeThemes refuses. Untick to never contact them; the editor below still lets you fill in details by hand.</div>
+                        <div class="fieldDescription">Song titles, artists and episode lists come from <a href="https://animethemes.moe" target="_blank" rel="noopener">AnimeThemes.moe</a> (not affiliated), using the AniDB IDs on your seasons (Shokofin sets these). To go easy on their server, requests are batched, answers are cached, and lookups pause for a day if they refuse us. Untick this to never contact them. You can still fill in details by hand in the editor below.</div>
                     </div>
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="MetadataRefreshDays">Days before cached metadata is fetched again</label>
+                        <label class="inputLabel inputLabelUnfocused" for="MetadataRefreshDays">Re-check AnimeThemes after this many days</label>
                         <input id="MetadataRefreshDays" type="number" min="1" max="365" is="emby-input" />
                     </div>
 
@@ -45,12 +46,12 @@
 
                 <h2>Clips from chapters</h2>
                 <div class="fieldDescription">
-                    For OPs and EDs missing from the themes folder, finds the episode chapters named OP/Opening or ED/Ending, re-encodes
-                    just that section and queues it here. Nothing is served until you approve it, which moves it into the themes folder
-                    (<code>anidb-N</code> or <code>Season N</code> subfolder, same as hand-placed files); song details then come from
-                    AnimeThemes as usual. Also available as a scheduled task (Cut OP/ED clips from chapters). For endings it also accepts chapters named Credits, End Credits, Outro or Closing (up to 2.5 minutes).
+                    Missing an OP or ED? The plugin can cut it out of your own episodes, using chapters named OP/Opening or
+                    ED/Ending (for endings, also Credits, End Credits, Outro or Closing). Each clip waits below for your review and
+                    isn't served until you approve it. Approving moves it into the themes folder like any other theme, and song
+                    details are filled in as usual. This also runs as a scheduled task, Cut OP/ED clips from chapters.
                 </div>
-                <div class="fieldDescription" style="margin-top:1em"><b>Libraries to search</b> (nothing is searched until you tick at least one)</div>
+                <div class="fieldDescription" style="margin-top:1em"><b>Libraries to search</b> (tick at least one, or nothing is searched)</div>
                 <div id="OpEdLibraries" class="checkboxList paperList" style="margin-bottom:1em">Loading…</div>
                 <button is="emby-button" type="button" id="OpEdExtract" class="raised block"><span>Look for clips now</span></button>
                 <div id="OpEdClipStatus" class="fieldDescription" style="margin:.8em 0"></div>
@@ -58,9 +59,9 @@
 
                 <h2>Song details</h2>
                 <div class="fieldDescription">
-                    Fill in what's missing or wrong. Saving writes the theme's entry to <code>themes.json</code> in its show's
-                    theme folder, which overrides song details from the file name and AnimeThemes; Clear removes the entry
-                    again. You can also put details in file names: <code>OP1 - Yuusha - YOASOBI [1-16].webm</code>.
+                    Fix or fill in a theme's details. Save stores your entry in <code>themes.json</code> in the show's theme
+                    folder, and it takes priority over the file name and AnimeThemes. Clear removes it. You can also put details
+                    in the file name: <code>OP1 - Yuusha - YOASOBI [1-16].webm</code>.
                 </div>
                 <div id="OpEdEditor">Loading…</div>
             </div>
@@ -107,7 +108,7 @@
             function loadEditor(page) {
                 ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Admin/Themes'), type: 'GET', dataType: 'json' }).then(function (themes) {
                     if (!themes.length) {
-                        page.querySelector('#OpEdEditor').innerHTML = '<p class="fieldDescription">No themes yet. Set the folder above and scan.</p>';
+                        page.querySelector('#OpEdEditor').innerHTML = '<p class="fieldDescription">No themes yet. Set the themes folder above, then press Save and scan now.</p>';
                         return;
                     }
                     var html = '', show = null;
@@ -250,16 +251,16 @@
                     }
 
                     setIfChanged(head, r.ApprovedWaiting
-                        ? '<p><b>' + r.ApprovedWaiting + ' approved clip(s)</b> are in the themes folder but not indexed yet. Approve the rest first, then index them together: one scan, and AnimeThemes is only asked for what isn\'t cached. ' +
+                        ? '<p><b>' + r.ApprovedWaiting + ' approved clip(s)</b> are in the themes folder but not indexed yet. Finish reviewing first, then index them all at once.' +
                             '<button is="emby-button" type="button" class="raised oped-apply"><span>Index approved clips and fetch metadata</span></button></p>'
                         : '');
-                    setIfChanged(foot, r.Rejected ? '<p>' + r.Rejected + ' rejected slot(s) won\'t be cut again. <a href="#" class="oped-clear-rejected">Forget rejections</a></p>' : '');
+                    setIfChanged(foot, r.Rejected ? '<p>' + r.Rejected + ' rejected slot(s) won\'t be tried again. <a href="#" class="oped-clear-rejected">Forget rejections</a></p>' : '');
 
                     var status = page.querySelector('#OpEdClipStatus'), btn = page.querySelector('#OpEdExtract');
                     if (r.Extracting) {
                         var pct = r.SeasonsTotal ? ' (' + r.SeasonsDone + ' of ' + r.SeasonsTotal + ' seasons)' : '';
                         status.innerHTML = '<b>Working…</b> ' + esc(r.Activity || 'Starting…') + esc(pct) + '. Cut so far: ' + r.CutThisRun +
-                            '. Each clip takes about 15–25 seconds; they show up below as they finish.';
+                            '. Each clip takes about 15–25 seconds and appears below when it's done.';
                     } else {
                         status.innerHTML = r.Indexing ? '<b>Indexing themes and fetching metadata…</b>' : (r.LastResult ? 'Last run: ' + esc(r.LastResult) : '');
                     }

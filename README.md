@@ -1,135 +1,169 @@
 # OP/ED for Jellyfin
 
-A Jellyfin 12 plugin for anime opening and ending themes. You put the theme files in a folder; the plugin matches
-them to your shows and seasons, adds song title, artists and episode ranges from [AnimeThemes.moe](https://animethemes.moe),
-and serves them to clients through an authenticated API. Video and audio that not every client can play
-(AnimeThemes' WebM and Ogg, for example) get MP4/M4A copies that every client can. It doesn't download theme files (it can cut missing ones out of your own episodes, see below) and doesn't touch Jellyfin's own
-theme music/video playback.
+Anime openings and endings for your Jellyfin 12 library.
+
+Drop theme files in a folder. The plugin matches them to your shows and seasons, fills in song titles, artists and
+episode ranges from [AnimeThemes.moe](https://animethemes.moe), and serves everything to clients through an
+authenticated API. Files some clients can't play (AnimeThemes' WebM and Ogg, for example) get MP4/M4A copies that
+every client can.
+
+What it doesn't do: download themes for you (though it can cut missing ones out of your own episodes, see
+[Clips](#clips-from-chapters)), or touch Jellyfin's built-in theme music and video.
 
 ## Install
 
-Needs Jellyfin 12.
+Requires Jellyfin 12.
 
-**From the plugin repository** (Dashboard → Plugins → Repositories → add):
+**From the plugin repository (easiest)**
 
-```
-https://raw.githubusercontent.com/peppy6582/jellyfin-oped/main/manifest.json
-```
+1. Dashboard → Plugins → Repositories → add this URL:
+   ```
+   https://raw.githubusercontent.com/peppy6582/jellyfin-oped/main/manifest.json
+   ```
+2. Catalog → Metadata → OP/ED → Install.
+3. Restart Jellyfin.
 
-Then Catalog → Metadata → OP/ED → Install, and restart Jellyfin.
+**By hand**
 
-**By hand:** download `jellyfin-oped_<version>.zip` from the [releases](https://github.com/peppy6582/jellyfin-oped/releases),
-unzip `Jellyfin.Plugin.OpEd.dll` into a new `OpEd_<version>` folder under Jellyfin's `data/plugins/` directory, and
-restart Jellyfin. Then set the themes folder in Dashboard → OP/ED.
+1. Download `jellyfin-oped_<version>.zip` from the [releases](https://github.com/peppy6582/jellyfin-oped/releases).
+2. Unzip `Jellyfin.Plugin.OpEd.dll` into a new `OpEd_<version>` folder under Jellyfin's `data/plugins/`.
+3. Restart Jellyfin.
 
-## Themes folder
+Either way, finish in Dashboard → OP/ED by choosing your themes folder.
 
-Set the folder in Dashboard → OP/ED. It is a path *inside the Jellyfin container*, and should be outside every
-library's folders so no library scans the themes as ordinary videos.
+## Set up your themes folder
+
+Pick a folder in Dashboard → OP/ED. Two rules:
+
+- Give it as a path *inside the Jellyfin container*.
+- Keep it outside your library folders, so libraries don't scan the themes as regular videos.
+
+Inside it, make one folder per show, named exactly like that show's folder in your library:
 
 ```
 anime_themes/
-  Frieren - Beyond Journey's End (2023)/        <- named exactly like the show's folder in your media library
-    OP1.webm                                     <- video and audio with the same identity are one theme
+  Frieren - Beyond Journey's End (2023)/        <- same name as the show's library folder
+    OP1.webm                                     <- a video and audio file with the same name are one theme
     OP1.ogg
     SousouNoFrieren-ED1-TV-NCBD1080.ogg          <- AnimeThemes' own file names work too
-    Season 2/                                    <- limits these themes to that library season folder
+    Season 2/                                    <- only applies to that season's folder
       OP1.ogg
-    anidb-18886/                                 <- or pin one exact AniDB entry
+    anidb-18886/                                 <- or target one exact AniDB entry
       ED2.webm
 ```
 
-- File names: `OP`/`ED`, optional number, optional `v2`, optional variant (`ED1-TV`). Source tags such as `NCBD1080`
-  are ignored. Video: webm, mp4, mkv, m4v, mov. Audio: ogg, opus, mp3, flac, m4a, aac, wav.
-- Show folders are matched through the episodes Jellyfin already knows. For [Shokofin](https://github.com/ShokoAnime/Shokofin)
-  libraries, whose folders are virtual, the plugin follows each episode's link back to the real file, so the original
-  folder names still work.
-- A season is pinned from the subfolder when it maps to one AniDB entry, or from the metadata lookup (the first of the
-  show's AniDB entries, earliest first, that has this OP/ED). Otherwise the theme is show-wide.
-- Rescans run at startup and every 12 hours (Scheduled Tasks → OP/ED), or with "Save and scan now". The settings page
-  lists folders that match no show, files that aren't recognisable OPs/EDs, and themes without metadata.
+**File names.** Start with `OP` or `ED`, then an optional number (`OP2`), optional `v2`, and an optional variant
+(`ED1-TV`). Tags like `NCBD1080` are ignored.
+Video: webm, mp4, mkv, m4v, mov. Audio: ogg, opus, mp3, flac, m4a, aac, wav.
+
+**Matching.** Folders are matched against episodes Jellyfin already knows. With
+[Shokofin](https://github.com/ShokoAnime/Shokofin), whose library folders are virtual, the plugin follows each episode
+back to its real file, so your original folder names still work.
+
+**Seasons.** A theme is tied to one season when its subfolder maps to a single AniDB entry, or when the metadata lookup
+finds the first of the show's AniDB entries that has that OP/ED. Otherwise it applies to the whole show.
+
+**Scanning.** Scans run at startup and every 12 hours (Scheduled Tasks → OP/ED), or on demand with **Save and scan
+now**. The settings page also lists anything it couldn't use: folders matching no show, files that don't look like an
+OP/ED, and themes with no metadata.
 
 ## Clips from chapters
 
-For themes missing from the folder, the plugin can cut them out of your own episodes. Run **Cut OP/ED clips from
-chapters** (Scheduled Tasks, no automatic trigger) or "Look for clips now" in Dashboard → OP/ED.
+Missing a theme? The plugin can cut it out of your own episodes, using their chapter markers. Nothing is cut
+automatically. Run **Cut OP/ED clips from chapters** (Scheduled Tasks) or **Look for clips now** (Dashboard → OP/ED).
 
-- Only the libraries ticked under "Libraries to search" in Dashboard → OP/ED are looked at (none until you choose).
-- Per library season (with an AniDB id, else a season number) it lists the OPs/EDs AnimeThemes has for that AniDB
-  entry (just OP1 and ED1 when it has none) and skips every one that already has a theme, a clip waiting for
-  review, or a rejected clip.
-- For each missing one it takes the first episode in that theme's AnimeThemes episode range with a chapter named
-  `OP`/`Opening`/`ED`/`Ending` (an optional number is honoured: `OP2`) lasting 30–200 s, or for an ending also `Credits`,
-  `End Credits`, `Outro` or `Closing` lasting 30–150 s, and re-encodes only that
-  chapter to MP4 (H.264 + AAC, Japanese audio preferred) plus an M4A of the audio. "Intro" and "Preview"
-  chapters are ignored on purpose; they usually mean something else.
-- Clips go to the plugin's data folder (`pending-clips/Show Folder/anidb-N/OP1.mp4`), never the themes folder, so
-  they are not served. The settings page plays each one next to what AnimeThemes says it should be. **Approve**
-  moves it into the themes folder with the same subfolder layout, after which it is an ordinary theme with the usual
-  metadata; **Reject** deletes it and the slot isn't cut again (until you choose "Forget rejections").
-- Clips are cut as OP1/ED1 unless AnimeThemes or the chapter name says otherwise, so the card has an **Approve as OP/ED number** box (default: the number it was cut as); the file lands in the themes folder under that number, and the metadata lookup uses it.
-- **Reject, try another episode** (when text or credits run over the clip) deletes it and cuts the same slot from the
-  next episode in its range that has a usable chapter; episodes already cut for the slot are skipped. When none are
-  left it says so, and you can place the file yourself.
-- Approving only moves the files. Once you've gone through the queue, **Index approved clips and fetch metadata**
-  does one scan for the whole batch, matching song details from AnimeThemes (cached answers are reused; only what
-  is missing is requested, in batches).
-- Approving a clip records its length. Clips cut later for the same show (another season, say) are compared with
-  those: a length within 3 s of an approved one is flagged "possibly the same OP", a clearly different one
-  "probably a different OP". For themes AnimeThemes doesn't list, the number box is pre-filled to match: the same
-  number when the length matches, the next free number when it doesn't. It's a hint, not a decision: two different
-  themes can be equally long, and it only compares with approved clips (creditless AnimeThemes files run a few
-  seconds different from in-episode chapters).
-- Without AnimeThemes data a season can only yield OP1/ED1 (or the number in the chapter name).
+**Before you start:** tick the libraries to search under **Libraries to search**. None are searched until you do.
+
+**What it does**
+
+1. For each library season, it works out which OPs/EDs are expected. It uses AnimeThemes' list for that AniDB entry,
+   or just OP1 and ED1 if there's no list.
+2. It skips any that already have a theme, a clip awaiting review, or a rejected clip.
+3. For each gap, it takes the first episode in that theme's episode range with a matching chapter, and re-encodes just
+   that chapter to MP4 (H.264 + AAC, Japanese audio preferred) plus an M4A of the audio.
+
+**Which chapters count**
+
+| Looking for | Chapter names | Length |
+|---|---|---|
+| Opening | `OP`, `Opening` (an optional number works: `OP2`) | 30–200 s |
+| Ending | `ED`, `Ending`, plus `Credits`, `End Credits`, `Outro`, `Closing` | 30–150 s for the extra names, 30–200 s otherwise |
+
+`Intro` and `Preview` chapters are ignored on purpose, since they usually mean something else.
+
+**Review queue.** Clips are held in the plugin's data folder (never the themes folder, so they aren't served). The
+settings page plays each one beside what AnimeThemes says it should be.
+
+- **Approve** moves it into the themes folder as an ordinary theme. Clips are cut as OP1/ED1 unless AnimeThemes or the
+  chapter name says otherwise, so you can change the number with **Approve as OP/ED number** first.
+- **Reject** deletes it and the slot isn't cut again, until you choose **Forget rejections**.
+- **Reject, try another episode** is for clips with text or credits running over them. It deletes the clip and cuts the
+  same slot from the next usable episode, skipping ones already tried. When none are left it tells you, and you can
+  add the file yourself.
+
+When you've finished the queue, press **Index approved clips and fetch metadata**. That does one scan for the whole
+batch and requests only the song details that are missing.
+
+**Same OP or a different one?** Approving a clip records its length, and later clips for the same show are compared
+against it. Within 3 s is flagged "possibly the same OP", and clearly different is "probably a different OP". For
+themes AnimeThemes doesn't list, the number box is pre-filled to match (same number if the length matches, next free
+number if not). Treat it as a hint: different themes can be equally long, creditless AnimeThemes files run a few
+seconds off in-episode chapters, and only approved clips are compared.
+
+Without AnimeThemes data, a season can only yield OP1/ED1 (or the number in the chapter name).
 
 ## Song details
 
-Each theme can carry a song title, artists, the episodes it plays in, and spoiler/NSFW flags. They come from, most
-specific first (field by field, so a source only overrides what it sets):
+Each theme can carry a song title, artists, the episodes it plays in, and spoiler/NSFW flags. The plugin checks three
+sources, most specific first. Each field is decided separately, so a source only overrides what it actually sets.
 
-1. **themes.json** in the show's theme folder, written by hand or by the editor in Dashboard → OP/ED:
-   ```json
-   {
-     "OP1":          { "title": "Yuusha", "artists": ["YOASOBI"], "episodes": "1-16" },
-     "ED1-TV":       { "title": "bliss", "artists": "milet", "episodes": "1", "spoiler": false },
-     "Season 2/OP1": { "title": "lulu.", "artists": ["Mrs. GREEN APPLE"] }
-   }
-   ```
-   Keys are the theme's place in the folder (`OP1`, `OP1v2`, `ED1-TV`, `Season 2/OP1`, `anidb-18886/ED2`); spelling
-   is forgiving (`season 02/op1` works). A file that can't be read is listed on the settings page and skipped.
-   An entry can also say which season a theme belongs to: `"OP3": { "anidb": 18886 }` assigns it to that AniDB entry
-   (Shokofin gives each season one), whatever folder the file is in; AnimeThemes metadata is then looked up for that
-   entry. The editor offers this as a **Season** dropdown listing the show's seasons that have an AniDB id.
+**1. themes.json** in the show's theme folder. Edit it by hand, or use the editor in Dashboard → OP/ED:
 
-2. **The file name**: `OP1 - Yuusha - YOASOBI [1-16].webm` (title, then artists separated by commas or `&`, then an
-   optional `[episodes]`). A variant is glued on with a hyphen and no spaces (`ED1-TV - bliss - milet.ogg`).
-3. **AnimeThemes.moe**, below.
+```json
+{
+  "OP1":          { "title": "Yuusha", "artists": ["YOASOBI"], "episodes": "1-16" },
+  "ED1-TV":       { "title": "bliss", "artists": "milet", "episodes": "1", "spoiler": false },
+  "Season 2/OP1": { "title": "lulu.", "artists": ["Mrs. GREEN APPLE"] }
+}
+```
 
-The settings page lists every theme with its current details and where they came from. Save writes that theme's entry
-to themes.json; Clear removes it so the other sources apply again. Ticking Spoiler/NSFW saves the flag; leaving it
-unticked leaves the flag to the other sources. The themes folder must be writable by Jellyfin for the editor.
+- Keys are the theme's place in the folder: `OP1`, `OP1v2`, `ED1-TV`, `Season 2/OP1`, `anidb-18886/ED2`. Spelling is
+  forgiving (`season 02/op1` works).
+- An unreadable file is listed on the settings page and skipped.
+- To put a theme in a specific season, add its AniDB id: `"OP3": { "anidb": 18886 }`. That works wherever the file
+  sits, and metadata is then looked up for that entry. The editor has a **Season** dropdown for this, listing the
+  show's seasons that have an AniDB id.
+
+**2. The file name:** `OP1 - Yuusha - YOASOBI [1-16].webm`. That's title, then artists separated by commas or `&`,
+then optional `[episodes]`. Attach a variant with a hyphen and no spaces: `ED1-TV - bliss - milet.ogg`.
+
+**3. AnimeThemes.moe**, see below.
+
+**Using the editor.** The settings page lists every theme with its current details and where each came from.
+**Save** writes that theme's entry to themes.json. **Clear** removes it so the other sources apply again. Ticking
+Spoiler or NSFW saves the flag, and leaving it unticked defers to the other sources. Jellyfin needs write access to the
+themes folder for the editor to work.
 
 ## Metadata from AnimeThemes
 
 Song titles, artists, episode ranges and spoiler/NSFW flags come from [AnimeThemes.moe](https://animethemes.moe), a
-community project; please credit it wherever you show this data. This plugin is not affiliated with or endorsed by
+community project. Please credit it wherever you show this data. This plugin isn't affiliated with or endorsed by
 AnimeThemes.
 
-It uses their GraphQL API (their JSON API is deprecated) and needs AniDB ids on the seasons (Shokofin sets them). It keeps
-the load on their server small:
+The lookup needs AniDB ids on your seasons (Shokofin sets them). It uses their GraphQL API (the JSON API is
+deprecated) and keeps the load on their server light:
 
-- one GraphQL request per 50 AniDB ids, at least two seconds apart, never in parallel (their limit is 90 per minute);
-- answers are cached on disk per AniDB id for 14 days (configurable), including "nothing for this id";
-- after a refusal (403) it stops asking for a day;
-- it never downloads video or audio from AnimeThemes.
+- One request per 50 AniDB ids, at least two seconds apart, never in parallel (their limit is 90 per minute).
+- Answers are cached on disk per AniDB id for 14 days (configurable), including "nothing found".
+- After a refusal (403), it stops asking for a day.
+- It never downloads video or audio from AnimeThemes.
 
-Requests identify themselves as `OpEd-Themes (+https://github.com/peppy6582)`, the agent string agreed with AnimeThemes
-(it must not contain the word "jellyfin", which their filter refuses). Do not change it without checking with them.
-If they ask for different handling (another agent string, an API key, a different data source), the plugin will be
-changed.
+Requests identify as `OpEd-Themes (+https://github.com/peppy6582)`, the agent string agreed with AnimeThemes. It must
+not contain "jellyfin", which their filter refuses, so don't change it without checking with them. If they ask for
+different handling (another agent string, an API key, another data source), the plugin will be changed.
 
-To never contact AnimeThemes, untick **Look up song, artists and episodes on AnimeThemes.moe** in Dashboard → OP/ED.
-Everything else works without it, and the editor on that page lets you fill in song details by hand.
+**Opting out.** To never contact AnimeThemes, untick **Look up song, artists and episodes on AnimeThemes.moe** in
+Dashboard → OP/ED. Everything else keeps working, and you can fill in song details with the editor.
 
 ## API
 

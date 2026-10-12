@@ -17,7 +17,7 @@ public sealed class ScanThemesTask : IScheduledTask
 
     public string Key => "OpEdScanThemes";
 
-    public string Description => "Indexes the OP/ED themes folder, matches themes to shows, fetches song metadata from AnimeThemes and makes MP4 copies of videos that clients can't play as-is.";
+    public string Description => "Scans the OP/ED themes folder, matches themes to your shows, looks up song details on AnimeThemes and makes MP4/M4A copies for clients that can't play the originals.";
 
     public string Category => "OP/ED";
 

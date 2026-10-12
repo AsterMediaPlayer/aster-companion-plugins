@@ -25,8 +25,8 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     public override Guid Id => Guid.Parse("d459e0a2-e073-4e1e-b0ec-71883075cf4a");
 
     public override string Description =>
-        "Anime opening and ending themes from a folder you supply, matched to your shows, with song metadata from "
-        + "AnimeThemes.moe and an API for clients.";
+        "Anime openings and endings for your shows. Matches theme files in a folder you choose to your library, "
+        + "adds song details from AnimeThemes.moe, and serves them to clients.";
 
     public IEnumerable<PluginPageInfo> GetPages() =>
     [

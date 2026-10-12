@@ -17,7 +17,7 @@ public sealed class ExtractClipsTask : IScheduledTask
 
     public string Key => "OpEdExtractClips";
 
-    public string Description => "Finds OP/ED chapters in your episodes for themes missing from the themes folder and cuts them into a review queue (Dashboard → OP/ED).";
+    public string Description => "Cuts OP/ED clips from your episodes' chapters for themes missing from the themes folder. Review them in Dashboard → OP/ED.";
 
     public string Category => "OP/ED";
 
