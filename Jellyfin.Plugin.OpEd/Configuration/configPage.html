@@ -35,6 +35,16 @@
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="MetadataRefreshDays">Re-check AnimeThemes after this many days</label>
                         <input id="MetadataRefreshDays" type="number" min="1" max="365" is="emby-input" />
+                        <div class="fieldDescription">Applies to anime AnimeThemes has themes for. Ones it has nothing for are asked again sooner (after 1, 3 and 7 days, then every 30), since they are usually just not added yet.</div>
+                    </div>
+                    <div class="checkboxContainer">
+                        <label><input id="EnableTitleFallback" type="checkbox" is="emby-checkbox" /><span>Match shows by title when they have no ID</span></label>
+                        <div class="fieldDescription">For a show with themes but no AniDB, AniList, MyAnimeList or Kitsu ID, search AnimeThemes by the show's name. This sends the show names to them, ten to a request, and the answers are cached. It never replaces an ID. Each theme in the editor says when it was matched this way, and you can correct it there.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="TitleMatchThreshold">How close a title must be (50 to 100 percent)</label>
+                        <input id="TitleMatchThreshold" type="number" min="50" max="100" is="emby-input" />
+                        <div class="fieldDescription">Higher is stricter. At 80, small differences in spelling or punctuation still match, but a different show does not. Raise it if you see wrong matches.</div>
                     </div>
 
                     <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
@@ -105,6 +115,27 @@
                     '" style="width:' + width + ';padding:.4em;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.15);border-radius:4px" />';
             }
 
+            // How a theme got its season, in plain words, with a link to check the AniDB entry it is tied to.
+            function matchRow(t) {
+                var how = {
+                    'picked': 'picked by you',
+                    'folder': 'from its anidb-' + t.AniDbId + ' folder',
+                    'lookup': 'found on AnimeThemes',
+                    'only-season': 'the only season it could be',
+                    'title': 'matched by the show title',
+                    'date': 'matched to this season by when it premiered'
+                }[t.MatchedBy] || (t.AniDbId ? 'matched automatically' : 'no season matched, so it applies to the whole show');
+                var link = t.AniDbId ? ' (<a href="https://anidb.net/anime/' + t.AniDbId + '" target="_blank" rel="noopener">AniDB ' + t.AniDbId + '</a>)' : '';
+                var inList = (t.Seasons || []).some(function (s) { return s.AniDbId === t.SeasonOverride; });
+                var select = t.Seasons && t.Seasons.length
+                    ? '<select class="oped-season" style="padding:.3em;background:rgba(40,40,40,1);color:inherit;border:1px solid rgba(255,255,255,.15);border-radius:4px"><option value="">Automatic</option>' +
+                        t.Seasons.map(function (s) { return '<option value="' + s.AniDbId + '"' + (t.SeasonOverride === s.AniDbId ? ' selected' : '') + '>' + esc(s.Name) + ' (AniDB ' + s.AniDbId + ')</option>'; }).join('') + '</select> or '
+                    : '';
+                return '<div style="margin-top:.3em" class="fieldDescription">Season: ' + (t.Season ? esc(t.Season) + ', ' : '') + how + link + '<br>Change it: ' + select +
+                    '<input class="oped-anidb" type="number" min="1" placeholder="AniDB id" value="' + (t.SeasonOverride && !inList ? t.SeasonOverride : '') +
+                    '" style="width:7em;padding:.3em;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.15);border-radius:4px" /> (leave empty for automatic)</div>';
+            }
+
             function loadEditor(page) {
                 ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Admin/Themes'), type: 'GET', dataType: 'json' }).then(function (themes) {
                     if (!themes.length) {
@@ -125,12 +156,12 @@
                             '<td style="padding:.4em .3em;vertical-align:top">' + field('oped-title', t.Title, 'Song title', '100%') +
                                 '<div style="display:flex;gap:.4em;margin-top:.3em">' + field('oped-artists', (t.Artists || []).join(', '), 'Artists, comma separated', '60%') +
                                 field('oped-episodes', t.Episodes, 'Episodes, e.g. 1-12', '40%') + '</div>' +
-                                (t.Seasons && t.Seasons.length ? '<div style="margin-top:.3em" class="fieldDescription">Season: <select class="oped-season" style="padding:.3em;background:rgba(40,40,40,1);color:inherit;border:1px solid rgba(255,255,255,.15);border-radius:4px"><option value="">Automatic' + (t.Season ? ' (now: ' + esc(t.Season) + ')' : '') + '</option>' +
-                                    t.Seasons.map(function (s) { return '<option value="' + s.AniDbId + '"' + (t.SeasonOverride === s.AniDbId ? ' selected' : '') + '>' + esc(s.Name) + ' (AniDB ' + s.AniDbId + ')</option>'; }).join('') + '</select></div>' : '') +
+                                matchRow(t) +
                                 '<div style="margin-top:.3em" class="fieldDescription">' +
                                 '<label><input class="oped-spoiler" type="checkbox"' + (t.Spoiler ? ' checked' : '') + '> Spoiler</label> &nbsp; ' +
                                 '<label><input class="oped-nsfw" type="checkbox"' + (t.Nsfw ? ' checked' : '') + '> NSFW</label> &nbsp; ' +
-                                '<span class="oped-source">' + (t.Source ? 'from ' + esc(SOURCE[t.Source] || t.Source) : 'no details yet') + '</span></div></td>' +
+                                '<span class="oped-source">' + (t.Source ? 'from ' + esc(SOURCE[t.Source] || t.Source) : 'no details yet') +
+                                    (t.Overlap === 'transition' ? ' &middot; has a little episode footage' : t.Overlap === 'over' ? ' &middot; plays over the episode' : '') + '</span></div></td>' +
                             '<td style="padding:.4em 0 .4em .3em;white-space:nowrap;vertical-align:top">' +
                                 '<button is="emby-button" type="button" class="raised oped-save" style="margin:0 0 .3em"><span>Save</span></button>' +
                                 (t.Source === 'themes.json' ? '<br><button is="emby-button" type="button" class="raised oped-clear" style="margin:0"><span>Clear</span></button>' : '') +
@@ -149,7 +180,8 @@
                     // Only a ticked box is saved; an unticked one leaves the flag to the other sources.
                     Spoiler: row.querySelector('.oped-spoiler').checked ? true : null,
                     Nsfw: row.querySelector('.oped-nsfw').checked ? true : null,
-                    AniDbId: row.querySelector('.oped-season') && row.querySelector('.oped-season').value ? parseInt(row.querySelector('.oped-season').value, 10) : null
+                    AniDbId: parseInt(row.querySelector('.oped-anidb').value, 10) > 0 ? parseInt(row.querySelector('.oped-anidb').value, 10)
+                        : row.querySelector('.oped-season') && row.querySelector('.oped-season').value ? parseInt(row.querySelector('.oped-season').value, 10) : null
                 };
             }
 
@@ -365,6 +397,8 @@
                     config.ThemesPath = page.querySelector('#ThemesPath').value.trim();
                     config.FetchMetadata = page.querySelector('#FetchMetadata').checked;
                     config.MetadataRefreshDays = parseInt(page.querySelector('#MetadataRefreshDays').value, 10) || 14;
+                    config.EnableTitleFallback = page.querySelector('#EnableTitleFallback').checked;
+                    config.TitleMatchThreshold = Math.min(100, Math.max(50, parseInt(page.querySelector('#TitleMatchThreshold').value, 10) || 80));
                     // Keep the saved choice if the checkboxes haven't loaded yet.
                     if (page.querySelector('.oped-lib')) {
                         config.ClipLibraryIds = Array.prototype.map.call(page.querySelectorAll('.oped-lib:checked'), function (c) { return c.value; });
@@ -380,6 +414,8 @@
                     page.querySelector('#ThemesPath').value = config.ThemesPath || '';
                     page.querySelector('#FetchMetadata').checked = !!config.FetchMetadata;
                     page.querySelector('#MetadataRefreshDays').value = config.MetadataRefreshDays;
+                    page.querySelector('#EnableTitleFallback').checked = config.EnableTitleFallback !== false;
+                    page.querySelector('#TitleMatchThreshold').value = config.TitleMatchThreshold || 80;
                     loadLibraries(page, config);
                     Dashboard.hideLoadingMsg();
                 });

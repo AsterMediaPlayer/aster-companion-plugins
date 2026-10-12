@@ -131,8 +131,9 @@ sources, most specific first. Each field is decided separately, so a source only
   forgiving (`season 02/op1` works).
 - An unreadable file is listed on the settings page and skipped.
 - To put a theme in a specific season, add its AniDB id: `"OP3": { "anidb": 18886 }`. That works wherever the file
-  sits, and metadata is then looked up for that entry. The editor has a **Season** dropdown for this, listing the
-  show's seasons that have an AniDB id.
+  sits, and metadata is then looked up for that entry. In the editor, each theme says how it got its season (picked by
+  you, from an `anidb-N` folder, found on AnimeThemes, or the only possible season), with a link to check the AniDB
+  entry. To change it, use the **Season** dropdown (the show's seasons that have an AniDB id) or type any AniDB id.
 
 **2. The file name:** `OP1 - Yuusha - YOASOBI [1-16].webm`. That's title, then artists separated by commas or `&`,
 then optional `[episodes]`. Attach a variant with a hyphen and no spaces: `ED1-TV - bliss - milet.ogg`.
@@ -150,11 +151,20 @@ Song titles, artists, episode ranges and spoiler/NSFW flags come from [AnimeThem
 community project. Please credit it wherever you show this data. This plugin isn't affiliated with or endorsed by
 AnimeThemes.
 
-The lookup needs AniDB ids on your seasons (Shokofin sets them). It uses their GraphQL API (the JSON API is
+The lookup works from AniDB ids on your seasons (Shokofin sets them). If a season or show only has an AniList,
+MyAnimeList or Kitsu id (from Jellyfin's own metadata providers), AnimeThemes is asked which AniDB entry that is, and
+the rest works the same. A show with only a show-level id gets one entry for the whole show, so its themes stay
+show-wide, unless the seasons can be told apart: a season with no id of its own is matched to the show's own
+AnimeThemes entry for that season when that entry started within three months of the season's first episode, TV
+series only. If the dates do not line up nothing is guessed, and you can set the season by hand in the editor. It uses their GraphQL API (the JSON API is
 deprecated) and keeps the load on their server light:
 
 - One request per 50 AniDB ids, at least two seconds apart, never in parallel (their limit is 90 per minute).
-- Answers are cached on disk per AniDB id for 14 days (configurable), including "nothing found".
+- A show with themes but no usable id at all is searched for by its title (ten shows per request, same pacing), and the
+  best match is accepted only if its title is at least 80% alike (configurable) and its year is within one. The show
+  name is what gets sent. A title match never replaces an id, and the editor labels it so you can correct it.
+- Answers are cached on disk per AniDB id for 14 days (configurable). Anime AnimeThemes has no themes for are usually
+  just not added yet, so they are asked again sooner: after 1, 3 and 7 days, then every 30.
 - After a refusal (403), it stops asking for a day.
 - It never downloads video or audio from AnimeThemes.
 
@@ -162,7 +172,7 @@ Requests identify as `OpEd-Themes (+https://github.com/peppy6582)`, the agent st
 not contain "jellyfin", which their filter refuses, so don't change it without checking with them. If they ask for
 different handling (another agent string, an API key, another data source), the plugin will be changed.
 
-**Opting out.** To never contact AnimeThemes, untick **Look up song, artists and episodes on AnimeThemes.moe** in
+**Opting out.** To stop title searches only, untick **Match shows by title when they have no ID**. To never contact AnimeThemes, untick **Look up song, artists and episodes on AnimeThemes.moe** in
 Dashboard → OP/ED. Everything else keeps working, and you can fill in song details with the editor.
 
 ## API
@@ -197,7 +207,7 @@ number). Example:
       "Id": "4176c129755c36cf", "Type": "OP", "Sequence": 1, "Version": 1, "Slug": "OP1",
       "SeriesId": "03e4ecbedc176e73cd47fb3032c6b189", "SeasonId": "…", "AniDbId": 17617,
       "SongTitle": "Yuusha", "Artists": ["YOASOBI"], "Episodes": "1-16",
-      "Spoiler": false, "Nsfw": false,
+      "Spoiler": false, "Nsfw": false, "Overlap": "none", "HasCreditlessVersion": true,
       "HasVideo": true, "HasAudio": true,
       "VideoUrl": "/OpEd/Themes/4176c129755c36cf/Video", "VideoContainer": "webm",
       "VideoMp4Url": "/OpEd/Themes/4176c129755c36cf/VideoMp4", "VideoMp4Status": "ready",
@@ -207,6 +217,10 @@ number). Example:
   ]
 }
 ```
+
+`Overlap` is `none`, `transition` (a little episode footage at the start or end) or `over` (the song plays over the episode). It is
+the cleanest version AnimeThemes has for that OP/ED, and `HasCreditlessVersion` says whether it has a creditless one. Both come
+from AnimeThemes and are left out when unknown.
 
 Theme ids are derived from the theme's place in the themes folder, so they stay the same across rescans.
 

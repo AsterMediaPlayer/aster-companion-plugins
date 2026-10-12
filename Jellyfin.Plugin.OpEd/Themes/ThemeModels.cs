@@ -39,6 +39,9 @@ public sealed class Theme
     /// <summary>AniDB entry (season) picked by hand in themes.json ("anidb"); null when the season is worked out automatically.</summary>
     public int? AniDbOverride { get; set; }
 
+    /// <summary>How the theme got its AniDB entry: "picked" (by hand), "folder" (an anidb-N subfolder), "lookup" (found on AnimeThemes) or "only-season" (the one candidate); null when it has none.</summary>
+    public string? MatchedBy { get; set; }
+
     public Guid? SeriesId { get; set; }
 
     /// <summary>The Jellyfin season (for Shokofin libraries, one per AniDB entry) the theme belongs to, when known.</summary>
@@ -70,6 +73,12 @@ public sealed class Theme
     public bool Spoiler { get; set; }
 
     public bool Nsfw { get; set; }
+
+    /// <summary>From AnimeThemes: "none", "transition" or "over" (the song plays over episode footage); null when unknown.</summary>
+    public string? Overlap { get; set; }
+
+    /// <summary>From AnimeThemes: whether a creditless version of this OP/ED exists there; null when unknown.</summary>
+    public bool? CreditlessAvailable { get; set; }
 
     /// <summary>Most specific source of the song details: "themes.json", "filename" or "animethemes"; null when none.</summary>
     public string? MetadataSource { get; set; }

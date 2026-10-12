@@ -214,6 +214,7 @@ public sealed class OpEdController : ControllerBase
                 Season = NameOf(t.SeasonId),
                 AniDbId = t.AniDbId,
                 SeasonOverride = t.AniDbOverride,
+                MatchedBy = t.MatchedBy,
                 Seasons = SeasonsOf(t.SeriesId),
                 Key = t.DetailsKey,
                 Title = t.SongTitle,
@@ -221,6 +222,7 @@ public sealed class OpEdController : ControllerBase
                 Episodes = t.Episodes,
                 Spoiler = t.Spoiler,
                 Nsfw = t.Nsfw,
+                Overlap = t.Overlap,
                 Source = t.MetadataSource,
                 HasVideo = t.VideoPath is not null,
                 HasAudio = t.AudioPath is not null,
@@ -426,6 +428,8 @@ public sealed class OpEdController : ControllerBase
         PlaysInEpisode = playsInEpisode,
         Spoiler = t.Spoiler,
         Nsfw = t.Nsfw,
+        Overlap = t.Overlap,
+        HasCreditlessVersion = t.CreditlessAvailable,
         HasVideo = t.VideoPath is not null,
         HasAudio = t.AudioPath is not null,
         VideoUrl = t.VideoPath is not null ? $"/OpEd/Themes/{t.Id}/Video" : null,
@@ -482,6 +486,12 @@ public sealed class ThemeDto
 
     public bool Nsfw { get; set; }
 
+    /// <summary>"none", "transition" or "over": whether episode footage shows through the theme (from AnimeThemes); omitted when unknown.</summary>
+    public string? Overlap { get; set; }
+
+    /// <summary>Whether AnimeThemes has a creditless version of this OP/ED; omitted when unknown.</summary>
+    public bool? HasCreditlessVersion { get; set; }
+
     public bool HasVideo { get; set; }
 
     public bool HasAudio { get; set; }
@@ -523,6 +533,9 @@ public sealed class EditorThemeDto
     /// <summary>Set when the season was picked by hand in the editor.</summary>
     public int? SeasonOverride { get; set; }
 
+    /// <summary>How the theme got its AniDB entry: "picked", "folder", "lookup", "only-season", or null when it has none.</summary>
+    public string? MatchedBy { get; set; }
+
     /// <summary>The show's seasons that have an AniDB id (Shokofin sets one per season): the choices for the season dropdown.</summary>
     public List<SeasonOptionDto> Seasons { get; set; } = [];
 
@@ -538,6 +551,9 @@ public sealed class EditorThemeDto
     public bool Spoiler { get; set; }
 
     public bool Nsfw { get; set; }
+
+    /// <summary>"none", "transition" or "over" (from AnimeThemes); null when unknown.</summary>
+    public string? Overlap { get; set; }
 
     /// <summary>Where the current details come from: "themes.json", "filename", "animethemes" or null.</summary>
     public string? Source { get; set; }

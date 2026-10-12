@@ -18,6 +18,15 @@ public class PluginConfiguration : BasePluginConfiguration
     public int MetadataRefreshDays { get; set; } = 14;
 
     /// <summary>
+    /// For shows with themes but no usable AniDB/AniList/MyAnimeList/Kitsu id, search AnimeThemes by the show title. Sends the
+    /// show name to AnimeThemes, one request per show, cached.
+    /// </summary>
+    public bool EnableTitleFallback { get; set; } = true;
+
+    /// <summary>How alike (percent, 50 to 100) the show title and an AnimeThemes title must be to count as the same anime.</summary>
+    public int TitleMatchThreshold { get; set; } = 80;
+
+    /// <summary>
     /// Item ids of the Jellyfin libraries that "Cut OP/ED clips from chapters" searches. Empty means none: the feature
     /// does nothing until at least one library is chosen.
     /// </summary>

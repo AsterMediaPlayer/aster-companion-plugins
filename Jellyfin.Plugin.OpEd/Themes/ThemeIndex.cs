@@ -189,6 +189,7 @@ public sealed partial class ThemeIndex
                             FolderSeason = folderSeason,
                             FolderAniDb = folderAniDb,
                             AniDbId = folderAniDb,
+                            MatchedBy = folderAniDb is null ? null : "folder",
                         };
                         theme.DetailsKey = ThemeDetailsFile.KeyFor(theme);
                     }
@@ -216,6 +217,7 @@ public sealed partial class ThemeIndex
                 {
                     theme.AniDbOverride = picked;
                     theme.AniDbId = picked;
+                    theme.MatchedBy = "picked";
                 }
             }
 
@@ -227,6 +229,53 @@ public sealed partial class ThemeIndex
 
             // AnimeThemes asked API users to batch lookups rather than send one request per show, so fetch every AniDB
             // entry this scan could need up front, many ids per request; the per-theme lookups below then read the cache.
+            if (config.FetchMetadata)
+            {
+                // Seasons and shows that Jellyfin knows only by an AniList, MyAnimeList or Kitsu id get their AniDB id from
+                // AnimeThemes (one batched lookup per site); answers already cached are used even when not allowed to ask.
+                if (allowRemote)
+                {
+                    await client.ResolveAsync(map.UnresolvedExternals(), config.MetadataRefreshDays, ct).ConfigureAwait(false);
+                }
+
+                map.Resolve(e => client.GetResolved(e));
+
+                // Shows with themes but still no AniDB id: search AnimeThemes by the show title (ten shows to a request), and
+                // accept the best match only when it is alike enough. Never overrides an id.
+                if (config.EnableTitleFallback)
+                {
+                    var folderOf = groups.Values
+                        .Select(t => (Series: map.SeriesFor(t.ShowFolder), t.ShowFolder))
+                        .Where(x => x.Series is not null)
+                        .GroupBy(x => x.Series!.Value)
+                        .ToDictionary(g => g.Key, g => g.First().ShowFolder);
+                    var threshold = Math.Clamp(config.TitleMatchThreshold, 50, 100);
+                    var queries = map.TitleQueries(folderOf);
+                    if (allowRemote)
+                    {
+                        await client.MatchTitlesAsync(queries, threshold, config.MetadataRefreshDays, ct).ConfigureAwait(false);
+                    }
+
+                    foreach (var q in queries)
+                    {
+                        if (client.GetTitleMatch(q, threshold) is int found)
+                        {
+                            map.SetTitleMatch(q.SeriesId, found);
+                        }
+                    }
+                }
+
+                // Seasons without an AniDB id (a library not managed by Shokofin): find each one in the show's AnimeThemes
+                // franchise by when it started. Only for shows that have themes, and only when the dates line up.
+                var themedSeries = groups.Values.Select(t => map.SeriesFor(t.ShowFolder)).Where(g => g is not null).Select(g => g!.Value).ToHashSet();
+                if (allowRemote)
+                {
+                    await client.PrefetchFranchiseAsync(map.SeasonMatchSeeds(themedSeries), config.MetadataRefreshDays, ct).ConfigureAwait(false);
+                }
+
+                map.MatchSeasonsByDate(themedSeries, id => client.GetFranchise(id), _logger);
+            }
+
             if (config.FetchMetadata && allowRemote)
             {
                 var wanted = new HashSet<int>();
@@ -282,8 +331,9 @@ public sealed partial class ThemeIndex
                         .Where(s => s.AniDbId is not null).ToList();
                     if (candidates.Count == 1)
                     {
-                        theme.SeasonId = candidates[0].SeasonId;
+                        theme.SeasonId = candidates[0].SeasonId == Guid.Empty ? null : candidates[0].SeasonId;
                         theme.AniDbId = candidates[0].AniDbId;
+                        theme.MatchedBy ??= candidates[0].ByDate ? "date" : candidates[0].SeasonId == Guid.Empty && map.MatchedByTitle(seriesId.Value) ? "title" : "only-season";
                     }
                 }
 
@@ -383,12 +433,15 @@ public sealed partial class ThemeIndex
                 var pool = exact.Count > 0 ? exact : matches;
                 var entry = pool.Find(e => e.Version == theme.Version) ?? pool[0];
                 theme.AniDbId = aniDb;
+                theme.MatchedBy ??= season.ByDate ? "date" : season.SeasonId == Guid.Empty && map.MatchedByTitle(theme.SeriesId!.Value) ? "title" : "lookup";
                 theme.SeasonId = season.SeasonId == Guid.Empty ? map.SeasonForAniDb(theme.SeriesId!.Value, aniDb)?.SeasonId : season.SeasonId;
                 theme.SongTitle = entry.Song;
                 theme.Artists = entry.Artists;
                 theme.Episodes = entry.Episodes;
                 theme.Spoiler = entry.Spoiler;
                 theme.Nsfw = entry.Nsfw;
+                theme.Overlap = entry.Overlap;
+                theme.CreditlessAvailable = entry.Creditless;
                 theme.MetadataSource = "animethemes";
                 return;
             }
