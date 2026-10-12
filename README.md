@@ -122,9 +122,9 @@ It needs AniDB ids on the seasons (Shokofin sets them), and it keeps the load on
 - after a refusal (403) it stops asking for a day;
 - it never downloads video or audio from AnimeThemes.
 
-Requests identify themselves as `OpEd-Themes/0.1 (+https://github.com/peppy6582)`. In testing, AnimeThemes refused agent
-strings that contained "jellyfin", so the agent avoids the word; it is the plugin's own name, not a browser's. If
-AnimeThemes asks for different handling (another agent string, an API key, a different data source), that will be
+Requests identify themselves as `OpEd-Themes (+https://github.com/peppy6582)`, the agent string agreed with AnimeThemes
+(it must not contain the word "jellyfin", which their filter refuses). Do not change it without checking with them.
+If they ask for different handling (another agent string, an API key, a different data source), the plugin will be
 changed.
 
 To never contact AnimeThemes, untick **Look up song, artists and episodes on AnimeThemes.moe** in Dashboard → OP/ED.

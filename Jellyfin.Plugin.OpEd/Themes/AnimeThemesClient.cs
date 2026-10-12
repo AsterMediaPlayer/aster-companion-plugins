@@ -17,10 +17,9 @@ namespace Jellyfin.Plugin.OpEd.Themes;
 public sealed class AnimeThemesClient
 {
     private const string Api = "https://api.animethemes.moe/anime";
-    // Names the plugin and links to its author. AnimeThemes answers 403 to any agent string containing "jellyfin" (found
-    // by testing: the old string with the repo URL was refused, the same string without it was accepted), so the repo link
-    // is left out; the agent is still the plugin's own name, not a browser's.
-    private const string UserAgent = "OpEd-Themes/0.1 (+https://github.com/peppy6582)";
+    // The agent string agreed with AnimeThemes: the plugin's name and a link to its author. Fixed, with no version number, so
+    // that it keeps matching what they allowed, and without the word "jellyfin", which their filter refuses.
+    private const string UserAgent = "OpEd-Themes (+https://github.com/peppy6582)";
     private const int BatchSize = 50;
     private static readonly TimeSpan MinGap = TimeSpan.FromSeconds(2);
     private static readonly SemaphoreSlim Gate = new(1, 1);
