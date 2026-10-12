@@ -21,9 +21,9 @@ category=$(field category)
 target_abi=$(field targetAbi)
 repo=peppy6582/jellyfin-oped
 # The `description: >` and `changelog: >` blocks: indented lines joined with spaces.
-block() { awk -v key="$1" '$0 ~ "^"key": *>" {on=1; next} on && /^[^ ]/ {on=0} on {sub(/^ +/, ""); printf "%s ", $0}' "$meta" | sed 's/ *$//'; }
-description=$(block description)
-changelog=$(block changelog)
+block() { awk -v key="$1" '$0 ~ "^"key": *[>|]" {on=1; next} on && /^[^ ]/ {on=0} on {sub(/^ +/, ""); print}' "$meta"; }
+description=$(block description | tr '\n' ' ' | sed 's/ *$//')
+changelog=$(block changelog | sed -n "s/^- ${version//./\\.}: *//p")   # only this version's line
 
 out=${OPED_OUT:-/mnt/cache/appdata/jellyfin-oped-build}   # where the build leaves the DLL (`docker compose run --rm build` -> here)
 if [ -z "${OPED_SKIP_BUILD:-}" ]; then docker compose run --rm build; fi   # CI builds with dotnet itself
