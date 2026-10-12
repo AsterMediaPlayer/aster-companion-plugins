@@ -115,9 +115,10 @@ Song titles, artists, episode ranges and spoiler/NSFW flags come from [AnimeThem
 community project; please credit it wherever you show this data. This plugin is not affiliated with or endorsed by
 AnimeThemes.
 
-It needs AniDB ids on the seasons (Shokofin sets them), and it keeps the load on their server small:
+It uses their GraphQL API (their JSON API is deprecated) and needs AniDB ids on the seasons (Shokofin sets them). It keeps
+the load on their server small:
 
-- one request per 50 AniDB ids, at least two seconds apart, never in parallel;
+- one GraphQL request per 50 AniDB ids, at least two seconds apart, never in parallel (their limit is 90 per minute);
 - answers are cached on disk per AniDB id for 14 days (configurable), including "nothing for this id";
 - after a refusal (403) it stops asking for a day;
 - it never downloads video or audio from AnimeThemes.

@@ -8,15 +8,15 @@ namespace Jellyfin.Plugin.OpEd.Themes;
 /// <summary>
 /// Song metadata from AnimeThemes.moe, looked up by AniDB id.
 ///
-/// AnimeThemes runs on a single small server and has asked API users (after blocking an earlier Jellyfin plugin for
-/// the load it caused) to batch lookups. So: <see cref="PrefetchAsync"/> fetches every id a scan needs, up to 50 per
+/// AnimeThemes runs on a single small server and asks API users to keep the load low, so: <see cref="PrefetchAsync"/> fetches
+/// every id a scan needs from their GraphQL API, up to 50 per
 /// request, one request at a time with a gap between them; answers are cached on disk per AniDB id (including "nothing
 /// for this id") and only re-fetched after the configured number of days; <see cref="GetThemes"/> reads that cache
 /// only. Requests identify the plugin honestly in the User-Agent.
 /// </summary>
 public sealed class AnimeThemesClient
 {
-    private const string Api = "https://api.animethemes.moe/anime";
+    private const string Api = "https://graphql.animethemes.moe/";
     // The agent string agreed with AnimeThemes: the plugin's name and a link to its author. Fixed, with no version number, so
     // that it keeps matching what they allowed, and without the word "jellyfin", which their filter refuses.
     private const string UserAgent = "OpEd-Themes (+https://github.com/peppy6582)";
@@ -63,33 +63,38 @@ public sealed class AnimeThemesClient
         foreach (var batch in stale.Chunk(BatchSize))
         {
             var found = batch.ToDictionary(id => id, _ => new JsonArray());
-            var url = $"{Api}?filter[has]=resources&filter[site]=AniDB&filter[external_id]={string.Join(',', batch)}"
-                + "&include=resources,animethemes.animethemeentries,animethemes.song.artists&page[size]=100";
-            var ok = true;
-            while (url is not null)
+            var ok = false;
+            var json = await FetchAsync(RequestBody(batch), ct).ConfigureAwait(false);
+            if (json is not null)
             {
-                var json = await FetchAsync(url, ct).ConfigureAwait(false);
-                if (json is null)
+                var answer = JsonNode.Parse(json);
+                if (answer?["data"]?["findAnimeByExternalSite"] is JsonArray animeList)
                 {
-                    ok = false;
-                    break;
-                }
-
-                var page = JsonNode.Parse(json);
-                foreach (var anime in page?["anime"]?.AsArray() ?? [])
-                {
-                    foreach (var resource in anime?["resources"]?.AsArray() ?? [])
+                    ok = true;
+                    foreach (var anime in animeList)
                     {
-                        if (string.Equals((string?)resource?["site"], "AniDB", StringComparison.OrdinalIgnoreCase) // the API says "aniDB"
-                            && int.TryParse(resource?["external_id"]?.ToString(), out var id)
-                            && found.TryGetValue(id, out var list))
+                        if (anime is null)
                         {
-                            list.Add(anime!.DeepClone());
+                            continue;
+                        }
+
+                        var shaped = ToCacheShape(anime);
+                        foreach (var resource in anime["resources"]?["nodes"]?.AsArray() ?? [])
+                        {
+                            if (string.Equals((string?)resource?["site"], "ANIDB", StringComparison.OrdinalIgnoreCase)
+                                && int.TryParse(resource?["externalId"]?.ToString(), out var id)
+                                && found.TryGetValue(id, out var list))
+                            {
+                                list.Add(shaped.DeepClone());
+                            }
                         }
                     }
                 }
-
-                url = (string?)page?["links"]?["next"];
+                else
+                {
+                    var errors = answer?["errors"]?.ToJsonString() ?? "no data";
+                    _logger.LogWarning("OP/ED: AnimeThemes answered without data: {Errors}", errors.Length > 300 ? errors[..300] : errors);
+                }
             }
 
             if (!ok)
@@ -118,9 +123,71 @@ public sealed class AnimeThemesClient
         return File.Exists(file) ? Parse(File.ReadAllText(file)) : null;
     }
 
+    // GraphQL has a field made for this: every anime that has one of the given AniDB ids, with its themes in one call.
+    private const string Query = "query($ids:[Int!]){ findAnimeByExternalSite(site: ANIDB, id: $ids) { resources { nodes { site externalId } } "
+        + "animethemes { type sequence slug song { title { romaji native } performances { artist { name { main native } } } } "
+        + "animethemeentries { version episodes spoiler nsfw } } } }";
+
+    private static string RequestBody(IEnumerable<int> ids) =>
+        new JsonObject { ["query"] = Query, ["variables"] = new JsonObject { ["ids"] = new JsonArray([.. ids.Select(i => (JsonNode)JsonValue.Create(i)!)]) } }.ToJsonString();
+
+    /// <summary>
+    /// One GraphQL anime reshaped into what the on-disk cache holds (the shape the REST API used to return), so cached
+    /// answers from before the move to GraphQL stay valid and <see cref="Parse"/> reads both.
+    /// </summary>
+    private static JsonObject ToCacheShape(JsonNode anime)
+    {
+        var themes = new JsonArray();
+        foreach (var t in anime["animethemes"]?.AsArray() ?? [])
+        {
+            if (t is null)
+            {
+                continue;
+            }
+
+            var artists = new JsonArray();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var p in t["song"]?["performances"]?.AsArray() ?? [])
+            {
+                var name = (string?)p?["artist"]?["name"]?["main"] ?? (string?)p?["artist"]?["name"]?["native"];
+                if (name is not null && seen.Add(name))
+                {
+                    artists.Add(new JsonObject { ["name"] = name });
+                }
+            }
+
+            var entries = new JsonArray();
+            foreach (var e in t["animethemeentries"]?.AsArray() ?? [])
+            {
+                entries.Add(new JsonObject
+                {
+                    ["version"] = (int?)e?["version"] ?? 1,
+                    ["episodes"] = (string?)e?["episodes"],
+                    ["spoiler"] = (bool?)e?["spoiler"] ?? false,
+                    ["nsfw"] = (bool?)e?["nsfw"] ?? false,
+                });
+            }
+
+            themes.Add(new JsonObject
+            {
+                ["type"] = (string?)t["type"],
+                ["sequence"] = (int?)t["sequence"],
+                ["slug"] = (string?)t["slug"],
+                ["song"] = t["song"] is null ? null : new JsonObject
+                {
+                    ["title"] = (string?)t["song"]?["title"]?["romaji"] ?? (string?)t["song"]?["title"]?["native"],
+                    ["artists"] = artists,
+                },
+                ["animethemeentries"] = entries,
+            });
+        }
+
+        return new JsonObject { ["animethemes"] = themes };
+    }
+
     private string CacheFile(int aniDbId) => Path.Combine(_cacheDir, $"anidb-{aniDbId}.json");
 
-    private async Task<string?> FetchAsync(string url, CancellationToken ct)
+    private async Task<string?> FetchAsync(string body, CancellationToken ct)
     {
         for (var attempt = 0; attempt < 2; attempt++)
         {
@@ -135,7 +202,7 @@ public sealed class AnimeThemesClient
 
                 _lastRequest = DateTime.UtcNow;
                 using var client = _httpClientFactory.CreateClient();
-                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                using var request = new HttpRequestMessage(HttpMethod.Post, Api) { Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json") };
                 request.Headers.UserAgent.ParseAdd(UserAgent);
                 request.Headers.Accept.ParseAdd("application/json");
                 using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
