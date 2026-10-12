@@ -2,11 +2,19 @@
   {
     "guid": "d459e0a2-e073-4e1e-b0ec-71883075cf4a",
     "name": "OP/ED",
-    "description": "Indexes opening and ending theme files (video and/or audio) that you put in a themes folder, one folder per show, matches them to your Jellyfin shows and seasons, fills in song title, artists and episode ranges from AnimeThemes.moe, and serves them to clients through an authenticated API. Developed primarily with an AI coding assistant (Claude Code); see the README.",
-    "overview": "Anime opening and ending themes for your shows, with an API for clients.",
+    "description": "Put opening and ending theme files (video, audio or both) in a folder, one folder per show. The plugin matches them to your shows and seasons, adds song title, artists and episode ranges from AnimeThemes.moe, and serves them to clients through an authenticated API. Missing a theme? It can cut one out of your own episodes from their chapter markers, for you to review. Developed primarily with an AI coding assistant (Claude Code); see the README.",
+    "overview": "Anime openings and endings for your shows, matched from a folder you fill.",
     "owner": "peppy6582",
     "category": "Metadata",
     "versions": [
+      {
+        "version": "0.1.2.0",
+        "changelog": "Clearer wording throughout: settings page, plugin and task descriptions, and the README.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/peppy6582/jellyfin-oped/releases/download/v0.1.2.0/jellyfin-oped_0.1.2.0.zip",
+        "checksum": "021d8009db2ea4e68c0868954fc01bfc",
+        "timestamp": "2026-10-12T11:45:59Z"
+      },
       {
         "version": "0.1.1.0",
         "changelog": "Looks themes up through the AnimeThemes GraphQL API with the user agent agreed with them. Season picker and OP/ED number on approval, library picker and a length hint for the chapter clip review queue, previews that stay put while clips are being cut, credit to AnimeThemes in the README and settings page.",
