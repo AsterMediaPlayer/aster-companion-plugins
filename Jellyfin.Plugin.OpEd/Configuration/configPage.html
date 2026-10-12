@@ -260,7 +260,7 @@
                     if (r.Extracting) {
                         var pct = r.SeasonsTotal ? ' (' + r.SeasonsDone + ' of ' + r.SeasonsTotal + ' seasons)' : '';
                         status.innerHTML = '<b>Working…</b> ' + esc(r.Activity || 'Starting…') + esc(pct) + '. Cut so far: ' + r.CutThisRun +
-                            '. Each clip takes about 15–25 seconds and appears below when it's done.';
+                            '. Each clip takes about 15–25 seconds and appears below when it is done.';
                     } else {
                         status.innerHTML = r.Indexing ? '<b>Indexing themes and fetching metadata…</b>' : (r.LastResult ? 'Last run: ' + esc(r.LastResult) : '');
                     }
