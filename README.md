@@ -91,18 +91,21 @@ automatically. Run **Cut OP/ED clips from chapters** (Scheduled Tasks) or **Look
 
 `Intro` and `Preview` chapters are ignored on purpose, since they usually mean something else.
 
-**Review queue.** Clips are held in the plugin's data folder (never the themes folder, so they aren't served). The
-settings page plays each one beside what AnimeThemes says it should be.
+**Review queue** (the **Review** tab). Clips are held in the plugin's data folder (never the themes folder, so they
+aren't served). They are grouped by show, with **Approve all** and **Reject all** for a whole show, and each clip plays
+on request beside what AnimeThemes says it should be. Click a clip to select it, then press **A** to approve, **R** to
+reject, **T** to reject and try another episode, **P** to preview, and the arrow keys to move.
 
 - **Approve** moves it into the themes folder as an ordinary theme. Clips are cut as OP1/ED1 unless AnimeThemes or the
-  chapter name says otherwise, so you can change the number with **Approve as OP/ED number** first.
+  chapter name says otherwise, so you can change the number in the row's number box first.
 - **Reject** deletes it and the slot isn't cut again, until you choose **Forget rejections**.
 - **Reject, try another episode** is for clips with text or credits running over them. It deletes the clip and cuts the
   same slot from the next usable episode, skipping ones already tried. When none are left it tells you, and you can
   add the file yourself.
 
-When you've finished the queue, press **Index approved clips and fetch metadata**. That does one scan for the whole
-batch and requests only the song details that are missing.
+When you've finished the queue, press **Add to library**. A bar with that button stays at the bottom of every tab while
+approved clips are waiting. It does one scan for the whole batch and requests only the song details that are missing.
+It is never pressed for you, because indexing contacts AnimeThemes.
 
 **Same OP or a different one?** Approving a clip records its length, and later clips for the same show are compared
 against it. Within 3 s is flagged "possibly the same OP", and clearly different is "probably a different OP". For
@@ -140,10 +143,18 @@ then optional `[episodes]`. Attach a variant with a hyphen and no spaces: `ED1-T
 
 **3. AnimeThemes.moe**, see below.
 
-**Using the editor.** The settings page lists every theme with its current details and where each came from.
-**Save** writes that theme's entry to themes.json. **Clear** removes it so the other sources apply again. Ticking
+**Using the editor** (the **Library** tab). Themes are grouped by show; search, or filter to the ones that need
+details, were matched to a season by a guess, or were edited by hand. **Edit** opens a theme with its current details
+and where each came from. **Save** writes that theme's entry to themes.json. **Clear** removes it so the other sources apply again. Ticking
 Spoiler or NSFW saves the flag, and leaving it unticked defers to the other sources. Jellyfin needs write access to the
 themes folder for the editor to work.
+
+**Replacing a file.** Downloaded a better version of an OP, say a creditless one? Put it in the show's folder in place
+of the old one (any supported format), then press **Rescan files** on that show's header in the Library tab. The plugin
+picks up the new file and, if it doesn't already play everywhere, makes an MP4 or M4A of it right there in the themes
+folder under the same name. The file you replaced goes into an `_originals` folder next to it. Nothing is deleted, and
+AnimeThemes isn't contacted. Folders starting with an underscore are ignored when scanning. (Files you never press this
+for are still served through a playable copy kept in the plugin's data folder.)
 
 ## Metadata from AnimeThemes
 
