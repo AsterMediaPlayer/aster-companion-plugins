@@ -193,6 +193,7 @@ usual Jellyfin `Authorization: MediaBrowser Token="…"` header. Fields that are
 | GET | `/OpEd/Admin/Themes` | Every theme with its song details and their source, for the editor (administrators) |
 | POST | `/OpEd/Admin/Themes/{themeId}/Details` | Save song details to themes.json: `{Title, Artists[], Episodes, Spoiler, Nsfw}` (administrators) |
 | DELETE | `/OpEd/Admin/Themes/{themeId}/Details` | Remove them from themes.json (administrators) |
+| POST | `/OpEd/Admin/Themes/Rescan` | Pick up files you replaced for the given themes: `{ThemeIds[]}`. Rescans, makes them playable in the themes folder and moves the originals to `_originals` (nothing is deleted); no AnimeThemes requests; runs in the background (administrators) |
 
 For a season, the result is that season's themes plus show-wide ones whose season isn't known. For an episode, it's the
 same, and each theme also carries `PlaysInEpisode` (from AnimeThemes' episode list, matched against the episode

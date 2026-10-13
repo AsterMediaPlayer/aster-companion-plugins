@@ -26,6 +26,7 @@ namespace Jellyfin.Plugin.OpEd.Api;
 ///   POST /OpEd/Admin/Clips/Extract         cut missing OPs/EDs out of episodes by chapter marker, into the review queue (admins)
 ///   GET  /OpEd/Admin/Clips                 the review queue (admins)
 ///   GET  /OpEd/Admin/Clips/{id}/Video      a queued clip (also /Audio) (admins)
+///   POST /OpEd/Admin/Themes/Rescan         pick up files you replaced for the given themes, make them playable in place, originals to _originals (admins)
 ///   POST /OpEd/Admin/Clips/{id}/Approve    move the clip into the themes folder; ?sequence=N files it as OPN/EDN (admins)
 ///   POST /OpEd/Admin/Clips/Apply           index approved clips and fetch their AnimeThemes metadata, in one batch (admins)
 ///   POST /OpEd/Admin/Clips/{id}/Reject     delete the clip and don't cut that slot again; ?tryAnother=true cuts it from the next episode instead (admins)
@@ -157,10 +158,23 @@ public sealed class OpEdController : ControllerBase
         return report;
     }
 
+    /// <summary>
+    /// Picks up files you replaced for the given themes (one show's): rescans the folder, makes them playable in place and
+    /// moves the originals to "_originals". Runs in the background (Status shows Converting meanwhile); no AnimeThemes requests.
+    /// </summary>
+    [HttpPost("Admin/Themes/Rescan")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult RescanThemes([FromBody] RescanDto body)
+    {
+        _index.StartRescan(body.ThemeIds ?? []);
+        return Ok();
+    }
+
     [HttpGet("Status")]
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<object> Status() => new { Scanning = _index.IsScanning, Converting = _index.IsConverting, Extracting = _clips.IsBusy, Report = _index.Report };
+    public ActionResult<object> Status() => new { Scanning = _index.IsScanning, Converting = _index.IsConverting || _index.IsRescanning, Extracting = _clips.IsBusy, Report = _index.Report };
 
     [HttpGet("Admin/Themes")]
     [Authorize(Policy = "RequiresElevation")]
@@ -561,6 +575,12 @@ public sealed class EditorThemeDto
     public bool HasVideo { get; set; }
 
     public bool HasAudio { get; set; }
+}
+
+/// <summary>The themes of one show, for a rescan of its replaced files.</summary>
+public sealed class RescanDto
+{
+    public List<string>? ThemeIds { get; set; }
 }
 
 /// <summary>Song details sent by the editor. Empty values are not saved (they fall through to other sources).</summary>

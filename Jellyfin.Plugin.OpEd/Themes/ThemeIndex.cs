@@ -99,6 +99,116 @@ public sealed partial class ThemeIndex
         return Get(themeId);
     }
 
+    private volatile bool _rescanning;
+
+    /// <summary>True while a rescan of replaced files (see <see cref="StartRescan"/>) is running.</summary>
+    public bool IsRescanning => _rescanning;
+
+    /// <summary>
+    /// For files you added or replaced by hand: rescans the themes folder (without contacting AnimeThemes), makes whatever
+    /// the given themes need playable, and puts the playable file in the themes folder in place of the original, which is
+    /// moved to an "_originals" folder next to it. Nothing is deleted. Runs in the background; poll <see cref="IsRescanning"/>.
+    /// </summary>
+    public void StartRescan(IReadOnlyCollection<string> themeIds)
+    {
+        if (_rescanning)
+        {
+            return;
+        }
+
+        _rescanning = true;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await RescanFilesAsync(themeIds, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                _logger.LogWarning(e, "OP/ED: the rescan of replaced files failed");
+            }
+            finally
+            {
+                _rescanning = false;
+            }
+        });
+    }
+
+    private async Task RescanFilesAsync(IReadOnlyCollection<string> themeIds, CancellationToken ct)
+    {
+        await ScanAsync(null, ct, allowRemote: false).ConfigureAwait(false);
+        await ConvertVideosAsync(null, ct).ConfigureAwait(false); // makes the playable copies; files that already play are marked ready as they are
+        var placed = 0;
+        foreach (var id in themeIds.Distinct())
+        {
+            if (Get(id) is { } theme)
+            {
+                placed += PlaceInFolder(theme.VideoPath, theme.Mp4Path, theme.Mp4Status) + PlaceInFolder(theme.AudioPath, theme.M4aPath, theme.M4aStatus);
+            }
+        }
+
+        if (placed > 0)
+        {
+            await ScanAsync(null, ct, allowRemote: false).ConfigureAwait(false);
+            await ConvertVideosAsync(null, ct).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Moves a playable copy made in the plugin's cache next to its source, under the source's name with the copy's extension,
+    /// and the source into "_originals". Returns 1 when something was placed. Leaves everything as it was on a problem.
+    /// </summary>
+    private int PlaceInFolder(string? source, string? copy, string? status)
+    {
+        if (source is null || copy is null || status != "ready" || string.Equals(copy, source, StringComparison.Ordinal)
+            || !copy.StartsWith(VideoConverter.CacheDir, StringComparison.Ordinal) || !File.Exists(source) || !File.Exists(copy))
+        {
+            return 0;
+        }
+
+        var dir = Path.GetDirectoryName(source)!;
+        var target = Path.Combine(dir, Path.GetFileNameWithoutExtension(source) + Path.GetExtension(copy));
+        if (!string.Equals(target, source, StringComparison.Ordinal) && File.Exists(target))
+        {
+            _logger.LogWarning("OP/ED: {Target} already exists next to {Source}; left both as they are", target, source);
+            return 0;
+        }
+
+        var originals = Path.Combine(dir, OriginalsFolder);
+        var kept = Path.Combine(originals, Path.GetFileName(source));
+        if (File.Exists(kept))
+        {
+            kept = Path.Combine(originals, Path.GetFileNameWithoutExtension(source) + "-" + DateTime.Now.ToString("yyyyMMddHHmmss", System.Globalization.CultureInfo.InvariantCulture) + Path.GetExtension(source));
+        }
+
+        var tmp = target + ".oped-tmp";
+        try
+        {
+            Directory.CreateDirectory(originals);
+            File.Copy(copy, tmp, overwrite: true);
+            File.Move(source, kept);
+            File.Move(tmp, target);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            VideoConverter.TryDelete(tmp);
+            if (!File.Exists(source) && File.Exists(kept))
+            {
+                File.Move(kept, source);
+            }
+
+            _logger.LogWarning(e, "OP/ED: couldn't put the playable copy of {Source} in the themes folder; left as it was", source);
+            return 0;
+        }
+
+        VideoConverter.TryDelete(copy);
+        _logger.LogInformation("OP/ED: {Target} now plays as it is; the original went to {Kept}", target, kept);
+        return 1;
+    }
+
+    /// <summary>Folders with this name (or any starting with an underscore) inside a show's folder are ignored by scans.</summary>
+    public const string OriginalsFolder = "_originals";
+
     public IEnumerable<Theme> ForSeries(Guid seriesId) =>
         Data.Themes.Where(t => t.SeriesId == seriesId)
             .OrderBy(t => t.SeasonId is null ? 1 : 0).ThenBy(t => t.AniDbId).ThenBy(t => t.Type == "OP" ? 0 : 1)
@@ -141,6 +251,11 @@ public sealed partial class ThemeIndex
                     if (!ThemeFileName.IsVideo(file) && !ThemeFileName.IsAudio(file))
                     {
                         continue;
+                    }
+
+                    if (Path.GetRelativePath(showDir, file).Split(Path.DirectorySeparatorChar).Any(p => p.StartsWith('_')))
+                    {
+                        continue; // "_originals" and the like: kept files, not themes
                     }
 
                     var rel = Path.GetRelativePath(root, file);
