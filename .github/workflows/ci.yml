@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build
+        run: dotnet build Jellyfin.Plugin.AsterChannels -c Release
+      - name: The tag rules match the app's vectors
+        run: node --test tests/
+      - name: The versions agree
+        run: tools/check-versions.sh
