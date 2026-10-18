@@ -7,7 +7,7 @@ In Aster, a channel is just a video playlist with tags on it (`aster:channel`, `
 ## Install
 
 1. In Jellyfin, open **Dashboard ▸ Plugins ▸ Repositories** and add:
-   `https://github.com/AsterFIN-app/jellyfin-plugin-aster-channels/releases/latest/download/manifest.json`
+   `https://github.com/peppy6582/aster-companion-plugin/releases/latest/download/manifest.json`
 2. Install **Aster Channels** from the catalogue, and restart Jellyfin.
 3. **Channels** now appears in the dashboard menu.
 
