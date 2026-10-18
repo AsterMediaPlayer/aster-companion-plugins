@@ -40,6 +40,61 @@
     // Libraries a channel can't play from.
     var SKIPPED_LIBRARIES = ['music', 'books', 'livetv', 'playlists', 'boxsets', 'musicvideos'];
 
+    // The "?" explanations, written for someone new to all of this.
+    var TIPS = {
+        on: 'Turn this off to hide the channel without deleting anything. Turn it back on and all its settings come back.',
+        name: "What the channel is called in the guide. Leave it empty to use the playlist's name.",
+        number: 'The channel number, like 4 or 101. The guide lists channels in number order. Try not to give two channels the same number.',
+        mode: 'How the channel picks what plays next. Rotation: each show takes a turn, one episode at a time. '
+            + 'Blocks: each show plays a few episodes in a row. Shuffle: everything mixed up. '
+            + 'In Order: the playlist from top to bottom. Air Date: oldest first, the way it was first on TV.',
+        logo: "Uses the playlist's picture as the channel's logo in the guide. To change the picture, change the playlist's image in Jellyfin.",
+        bug: "Shows the channel's logo faintly in a corner while you watch, like real TV channels do.",
+        breaks: 'Breaks are short clips that play between shows, like commercials on real TV. '
+            + 'Pick a filler playlist to take the clips from. Leave it empty for no breaks.',
+        advanced: "Extra settings most channels never need. If you're not sure, leave them as they are.",
+        plays: 'Besides what is in the playlist itself, a channel can add everything from a genre, network or collection. '
+            + 'New things you add to your library show up on the channel by themselves.',
+        genres: 'Adds every movie and show in this genre, like Horror or Comedy. Pick more than one to mix them.',
+        networks: 'Adds every show from a TV network or movie studio, like NBC or Pixar.',
+        collections: 'Adds everything in one of your Jellyfin collections, like a Star Wars collection.',
+        content: 'Whether the genres add movies, shows, or both.',
+        libraries: 'Only take titles from these libraries. Leave it empty to use all of them.',
+        years: 'Only play things that came out between these years. Handy for an 80s or 90s channel.',
+        ratings: "Only play things with these age ratings, like G and PG for a kids' channel.",
+        newOrder: "A shuffled channel mixes up its order again after this long. Daily means tomorrow's lineup is different from today's.",
+        shuffleAgain: "Don't like the lineup? This deals a brand new one, for everyone watching.",
+        blocks: 'In Blocks mode: how many episodes of a show play before the next show gets a turn. '
+            + 'Each time, the channel picks a number between these two.',
+        length: 'Skips anything shorter or longer than these. For example, Longest 30 keeps movies off a cartoon channel.',
+        weights: 'Makes a show come up more often. Type the show, a colon, and a number from 1 to 5. '
+            + 'Friends:2 means Friends gets twice as many turns as the others.',
+        corner: 'Which corner of the screen the logo sits in.',
+        hideAfter: 'Hides the corner logo after this many seconds. It comes back when the next show starts. Leave it empty to keep it up.',
+        opacity: 'How see-through the corner logo is. Lower is more see-through; 100% is solid.',
+        size: 'How big the corner logo is. 100% is the normal size.',
+        clipKinds: 'Which kinds of clips this channel plays in its breaks. Every clip in a filler playlist needs a tag saying what it is, '
+            + "like aster:commercial, or it won't be played.",
+        bumpers: "Short \"We'll be right back\" and \"Now back to the show\" clips.",
+        promos: 'Ads for other shows, like "Coming up next…".',
+        commercials: 'Ads, like real TV commercials.',
+        trailers: 'Movie trailers.',
+        interstitials: 'Anything else short: music videos, cartoon shorts, public service ads. They also fill gaps when lining up.',
+        bumperPlacement: 'Where the bumper clips go: at the start of a break, at the end, or both.',
+        commercialTime: 'How many minutes of commercials play in each break.',
+        counts: 'How many promos, trailers and interstitials play in each break.',
+        breakEvery: 'How often a break comes. Every Programme means after every episode or movie.',
+        lineUp: 'Makes shows start at neat times, like 7:00 or 7:30, the way real TV does. The breaks stretch or shrink to fill the gap.',
+        fit: 'Best Effort uses whole clips and gets as close as it can, but never starts a show late. '
+            + 'Exact cuts the last clip short so the show starts right on the dot.',
+        users: 'Only these people see the channel in Aster. Leave it empty so everyone does.',
+        tags: "This is what's actually saved. Every setting is a tag on the playlist, so you could even type them by hand in Jellyfin.",
+        source: "Show: one show's episodes. Genre: everything in a genre, like Horror. Network: everything from a network, like Cartoon Network. "
+            + 'Collection: everything in a Jellyfin collection. Playlist: a playlist you already made.',
+        pick: 'Start typing and pick from the list.',
+        newName: 'What to call the new channel. Leave it empty to name it after what you picked.'
+    };
+
     // ---- DOM helpers ---------------------------------------------------------
 
     function h(tag, attrs, children) {
@@ -70,9 +125,15 @@
         return el;
     }
 
-    function field(label, control, help) {
+    // A "?" that explains what's next to it (see showTip).
+    function tip(key) {
+        var text = TIPS[key];
+        return text ? h('span', { className: 'acTip', tabindex: '0', role: 'button', 'aria-label': 'What is this?', 'data-tip': text, text: '?' }) : null;
+    }
+
+    function field(label, control, help, tipKey) {
         return h('div', { className: 'acField' }, [
-            h('label', { className: 'acFieldLabel', text: label }),
+            h('div', { className: 'acFieldLabel' }, [label, tip(tipKey)]),
             control,
             help ? h('div', { className: 'acHelp', text: help }) : null
         ]);
@@ -84,11 +145,91 @@
         }));
     }
 
-    function checkbox(label, checked, onChange) {
-        return h('label', { className: 'acCheck' }, [
-            h('input', { type: 'checkbox', checked: checked, onchange: function (e) { onChange(e.target.checked); } }),
-            h('span', { text: label })
+    function checkbox(label, checked, onChange, tipKey) {
+        return h('div', { className: 'acCheckRow' }, [
+            h('label', { className: 'acCheck' }, [
+                h('input', { type: 'checkbox', checked: checked, onchange: function (e) { onChange(e.target.checked); } }),
+                h('span', { text: label })
+            ]),
+            tip(tipKey)
         ]);
+    }
+
+    // One bubble for every "?": shown on hover or keyboard focus, and on a
+    // tap (touch screens have no hover); kept inside the window.
+    function tipBubble(page) {
+        var bubble = h('div', { className: 'acTipBubble', role: 'tooltip', hidden: true });
+        page.appendChild(bubble);
+        var shownFor = null;
+
+        function show(target) {
+            shownFor = target;
+            bubble.textContent = target.getAttribute('data-tip');
+            bubble.hidden = false;
+            var box = target.getBoundingClientRect();
+            var width = bubble.offsetWidth;
+            var height = bubble.offsetHeight;
+            var left = Math.min(Math.max(8, box.left + box.width / 2 - width / 2), window.innerWidth - width - 8);
+            var top = box.bottom + 8 + height > window.innerHeight ? box.top - height - 8 : box.bottom + 8;
+            bubble.style.left = left + 'px';
+            bubble.style.top = Math.max(8, top) + 'px';
+        }
+
+        function hide() {
+            shownFor = null;
+            bubble.hidden = true;
+        }
+
+        function tipOf(e) {
+            return e.target && e.target.closest ? e.target.closest('.acTip') : null;
+        }
+
+        page.addEventListener('mouseover', function (e) {
+            var target = tipOf(e);
+            if (target && target !== shownFor) {
+                show(target);
+            }
+        });
+        page.addEventListener('mouseout', function (e) {
+            if (tipOf(e) && tipOf(e) === shownFor && document.activeElement !== shownFor) {
+                hide();
+            }
+        });
+        page.addEventListener('focusin', function (e) {
+            var target = tipOf(e);
+            if (target) {
+                show(target);
+            }
+        });
+        page.addEventListener('focusout', function (e) {
+            if (tipOf(e)) {
+                hide();
+            }
+        });
+        page.addEventListener('click', function (e) {
+            var target = tipOf(e);
+            if (target) {
+                // A tip inside a clickable row explains the row; it doesn't open it.
+                e.preventDefault();
+                e.stopPropagation();
+                if (target === shownFor && document.activeElement === target) {
+                    target.blur();
+                } else {
+                    target.focus();
+                    show(target);
+                }
+            }
+        }, true);
+        page.addEventListener('keydown', function (e) {
+            var target = tipOf(e);
+            if (e.key === 'Escape') {
+                hide();
+            } else if (target && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                show(target);
+            }
+        });
+        window.addEventListener('scroll', hide, true);
     }
 
     // A whole number in [min, max], or nothing (null) when emptied and allowed.
@@ -191,6 +332,8 @@
             editor: page.querySelector('#acEditor'),
             newPanel: page.querySelector('#acNewPanel')
         };
+
+        tipBubble(page);
 
         var state = {
             playlists: [],
@@ -571,8 +714,8 @@
 
         // ---- the editor ----
 
-        function fold(key, title, children) {
-            var details = h('details', { className: 'acFold', open: !!state.folds[key] }, [h('summary', { text: title })].concat(children));
+        function fold(key, title, children, tipKey) {
+            var details = h('details', { className: 'acFold', open: !!state.folds[key] }, [h('summary', {}, [title, tip(tipKey)])].concat(children));
             details.addEventListener('toggle', function () { state.folds[key] = details.open; });
             return details;
         }
@@ -603,18 +746,18 @@
                         render();
                     })
                 ]),
-                checkbox('On', s.isChannel, set(function (t, v) { t.isChannel = v; })),
+                checkbox('On', s.isChannel, set(function (t, v) { t.isChannel = v; }), 'on'),
                 field('Name', h('input', {
                     type: 'text', value: s.name || '', placeholder: p.Name,
                     onchange: function (e) {
                         var name = e.target.value.trim();
                         update(id, function (t) { t.name = name && name !== p.Name ? name : null; });
                     }
-                }), "Leave it empty for the playlist's own name."),
-                field('Number', numberInput(number, 1, 99999, null, set(function (t, v) { t.number = v; }))),
-                field('Mode', select(T.MODES.map(function (m) { return [m, MODE_TITLES[m]]; }), s.mode, set(function (t, v) { t.mode = v; })), MODE_HELP[s.mode]),
-                checkbox("Logo: the playlist's picture is the channel's logo", s.showsLogo, set(function (t, v) { t.showsLogo = v; })),
-                checkbox('Show the logo in the corner while it plays', s.showsBug, set(function (t, v) { t.showsBug = v; })),
+                }), "Leave it empty for the playlist's own name.", 'name'),
+                field('Number', numberInput(number, 1, 99999, null, set(function (t, v) { t.number = v; })), null, 'number'),
+                field('Mode', select(T.MODES.map(function (m) { return [m, MODE_TITLES[m]]; }), s.mode, set(function (t, v) { t.mode = v; })), MODE_HELP[s.mode], 'mode'),
+                checkbox("Logo: the playlist's picture is the channel's logo", s.showsLogo, set(function (t, v) { t.showsLogo = v; }), 'logo'),
+                checkbox('Show the logo in the corner while it plays', s.showsBug, set(function (t, v) { t.showsBug = v; }), 'bug'),
                 field('Breaks', chips(s.fillerPlaylists, fillerNames(), set(function (t, v) {
                     // Turning breaks on lines programmes up on the half hour, the usual TV feel.
                     if (!T.hasBreaks(t) && v.length) {
@@ -625,13 +768,13 @@
                 }), { placeholder: 'Add a filler playlist…' }),
                 fillerNames().length
                     ? 'Clips from these filler playlists play between programmes. None: no breaks.'
-                    : 'No filler playlists yet: tag a playlist aster:filler, and each clip in it aster:commercial, promo, trailer, interstitial or bumper.'),
-                fold('plays|' + id, 'What It Plays: ' + playsSummary(p, s), playsFields(s, set)),
-                fold('advanced|' + id, 'Advanced', advancedFields(s, set, id)),
+                    : 'No filler playlists yet: tag a playlist aster:filler, and each clip in it aster:commercial, promo, trailer, interstitial or bumper.', 'breaks'),
+                fold('plays|' + id, 'What It Plays: ' + playsSummary(p, s), playsFields(s, set), 'plays'),
+                fold('advanced|' + id, 'Advanced', advancedFields(s, set, id), 'advanced'),
                 fold('tags|' + id, 'Tags', [
                     h('div', { className: 'acHelp', text: "Everything above is these tags on the playlist; Jellyfin's Edit Metadata ▸ Tags shows the same." }),
                     h('div', { className: 'acTags', text: (p.Tags || []).join('\n') })
-                ])
+                ], 'tags')
             ]);
             el.editor.appendChild(panel);
         }
@@ -640,17 +783,17 @@
             var o = state.options;
             return [
                 h('div', { className: 'acHelp', text: "As well as the playlist's own titles, the channel plays every title in these:" }),
-                field('Genres', chips(s.genres, o.genres, set(function (t, v) { t.genres = v; }))),
-                field('Networks', chips(s.networks, o.networks, set(function (t, v) { t.networks = v; }))),
-                field('Collections', chips(s.collections, o.collections, set(function (t, v) { t.collections = v; }))),
+                field('Genres', chips(s.genres, o.genres, set(function (t, v) { t.genres = v; })), null, 'genres'),
+                field('Networks', chips(s.networks, o.networks, set(function (t, v) { t.networks = v; })), null, 'networks'),
+                field('Collections', chips(s.collections, o.collections, set(function (t, v) { t.collections = v; })), null, 'collections'),
                 s.genres.length ? field('Content', select(T.CONTENTS.map(function (c) { return [c, CONTENT_TITLES[c]]; }), s.content,
-                    set(function (t, v) { t.content = v; })), 'What it takes from its genres.') : null,
-                T.hasSources(s) ? field('Libraries', chips(s.libraries, o.libraries, set(function (t, v) { t.libraries = v; })), 'None: every library.') : null,
+                    set(function (t, v) { t.content = v; })), 'What it takes from its genres.', 'content') : null,
+                T.hasSources(s) ? field('Libraries', chips(s.libraries, o.libraries, set(function (t, v) { t.libraries = v; })), 'None: every library.', 'libraries') : null,
                 T.hasSources(s) ? field('Years', h('div', { className: 'acPair' }, [
                     numberInput(s.years ? s.years[0] : null, 1880, 2200, 'From', set(function (t, v) { t.years = yearsWith(t.years, v, 0); }), true),
                     numberInput(s.years ? s.years[1] : null, 1880, 2200, 'To', set(function (t, v) { t.years = yearsWith(t.years, v, 1); }), true)
-                ]), 'Only titles from these years. Empty: any year.') : null,
-                T.hasSources(s) ? field('Ratings', chips(s.ratings, o.ratings, set(function (t, v) { t.ratings = v; }), { free: true }), 'Only titles with these ratings. None: any.') : null
+                ]), 'Only titles from these years. Empty: any year.', 'years') : null,
+                T.hasSources(s) ? field('Ratings', chips(s.ratings, o.ratings, set(function (t, v) { t.ratings = v; }), { free: true }), 'Only titles with these ratings. None: any.', 'ratings') : null
             ];
         }
 
@@ -675,21 +818,22 @@
             var fields = [h('div', { className: 'acSub', text: 'Lineup' })];
             if (s.mode !== 'sequential' && s.mode !== 'airdate') {
                 fields.push(field('New Order', select(T.RESHUFFLES.map(function (r) { return [r, RESHUFFLE_TITLES[r]]; }), s.reshuffle,
-                    set(function (t, v) { t.reshuffle = v; })), 'How long one shuffled order lasts. Weeks start on Monday, months on the 1st.'));
+                    set(function (t, v) { t.reshuffle = v; })), 'How long one shuffled order lasts. Weeks start on Monday, months on the 1st.', 'newOrder'));
                 fields.push(h('div', { className: 'acButtons' }, [
-                    button('Shuffle Again', function () { update(id, function (t) { t.seed += 1; }); })
+                    button('Shuffle Again', function () { update(id, function (t) { t.seed += 1; }); }),
+                    tip('shuffleAgain')
                 ]), h('div', { className: 'acHelp', text: 'Deals a fresh lineup, for every device at once.' }));
             }
             if (s.mode === 'blocks') {
                 fields.push(field('Episodes in a Row', h('div', { className: 'acPair' }, [
                     numberInput(s.blocks[0], 1, T.LIMITS.longestBlock, 'Fewest', set(function (t, v) { t.blocks = [v, Math.max(v, t.blocks[1])]; })),
                     numberInput(s.blocks[1], 1, T.LIMITS.longestBlock, 'Most', set(function (t, v) { t.blocks = [Math.min(v, t.blocks[0]), v]; }))
-                ])));
+                ]), null, 'blocks'));
             }
             fields.push(field('Length, in Minutes', h('div', { className: 'acPair' }, [
                 numberInput(s.minLength, 1, 600, 'Shortest', set(function (t, v) { t.minLength = v; }), true),
                 numberInput(s.maxLength, 1, 600, 'Longest', set(function (t, v) { t.maxLength = v; }), true)
-            ]), 'Leaves out titles shorter or longer than these. Empty: no limit.'));
+            ]), 'Leaves out titles shorter or longer than these. Empty: no limit.', 'length'));
             fields.push(field('More Turns', chips(s.weights.map(function (w) { return w.show + ':' + w.weight; }), [], set(function (t, v) {
                 t.weights = v.map(function (text) {
                     var colon = text.lastIndexOf(':');
@@ -704,15 +848,15 @@
                     var show = colon < 0 ? '' : text.slice(0, colon).trim();
                     return show && weight >= 1 && Math.round(weight) === weight ? show + ':' + Math.min(weight, T.LIMITS.heaviestWeight) : null;
                 }
-            }), 'A show that takes its turn more often: Friends:2 plays twice as often.'));
+            }), 'A show that takes its turn more often: Friends:2 plays twice as often.', 'weights'));
 
             if (s.showsBug) {
                 fields.push(h('div', { className: 'acSub', text: 'Corner Logo' }),
-                    field('Corner', select(T.CORNERS.map(function (c) { return [c, CORNER_TITLES[c]]; }), s.bugCorner, set(function (t, v) { t.bugCorner = v; }))),
+                    field('Corner', select(T.CORNERS.map(function (c) { return [c, CORNER_TITLES[c]]; }), s.bugCorner, set(function (t, v) { t.bugCorner = v; })), null, 'corner'),
                     field('Hide After, in Seconds', numberInput(s.bugHideAfter || null, 1, 3600, 'Never', set(function (t, v) { t.bugHideAfter = v || 0; }), true),
-                        'Fades after this long from tuning in or a programme starting. Empty: it stays.'),
-                    field('Opacity, %', numberInput(s.bugOpacity, 5, 100, null, set(function (t, v) { t.bugOpacity = v; }))),
-                    field('Size, %', numberInput(s.bugSize, 25, 300, null, set(function (t, v) { t.bugSize = v; }))));
+                        'Fades after this long from tuning in or a programme starting. Empty: it stays.', 'hideAfter'),
+                    field('Opacity, %', numberInput(s.bugOpacity, 5, 100, null, set(function (t, v) { t.bugOpacity = v; })), null, 'opacity'),
+                    field('Size, %', numberInput(s.bugSize, 25, 300, null, set(function (t, v) { t.bugSize = v; })), null, 'size'));
             }
 
             if (T.hasBreaks(s)) {
@@ -722,29 +866,29 @@
                             var types = t.fillerTypes.filter(function (k) { return k !== kind; });
                             // At least one: none would turn the breaks off.
                             t.fillerTypes = on ? types.concat([kind]) : (types.length ? types : t.fillerTypes);
-                        }));
-                    })), 'Clips only play when their own tag says what they are.'),
-                    field('Bumpers', select(T.BUMPER_PLACEMENTS.map(function (x) { return [x, BUMPER_TITLES[x]]; }), b.bumpersAt, set(function (t, v) { t.breaks.bumpersAt = v; }))),
-                    field('Commercial Time, in Minutes', numberInput(b.minutes, 0, T.LIMITS.longestBreak, null, set(function (t, v) { t.breaks.minutes = v; }))),
+                        }), kind);
+                    })), 'Clips only play when their own tag says what they are.', 'clipKinds'),
+                    field('Bumpers', select(T.BUMPER_PLACEMENTS.map(function (x) { return [x, BUMPER_TITLES[x]]; }), b.bumpersAt, set(function (t, v) { t.breaks.bumpersAt = v; })), null, 'bumperPlacement'),
+                    field('Commercial Time, in Minutes', numberInput(b.minutes, 0, T.LIMITS.longestBreak, null, set(function (t, v) { t.breaks.minutes = v; })), null, 'commercialTime'),
                     h('div', { className: 'acPair' }, [
-                        field('Promos', select(counts, b.promoCount, set(function (t, v) { t.breaks.promoCount = Number(v); }))),
+                        field('Promos', select(counts, b.promoCount, set(function (t, v) { t.breaks.promoCount = Number(v); })), null, 'counts'),
                         field('Trailers', select(counts, b.trailerCount, set(function (t, v) { t.breaks.trailerCount = Number(v); }))),
                         field('Interstitials', select(counts, b.interstitialCount, set(function (t, v) { t.breaks.interstitialCount = Number(v); })))
                     ]),
                     field('A Break After', select(Array.from({ length: T.LIMITS.longestBreakGap }, function (_, i) {
                         return [i + 1, i === 0 ? 'Every Programme' : 'Every ' + (i + 1) + ' Programmes'];
-                    }), b.every, set(function (t, v) { t.breaks.every = Number(v); }))),
+                    }), b.every, set(function (t, v) { t.breaks.every = Number(v); })), null, 'breakEvery'),
                     field('Line Up', select([[0, 'Off']].concat(T.ALIGNMENTS.map(function (m) {
                         return [m, m === 60 ? 'On the Hour' : m === 30 ? 'On the Half Hour' : 'Every ' + m + ' Minutes'];
-                    })), b.align, set(function (t, v) { t.breaks.align = Number(v); })), 'Programmes start on the mark, each break filling the gap.'),
+                    })), b.align, set(function (t, v) { t.breaks.align = Number(v); })), 'Programmes start on the mark, each break filling the gap.', 'lineUp'),
                     b.align > 0 ? field('Fit', select([['best', 'Best Effort'], ['exact', 'Exact']], b.exactAlign ? 'exact' : 'best',
                         set(function (t, v) { t.breaks.exactAlign = v === 'exact'; })),
-                    b.exactAlign ? 'The last clip is cut short to land exactly on the mark.' : 'Whole clips, as near the mark as they get; never late.') : null);
+                    b.exactAlign ? 'The last clip is cut short to land exactly on the mark.' : 'Whole clips, as near the mark as they get; never late.', 'fit') : null);
             }
 
             fields.push(h('div', { className: 'acSub', text: 'Who Gets It' }),
                 field('Users', chips(s.users, o.users, set(function (t, v) { t.users = v; })),
-                    "None: everyone. It only hides the channel in Aster; whoever the playlist is shared with can still open it in Jellyfin."));
+                    "None: everyone. It only hides the channel in Aster; whoever the playlist is shared with can still open it in Jellyfin.", 'users'));
             return fields;
         }
 
@@ -790,10 +934,10 @@
                     newState.kind = v;
                     newState.pick = '';
                     renderNew();
-                })),
+                }), null, 'source'),
                 field(kind.pick, h('div', {}, [pickInput, h('datalist', { id: listId }, choices.map(function (c) { return h('option', { value: c }); }))]),
-                    choices.length ? null : 'There are none to pick from.'),
-                newState.kind === 'playlist' ? null : field('Name', nameInput, 'Empty: named after what you picked. You can change it later.'),
+                    choices.length ? null : 'There are none to pick from.', 'pick'),
+                newState.kind === 'playlist' ? null : field('Name', nameInput, 'Empty: named after what you picked. You can change it later.', 'newName'),
                 h('div', { className: 'acHelp', text: {
                     show: "A public playlist of the show's episodes, with the show's logo.",
                     genre: 'A public playlist that fills itself with every title in the genre.',
