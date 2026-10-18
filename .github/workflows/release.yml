@@ -34,7 +34,7 @@ jobs:
         run: tools/check-versions.sh "$TAG"
 
       - name: Test before releasing
-        run: node --test tests/
+        run: node --test tests/*.test.js
 
       - name: Build the plugin package
         run: |

@@ -1,7 +1,7 @@
 // Runs channel-tags.js against the Aster app's own vectors, so the plugin
 // reads and writes channel tags exactly as the app does.
 //
-//   node --test tests/
+//   node --test tests/*.test.js
 //
 // The vectors are the app's AsterFINTests/Conformance/channel-tags.json,
 // copied here as tests/channel-tags.json; tools/sync-vectors.sh copies them

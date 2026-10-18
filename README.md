@@ -29,7 +29,7 @@ Every tag is listed in Aster's [channel tag reference](https://github.com/AsterF
 
 ```sh
 dotnet build Jellyfin.Plugin.AsterChannels -c Release
-node --test tests/
+node --test tests/*.test.js
 ```
 
 `Web/channel-tags.js` is a port of the app's `ChannelTags.swift`. `tests/` runs it against the app's own vectors (`channel-tags.json`, from `AsterFINTests/Conformance`), so the two can't drift apart. After the app's tag rules change, run `tools/sync-vectors.sh ../AsterFIN`.

@@ -22,6 +22,6 @@ jobs:
       - name: Build
         run: dotnet build Jellyfin.Plugin.AsterChannels -c Release
       - name: The tag rules match the app's vectors
-        run: node --test tests/
+        run: node --test tests/*.test.js
       - name: The versions agree
         run: tools/check-versions.sh

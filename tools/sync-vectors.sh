@@ -5,4 +5,4 @@
 set -eu
 app="${1:-../AsterFIN}"
 cp "$app/AsterFINTests/Conformance/channel-tags.json" "$(dirname "$0")/../tests/channel-tags.json"
-node --test "$(dirname "$0")/../tests/"
+node --test "$(dirname "$0")"/../tests/*.test.js
