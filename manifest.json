@@ -8,6 +8,14 @@
     "category": "Metadata",
     "versions": [
       {
+        "version": "0.2.0.0",
+        "changelog": "Publishes your themes as two Jellyfin libraries, kept up to date after every scan: a Music Videos library of the theme videos (links to the playable copies, with song, artists, show, season and episodes, a picture from the video, and Spoiler/NSFW tags; NSFW gets an adult rating for parental controls) and a Music library of their songs, an album per show with the show's art. Playlists, favourites and watched state then work as for anything else in Jellyfin. Turn it on and create both libraries from the Setup tab. For clients: themes now give their library items' ids, GET /OpEd/Library gives the libraries' ids, and GET /OpEd/LibraryItems/{id}/Theme gives the theme behind a library item.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/peppy6582/jellyfin-oped/releases/download/v0.2.0.0/jellyfin-oped_0.2.0.0.zip",
+        "checksum": "01405b906e83329cda5da85f21f1de04",
+        "timestamp": "2026-10-18T22:54:19Z"
+      },
+      {
         "version": "0.1.4.0",
         "changelog": "A tidier settings page: Setup, Review and Library tabs. Clips are grouped by show, with Approve all and Reject all, keyboard shortcuts and previews on request. The library list can be searched and filtered, and a bar stays at the bottom while approved clips wait to be added to the library. New Rescan files button per show: replace a theme file, press it, and the plugin picks it up, makes it playable in the themes folder and moves the original to an _originals folder.",
         "targetAbi": "12.0.0.0",
