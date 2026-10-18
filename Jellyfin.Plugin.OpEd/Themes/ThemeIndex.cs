@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Jellyfin.Plugin.OpEd.Library;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.MediaEncoding;
 using Microsoft.Extensions.Logging;
@@ -28,12 +29,14 @@ public sealed partial class ThemeIndex
     private readonly SemaphoreSlim _scanLock = new(1, 1);
     private readonly object _saveLock = new();
     private readonly VideoConverter _converter;
+    private readonly LibraryPublisher _publisher;
     private ThemeIndexData _data = new();
     private bool _loaded;
 
-    public ThemeIndex(ILibraryManager libraryManager, IHttpClientFactory httpClientFactory, IMediaEncoder mediaEncoder, ILogger<ThemeIndex> logger)
+    public ThemeIndex(ILibraryManager libraryManager, IHttpClientFactory httpClientFactory, IMediaEncoder mediaEncoder, LibraryPublisher publisher, ILogger<ThemeIndex> logger)
     {
         _libraryManager = libraryManager;
+        _publisher = publisher;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
         _converter = new VideoConverter(mediaEncoder, logger);
@@ -49,9 +52,21 @@ public sealed partial class ThemeIndex
 
     public bool IsConverting => _converter.IsBusy;
 
-    /// <summary>Makes playable MP4 copies of the videos that need one (see <see cref="VideoConverter"/>).</summary>
-    public Task ConvertVideosAsync(IProgress<double>? progress, CancellationToken ct) =>
-        _converter.ConvertPendingAsync([.. Data.Themes], SaveCurrent, progress, ct);
+    /// <summary>
+    /// Makes playable MP4 copies of the videos that need one (see <see cref="VideoConverter"/>), then brings the published
+    /// libraries up to date with them.
+    /// </summary>
+    public async Task ConvertVideosAsync(IProgress<double>? progress, CancellationToken ct)
+    {
+        await _converter.ConvertPendingAsync([.. Data.Themes], SaveCurrent, progress, ct).ConfigureAwait(false);
+        _publisher.QueueSync([.. Data.Themes]);
+    }
+
+    /// <summary>Brings the published libraries up to date now (the settings page's "Sync now").</summary>
+    public Task PublishAsync(CancellationToken ct) => _publisher.SyncAsync([.. Data.Themes], refresh: true, ct);
+
+    /// <summary>Creates the published libraries in Jellyfin; returns a problem, or null.</summary>
+    public Task<string?> CreateLibrariesAsync() => _publisher.CreateLibrariesAsync([.. Data.Themes]);
 
     private ThemeIndexData Data
     {
@@ -469,6 +484,7 @@ public sealed partial class ThemeIndex
                 report.Themes, report.WithMetadata, themes.Select(t => t.SeriesId).Distinct().Count(), report.UnmatchedFolders.Count, report.UnparsedFiles.Count);
             var saved = Save(themes, report);
             _converter.RemoveUnused(themes);
+            _publisher.QueueSync([.. themes]);
             return saved;
         }
         catch (Exception e) when (e is not OperationCanceledException)

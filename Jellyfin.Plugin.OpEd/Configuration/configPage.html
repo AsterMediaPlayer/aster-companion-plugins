@@ -54,6 +54,38 @@
                         <div class="fieldDescription">Higher is stricter. At 80, small differences in spelling or punctuation still match, but a different show does not. Raise it if you see wrong matches.</div>
                     </div>
 
+                    <h2>Jellyfin libraries</h2>
+                    <div class="checkboxContainer">
+                        <label><input id="PublishLibraries" type="checkbox" is="emby-checkbox" /><span>Publish the themes as Jellyfin libraries</span></label>
+                        <div class="fieldDescription">
+                            Two ordinary libraries, kept up to date after every scan: a <b>Music Videos</b> library of the theme videos and a
+                            <b>Music</b> library of their songs, an album per show. Playlists, favourites, watched state, search and parental
+                            controls then work as for anything else in Jellyfin, and apps show them like any library. The videos are links to
+                            the playable copies, so they take no extra space; the songs are small copies with their details written inside.
+                        </div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="LibraryPath">Folder for the libraries (as Jellyfin sees it)</label>
+                        <input id="LibraryPath" type="text" is="emby-input" placeholder="/config/oped-library" />
+                        <div class="fieldDescription">The plugin fills this folder itself, with <code>Videos</code> and <code>Songs</code> inside. It must be outside the themes folder and every other library.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="VideosLibraryName">Music Videos library name</label>
+                        <input id="VideosLibraryName" type="text" is="emby-input" />
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="SongsLibraryName">Music library name</label>
+                        <input id="SongsLibraryName" type="text" is="emby-input" />
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="NsfwRating">Rating for NSFW themes</label>
+                        <input id="NsfwRating" type="text" is="emby-input" />
+                        <div class="fieldDescription">Given to videos marked NSFW, so users whose parental controls stop at a lower rating don't see them. Spoiler and NSFW themes are also tagged "Spoiler" and "NSFW".</div>
+                    </div>
+                    <div id="OpEdLibraryStatus" class="fieldDescription" style="margin-bottom:1em"></div>
+                    <button is="emby-button" type="button" id="OpEdCreateLibraries" class="raised block"><span>Save and create the libraries</span></button>
+                    <button is="emby-button" type="button" id="OpEdSyncLibraries" class="raised block"><span>Sync the libraries now</span></button>
+
                     <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
                     <button is="emby-button" type="button" id="OpEdScan" class="raised block"><span>Save and scan now</span></button>
                 </form>
@@ -682,8 +714,50 @@
                 });
             }
 
+            function showLibraryStatus(page) {
+                ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Admin/Library'), type: 'GET', dataType: 'json' }).then(function (s) {
+                    var lines = [];
+                    if (s.Problem) lines.push('<b>' + esc(s.Problem) + '</b>');
+                    lines.push('Music Videos library: ' + (s.VideosLibraryId ? 'created' : 'not created yet') + ' · Music library: ' + (s.SongsLibraryId ? 'created' : 'not created yet'));
+                    lines.push('Published: ' + s.Videos + ' videos, ' + s.Songs + ' songs' + (s.LastSync ? ' · last sync ' + new Date(s.LastSync).toLocaleString() : ''));
+                    if (s.Syncing) lines.push('Syncing…');
+                    if (s.LastError) lines.push('<span style="white-space:pre-wrap">Problems: ' + esc(s.LastError) + '</span>');
+                    page.querySelector('#OpEdLibraryStatus').innerHTML = lines.join('<br>');
+                    if (s.Syncing) setTimeout(function () { showLibraryStatus(page); }, 3000);
+                });
+            }
+
+            function libraryAction(page, url) {
+                Dashboard.showLoadingMsg();
+                save(page).then(function () {
+                    return ApiClient.fetch({ url: ApiClient.getUrl(url), type: 'POST' });
+                }).then(function () {
+                    Dashboard.hideLoadingMsg();
+                    setTimeout(function () { showLibraryStatus(page); }, 1000);
+                }, function (err) {
+                    Dashboard.hideLoadingMsg();
+                    errMessage(err).then(function (m) { Dashboard.alert(m); });
+                    showLibraryStatus(page);
+                });
+            }
+
+            document.querySelector('#OpEdCreateLibraries').addEventListener('click', function () {
+                var page = document.querySelector('#OpEdConfigPage');
+                page.querySelector('#PublishLibraries').checked = true;
+                libraryAction(page, 'OpEd/Admin/Library/Create');
+            });
+
+            document.querySelector('#OpEdSyncLibraries').addEventListener('click', function () {
+                libraryAction(document.querySelector('#OpEdConfigPage'), 'OpEd/Admin/Library/Sync');
+            });
+
             function save(page) {
                 return ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    config.PublishLibraries = page.querySelector('#PublishLibraries').checked;
+                    config.LibraryPath = page.querySelector('#LibraryPath').value.trim();
+                    config.VideosLibraryName = page.querySelector('#VideosLibraryName').value.trim() || 'Anime Openings & Endings';
+                    config.SongsLibraryName = page.querySelector('#SongsLibraryName').value.trim() || 'Anime Theme Songs';
+                    config.NsfwRating = page.querySelector('#NsfwRating').value.trim() || 'NC-17';
                     config.ThemesPath = page.querySelector('#ThemesPath').value.trim();
                     config.FetchMetadata = page.querySelector('#FetchMetadata').checked;
                     config.MetadataRefreshDays = parseInt(page.querySelector('#MetadataRefreshDays').value, 10) || 14;
@@ -706,7 +780,13 @@
                     page.querySelector('#MetadataRefreshDays').value = config.MetadataRefreshDays;
                     page.querySelector('#EnableTitleFallback').checked = config.EnableTitleFallback !== false;
                     page.querySelector('#TitleMatchThreshold').value = config.TitleMatchThreshold || 80;
+                    page.querySelector('#PublishLibraries').checked = !!config.PublishLibraries;
+                    page.querySelector('#LibraryPath').value = config.LibraryPath || '';
+                    page.querySelector('#VideosLibraryName').value = config.VideosLibraryName || 'Anime Openings & Endings';
+                    page.querySelector('#SongsLibraryName').value = config.SongsLibraryName || 'Anime Theme Songs';
+                    page.querySelector('#NsfwRating').value = config.NsfwRating || 'NC-17';
                     loadLibraries(page, config);
+                    showLibraryStatus(page);
                     Dashboard.hideLoadingMsg();
                 });
                 var tab = 'setup';

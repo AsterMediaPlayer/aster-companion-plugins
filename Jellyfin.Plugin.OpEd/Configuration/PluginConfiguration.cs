@@ -31,4 +31,25 @@ public class PluginConfiguration : BasePluginConfiguration
     /// does nothing until at least one library is chosen.
     /// </summary>
     public string[] ClipLibraryIds { get; set; } = [];
+
+    /// <summary>
+    /// Publish the themes as two Jellyfin libraries (a Music Videos library of the videos, a Music library of the songs),
+    /// kept up to date after every scan.
+    /// </summary>
+    public bool PublishLibraries { get; set; }
+
+    /// <summary>
+    /// Folder the plugin owns for those libraries, as Jellyfin sees it; it holds "Videos" and "Songs". It must be outside
+    /// the themes folder and every other library.
+    /// </summary>
+    public string LibraryPath { get; set; } = string.Empty;
+
+    /// <summary>Name for the Music Videos library, when the plugin creates it.</summary>
+    public string VideosLibraryName { get; set; } = "Anime Openings & Endings";
+
+    /// <summary>Name for the Music library, when the plugin creates it.</summary>
+    public string SongsLibraryName { get; set; } = "Anime Theme Songs";
+
+    /// <summary>Rating given to NSFW themes' videos, so Jellyfin's parental controls hide them.</summary>
+    public string NsfwRating { get; set; } = "NC-17";
 }

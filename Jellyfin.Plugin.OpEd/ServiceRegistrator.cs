@@ -1,3 +1,4 @@
+using Jellyfin.Plugin.OpEd.Library;
 using Jellyfin.Plugin.OpEd.Themes;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
@@ -10,6 +11,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
         // One index shared by the API, the scheduled task and the settings page.
+        serviceCollection.AddSingleton<LibraryPublisher>();
         serviceCollection.AddSingleton<ThemeIndex>();
         serviceCollection.AddSingleton<ClipExtractor>();
     }

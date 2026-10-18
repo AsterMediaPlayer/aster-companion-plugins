@@ -1,4 +1,5 @@
 using System.Net.Mime;
+using Jellyfin.Plugin.OpEd.Library;
 using Jellyfin.Plugin.OpEd.Themes;
 using Jellyfin.Data.Enums;
 using MediaBrowser.Controller.Entities;
@@ -31,6 +32,11 @@ namespace Jellyfin.Plugin.OpEd.Api;
 ///   POST /OpEd/Admin/Clips/Apply           index approved clips and fetch their AnimeThemes metadata, in one batch (admins)
 ///   POST /OpEd/Admin/Clips/{id}/Reject     delete the clip and don't cut that slot again; ?tryAnother=true cuts it from the next episode instead (admins)
 ///   DELETE /OpEd/Admin/Clips/Rejected      forget rejections (admins)
+///   GET  /OpEd/Library                  the published libraries' ids (Music Videos, Music), null until created
+///   GET  /OpEd/LibraryItems/{itemId}/Theme  the theme behind a published library item (a music video or a song)
+///   GET  /OpEd/Admin/Library            publishing status (admins)
+///   POST /OpEd/Admin/Library/Create     create the two libraries in Jellyfin (admins)
+///   POST /OpEd/Admin/Library/Sync       publish now (admins)
 ///   GET  /OpEd/Status                   last scan report (admins)
 ///   GET  /OpEd/Admin/Themes             every theme with its song details, for the settings page editor (admins)
 ///   POST /OpEd/Admin/Themes/{id}/Details   save song details to the show's themes.json (admins)
@@ -45,10 +51,12 @@ public sealed class OpEdController : ControllerBase
     private readonly ClipExtractor _clips;
     private readonly ILibraryManager _libraryManager;
     private readonly IUserManager _userManager;
+    private readonly LibraryPublisher _publisher;
 
-    public OpEdController(ThemeIndex index, ClipExtractor clips, ILibraryManager libraryManager, IUserManager userManager)
+    public OpEdController(ThemeIndex index, ClipExtractor clips, ILibraryManager libraryManager, IUserManager userManager, LibraryPublisher publisher)
     {
         _index = index;
+        _publisher = publisher;
         _clips = clips;
         _libraryManager = libraryManager;
         _userManager = userManager;
@@ -112,6 +120,60 @@ public sealed class OpEdController : ControllerBase
     {
         var theme = VisibleTheme(themeId);
         return theme is null ? NotFound() : ToDto(theme, null);
+    }
+
+    /// <summary>The published libraries, for clients to find them: each id is null until the library exists.</summary>
+    [HttpGet("Library")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<PublishedLibrariesDto> GetPublishedLibraries()
+    {
+        var (videos, songs) = _publisher.LibraryIds();
+        return new PublishedLibrariesDto { VideosLibraryId = videos, SongsLibraryId = songs };
+    }
+
+    /// <summary>The theme a published music video or song is, for clients that meet one in a playlist or search.</summary>
+    [HttpGet("LibraryItems/{itemId}/Theme")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<ThemeDto> GetThemeForLibraryItem([FromRoute] Guid itemId)
+    {
+        var item = itemId == Guid.Empty ? null : _libraryManager.GetItemById(itemId);
+        if (item is null || !CanSee(item) || _publisher.ThemeIdForPath(item.Path) is not { } themeId || _index.Get(themeId) is not { } theme)
+        {
+            return NotFound();
+        }
+
+        return ToDto(theme, null);
+    }
+
+    [HttpGet("Admin/Library")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<LibraryStatus> GetLibraryStatus() => _publisher.Status();
+
+    [HttpPost("Admin/Library/Create")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<LibraryStatus>> CreateLibraries()
+    {
+        var problem = await _index.CreateLibrariesAsync().ConfigureAwait(false);
+        return problem is null ? _publisher.Status() : Conflict(new { Message = problem });
+    }
+
+    [HttpPost("Admin/Library/Sync")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public ActionResult SyncLibraries()
+    {
+        if (_publisher.Problem() is { } problem)
+        {
+            return Conflict(new { Message = problem });
+        }
+
+        _ = Task.Run(() => _index.PublishAsync(CancellationToken.None), CancellationToken.None);
+        return Accepted();
     }
 
     [HttpGet("Themes/{themeId}/Video")]
@@ -425,8 +487,13 @@ public sealed class OpEdController : ControllerBase
         _ => MediaTypeNames.Application.Octet,
     };
 
-    private static ThemeDto ToDto(Theme t, bool? playsInEpisode) => new()
+    private ThemeDto ToDto(Theme t, bool? playsInEpisode)
     {
+        var (videoItem, songItem) = _publisher.ItemIds(t.Id);
+        return new ThemeDto
+        {
+        LibraryItemId = videoItem,
+        SongItemId = songItem,
         Id = t.Id,
         Type = t.Type,
         Sequence = t.Sequence,
@@ -455,7 +522,15 @@ public sealed class OpEdController : ControllerBase
         VideoContainer = t.VideoPath is not null ? Path.GetExtension(t.VideoPath).TrimStart('.').ToLowerInvariant() : null,
         AudioContainer = t.AudioPath is not null ? Path.GetExtension(t.AudioPath).TrimStart('.').ToLowerInvariant() : null,
         MetadataSource = t.MetadataSource,
-    };
+        };
+    }
+}
+
+public sealed class PublishedLibrariesDto
+{
+    public string? VideosLibraryId { get; set; }
+
+    public string? SongsLibraryId { get; set; }
 }
 
 public sealed class ThemeListDto
@@ -531,6 +606,12 @@ public sealed class ThemeDto
     public string? AudioContainer { get; set; }
 
     public string? MetadataSource { get; set; }
+
+    /// <summary>The music video this theme was published as in the Music Videos library; omitted when it isn't.</summary>
+    public Guid? LibraryItemId { get; set; }
+
+    /// <summary>The song this theme was published as in the Music library; omitted when it isn't.</summary>
+    public Guid? SongItemId { get; set; }
 }
 
 public sealed class EditorThemeDto

@@ -114,6 +114,30 @@ Returns a single `Theme` (without `PlaysInEpisode`). Status: 200, 401, 404 (unkn
 - Build media URLs as `{server}{VideoMp4Url}?ApiKey={accessToken}` (the `*Url` fields are server-relative paths
   without a query string).
 
+### 3.4 The published libraries (0.2.0)
+
+When the owner turns on **Publish the themes as Jellyfin libraries**, the themes are also ordinary Jellyfin items in two
+libraries: a **Music Videos** library (`MusicVideo` items, one per theme with a playable MP4) and a **Music** library
+(`Audio` items, an album per show). Browse, search, favourite, mark watched and add them to playlists with Jellyfin's own
+API, as for anything else.
+
+```
+GET /OpEd/Library
+→ { "VideosLibraryId": "…", "SongsLibraryId": "…" }     each omitted until that library exists
+```
+
+```
+GET /OpEd/LibraryItems/{itemId}/Theme
+```
+
+The `Theme` behind a published music video or song (for example one met in a playlist or a search), so a client can show
+"OP 2 · show", link to the series and blur spoilers. 404 when the item isn't one the plugin published, or the user can't
+see it.
+
+Published items carry what the plugin knows: the song as the title, the artists, the show as the album, the season's
+premiere year, genres `Anime` plus `Opening`/`Ending`, tags `Opening`/`Ending`, the season name, `Spoiler`, `NSFW`, and for
+NSFW videos the owner's chosen rating (default `NC-17`), so Jellyfin's parental controls apply.
+
 ---
 
 ## 4. The `Theme` object
@@ -146,6 +170,10 @@ Returns a single `Theme` (without `PlaysInEpisode`). Status: 200, 401, 404 (unkn
 | `AudioM4aStatus` | string | no | `"pending"`, `"converting"`, `"ready"` or `"failed"`; omitted when `HasAudio` is false |
 | `AudioContainer` | string | no | Audio file's extension: `ogg`, `opus`, `mp3`, `flac`, `m4a`, `aac`, `wav` |
 | `MetadataSource` | string | no | Where the song details came from: `"themes.json"`, `"filename"`, `"animethemes"`. Omitted = no song details yet |
+| `Overlap` | string | no | From AnimeThemes: `"none"`, `"transition"` or `"over"` (episode footage shows through the theme). Omitted when unknown |
+| `HasCreditlessVersion` | bool | no | From AnimeThemes: whether a creditless version of this OP/ED exists there. Omitted when unknown |
+| `LibraryItemId` | string | no | The `MusicVideo` item this theme was published as (0.2.0). Omitted when it isn't published |
+| `SongItemId` | string | no | The `Audio` item this theme's song was published as (0.2.0). Omitted when it isn't published |
 
 `VideoMp4Status` / `AudioM4aStatus` lifecycle: a new file is `pending`, becomes `converting` and then `ready`, usually
 within seconds (a 90-second 720p OP video converts in about 15–25 s, its audio in about 1.5 s; files already in an
@@ -384,7 +412,18 @@ All require an administrator token.
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/OpEd/Scan` | Rescan the themes folder now. Returns the scan report; MP4 conversion continues in the background |
-| GET | `/OpEd/Status` | `{ "Scanning": bool, "Converting": bool, "Report": { FinishedAt, Themes, WithMetadata, UnmatchedFolders[], UnparsedFiles[], NoMetadata[], Error } }` |
+| GET | `/OpEd/Status` | `{ "Scanning": bool, "Converting": bool, "Extracting": bool, "Report": { FinishedAt, Themes, WithMetadata, UnmatchedFolders[], UnparsedFiles[], NoMetadata[], Error } }` |
+| GET | `/OpEd/Admin/Library` | Publishing status: `{ VideosLibraryId, SongsLibraryId, Videos, Songs, Syncing, LastSync, LastError, Problem }` |
+| POST | `/OpEd/Admin/Library/Create` | Creates the Music Videos and Music libraries on the plugin's folder (each only if missing) and publishes; 409 `{ Message }` when the folder can't be used |
+| POST | `/OpEd/Admin/Library/Sync` | Publishes now, in the background (202); 409 `{ Message }` when the folder can't be used |
+| POST | `/OpEd/Admin/Themes/Rescan` | Body `{ "ThemeIds": [string] }`: picks up replaced files for those themes, makes them playable in place, originals to `_originals` |
+| GET | `/OpEd/Admin/Libraries` | TV libraries the clip search can be limited to: `[{ Id, Name }]` |
+| POST | `/OpEd/Admin/Clips/Extract` | Cuts missing OPs/EDs out of episodes at their chapter marks, into the review queue (202) |
+| GET | `/OpEd/Admin/Clips` | The review queue and the extractor's progress |
+| POST | `/OpEd/Admin/Clips/{clipId}/Approve` | Moves the clip into the themes folder (`?sequence=N` files it as OPN/EDN); 409 on a clash |
+| POST | `/OpEd/Admin/Clips/Apply` | Indexes approved clips and fetches their metadata, in one batch (202) |
+| POST | `/OpEd/Admin/Clips/{clipId}/Reject` | Deletes the clip and doesn't cut that slot again; `?tryAnother=true` cuts it from the next episode instead |
+| DELETE | `/OpEd/Admin/Clips/Rejected` | Forgets rejections |
 | GET | `/OpEd/Admin/Themes` | Every theme with its song details and their source (for an editor UI) |
 | POST | `/OpEd/Admin/Themes/{themeId}/Details` | Body `{ "Title": string?, "Artists": [string]?, "Episodes": string?, "Spoiler": bool?, "Nsfw": bool? }`; saves to the show's themes.json; returns the updated `Theme` |
 | DELETE | `/OpEd/Admin/Themes/{themeId}/Details` | Removes that theme's themes.json entry; returns the updated `Theme` |

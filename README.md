@@ -256,6 +256,25 @@ are kept in the plugin's data folder, are redone when the source file changes, a
 A failed conversion isn't retried until its source file changes; its ffmpeg error is kept next to where the copy would
 be (`*.mp4.failed`).
 
+## Jellyfin libraries
+
+Turn on **Publish the themes as Jellyfin libraries** on the Setup tab, choose a folder for them, and press **Save and
+create the libraries**. The plugin adds two ordinary libraries and keeps them up to date after every scan:
+
+- **Anime Openings & Endings** (Music Videos): one item per theme with a playable video. The file is a link to the playable
+  copy, so it takes no extra space, with a `.nfo` (song, artists, the show as album, season, episodes, genres
+  `Anime` and `Opening`/`Ending`) and a picture taken from the video.
+- **Anime Theme Songs** (Music): every theme's song, an album per show with the show's art. These are small copies,
+  because Jellyfin's music libraries read the details from inside the file.
+
+Playlists, favourites, watched state, search and parental controls then work as for anything else. Spoiler and NSFW
+themes are included and tagged `Spoiler`/`NSFW`; NSFW videos get the rating you choose (default NC-17), so users whose
+parental controls stop below it don't see them. The libraries' internet metadata and image fetchers are off, so nothing
+replaces what the plugin wrote.
+
+The folder must be outside the themes folder and every other library; the plugin refuses one that overlaps. Inside it,
+`Videos/{Show}/` and `Songs/{Show}/` are the plugin's: changes made there by hand are overwritten.
+
 ## Build
 
 ```
