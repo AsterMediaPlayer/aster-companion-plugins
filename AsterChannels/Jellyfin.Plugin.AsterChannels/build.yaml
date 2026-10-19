@@ -3,7 +3,7 @@ guid: "5b489227-2fc4-4dce-b7f8-6d0e3b2082ee"
 version: "0.1.1.0"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
-owner: "peppy6582"
+owner: "AsterMediaPlayer"
 overview: "Make and edit Aster Media Player's TV channels from the dashboard."
 description: >
   A Channels page in the Jellyfin dashboard for Aster Media Player. A channel is a

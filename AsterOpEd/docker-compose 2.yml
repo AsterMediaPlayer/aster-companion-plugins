@@ -1,0 +1,25 @@
+# Build tools for the OP/ED Jellyfin plugin. Nothing here runs as a service: the plugin is a DLL that
+# Jellyfin loads. Paths are HOST paths (compose resolves them on the UnRaid host, not in the agent container).
+#
+#   docker compose run --rm build      # -> /mnt/cache/appdata/jellyfin-oped-build/Jellyfin.Plugin.AsterOpEd.dll
+services:
+  build:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    profiles: ["tools"]
+    working_dir: /src
+    environment:
+      - DOTNET_CLI_TELEMETRY_OPTOUT=1
+      - DOTNET_NOLOGO=1
+      - OPED_ARTIFACTS=/artifacts
+      - NUGET_PACKAGES=/nuget
+    command: dotnet publish Jellyfin.Plugin.AsterOpEd -c Release -o /out
+    volumes:
+      - /boot/config/plugins/compose.manager/projects/jellyfin-oped:/src:ro
+      - oped_artifacts:/artifacts
+      - jellyfin-disc-menus_jdm_nuget:/nuget
+      - /mnt/cache/appdata/jellyfin-oped-build:/out
+
+volumes:
+  oped_artifacts:
+  jellyfin-disc-menus_jdm_nuget:
+    external: true

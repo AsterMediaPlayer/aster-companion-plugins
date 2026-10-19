@@ -1,0 +1,14 @@
+{
+  "name": "disc-menus-js-tests",
+  "private": true,
+  "description": "Tests for the Disc Menus browser code (renderer and dashboard pages), run in a simulated browser.",
+  "scripts": {
+    "test": "node run-all.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1"
+  }
+}

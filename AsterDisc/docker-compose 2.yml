@@ -1,0 +1,73 @@
+# Development tools for Disc Menus (a Jellyfin 12.x plugin). Nothing here runs as a service: the plugin is
+# a DLL that Jellyfin loads, so these containers only provide build and test tools.
+#
+#   docker compose up -d dev                                  # .NET 10 SDK container (idles)
+#   docker compose exec dev dotnet build Jellyfin.Plugin.AsterDisc -c Release
+#   docker compose exec dev dotnet test Jellyfin.Plugin.AsterDisc.Tests
+#   docker compose run --rm validate                          # JSON Schema + example checks + the menu checker's tests
+#   docker compose run --rm jstest                            # browser-code tests (Node + jsdom)
+#
+# You don't need Docker: with the .NET 10 SDK, Python 3 and Node 20+ installed you can run the same
+# commands directly (see docs/DEVELOPMENT.md).
+#
+# Build output and package caches go in named volumes, not the source tree: it keeps the checkout tidy and
+# works even when the source sits on a filesystem that is slow or can't hold symlinks (npm needs them).
+
+services:
+  dev:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    container_name: jellyfin-disc-menus-dev
+    working_dir: /workspace
+    command: sleep infinity
+    environment:
+      - DOTNET_CLI_TELEMETRY_OPTOUT=1
+      - DOTNET_NOLOGO=1
+      # Read by Directory.Build.props: send bin/ and obj/ to the named volume below. Unset outside the
+      # container, so a build on your own machine uses the normal ./bin and ./obj.
+      - JDM_ARTIFACTS=/artifacts
+      - NUGET_PACKAGES=/nuget
+    volumes:
+      - .:/workspace
+      - jdm_nuget:/nuget
+      - jdm_artifacts:/artifacts
+
+  # One-shot JSON schema validation. Behind a profile so `up -d` ignores it.
+  validate:
+    image: python:3.13-slim
+    container_name: jellyfin-disc-menus-validate
+    profiles: ["tools"]
+    working_dir: /workspace
+    command: sh -c "pip install --quiet jsonschema && python3 tools/validate.py && python3 -m unittest discover -s tools -p 'test_*.py' && python3 conformance/python/run_vectors.py && python3 conformance/python/mutants.py"
+    volumes:
+      - .:/workspace
+      - jdm_pip:/root/.cache/pip
+
+  # Browser-code tests. node_modules lives in a named volume so the install works on any host filesystem.
+  jstest:
+    image: node:22-slim
+    container_name: jellyfin-disc-menus-jstest
+    profiles: ["tools"]
+    working_dir: /workspace/tests/js
+    command: sh -c "npm install --no-audit --no-fund --loglevel=error && npm test"
+    volumes:
+      - .:/workspace
+      - jdm_node:/workspace/tests/js/node_modules
+
+  # Real-browser tests (Chromium, Firefox, WebKit): the browsers come with the image, so nothing else is installed.
+  #   docker compose run --rm browser
+  browser:
+    image: mcr.microsoft.com/playwright:v1.55.0-noble
+    container_name: jellyfin-disc-menus-browser
+    profiles: ["tools"]
+    working_dir: /workspace/tests/browser
+    command: sh -c "npm install --no-audit --no-fund --loglevel=error && npm test"
+    volumes:
+      - .:/workspace
+      - jdm_browser_node:/workspace/tests/browser/node_modules
+
+volumes:
+  jdm_nuget:
+  jdm_artifacts:
+  jdm_pip:
+  jdm_node:
+  jdm_browser_node:

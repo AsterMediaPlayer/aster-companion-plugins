@@ -1,6 +1,6 @@
 # Aster companion plugins for Jellyfin
 
-Server plugins that go with [Aster Media Player](https://github.com/AsterFIN-app/AsterFIN), all installed from one
+Server plugins that go with [Aster Media Player](https://github.com/AsterMediaPlayer/Aster-Media-Player), all installed from one
 plugin repository:
 
 | Plugin | What it does |
@@ -12,7 +12,7 @@ plugin repository:
 ## Install
 
 1. In Jellyfin, open **Dashboard ▸ Plugins ▸ Repositories** and add:
-   `https://raw.githubusercontent.com/peppy6582/aster-companion-plugins/main/manifest.json`
+   `https://raw.githubusercontent.com/AsterMediaPlayer/aster-companion-plugins/main/manifest.json`
 2. Install the plugins you want from the catalogue, and restart Jellyfin.
 
 They need Jellyfin 12.

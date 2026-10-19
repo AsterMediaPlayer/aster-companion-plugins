@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <title>OP/ED</title>
+</head>
+<body>
+    <div id="OpEdConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <div class="oped-tabs" role="tablist" style="display:flex;gap:.3em;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,.15);margin-bottom:1em">
+                    <button is="emby-button" type="button" class="oped-tab" data-tab="setup" role="tab"><span>Setup</span></button>
+                    <button is="emby-button" type="button" class="oped-tab" data-tab="review" role="tab"><span id="OpEdTabReview">Review</span></button>
+                    <button is="emby-button" type="button" class="oped-tab" data-tab="library" role="tab"><span id="OpEdTabLibrary">Library</span></button>
+                </div>
+
+                <div class="oped-panel" data-panel="setup">
+                <form id="OpEdConfigForm">
+                    <p>
+                        Plays anime openings and endings for your shows. Put theme files in a folder and the plugin matches them
+                        to your shows and seasons, then hands them to clients that support it (for example AsterFIN).
+                        Jellyfin's own theme music and video are not affected.
+                    </p>
+
+                    <h2>Themes folder</h2>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="ThemesPath">Folder (as Jellyfin sees it)</label>
+                        <input id="ThemesPath" type="text" is="emby-input" placeholder="/data/tvshows/general/anime_themes" />
+                        <div class="fieldDescription">
+                            Make one folder per show, named exactly like the show's folder in your library, and put the files
+                            inside: <code>OP1.webm</code>, <code>OP1.ogg</code>, <code>ED2.webm</code>. AnimeThemes file names such as
+                            <code>SousouNoFrieren-OP1.webm</code> work too. To limit a theme to one season, use a subfolder
+                            like <code>Season 2</code>, or <code>anidb-18886</code> to target one AniDB entry.
+                            Keep this folder outside your libraries so they don't treat the themes as ordinary videos.
+                        </div>
+                    </div>
+
+                    <h2>Metadata</h2>
+                    <div class="checkboxContainer">
+                        <label><input id="FetchMetadata" type="checkbox" is="emby-checkbox" /><span>Look up song, artists and episodes on AnimeThemes.moe</span></label>
+                        <div class="fieldDescription">Song titles, artists and episode lists come from <a href="https://animethemes.moe" target="_blank" rel="noopener">AnimeThemes.moe</a> (not affiliated), using the AniDB IDs on your seasons (Shokofin sets these). To go easy on their server, requests are batched, answers are cached, and lookups pause for a day if they refuse us. Untick this to never contact them. You can still fill in details by hand in the editor below.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MetadataRefreshDays">Re-check AnimeThemes after this many days</label>
+                        <input id="MetadataRefreshDays" type="number" min="1" max="365" is="emby-input" />
+                        <div class="fieldDescription">Applies to anime AnimeThemes has themes for. Ones it has nothing for are asked again sooner (after 1, 3 and 7 days, then every 30), since they are usually just not added yet.</div>
+                    </div>
+                    <div class="checkboxContainer">
+                        <label><input id="EnableTitleFallback" type="checkbox" is="emby-checkbox" /><span>Match shows by title when they have no ID</span></label>
+                        <div class="fieldDescription">For a show with themes but no AniDB, AniList, MyAnimeList or Kitsu ID, search AnimeThemes by the show's name. This sends the show names to them, ten to a request, and the answers are cached. It never replaces an ID. Each theme in the editor says when it was matched this way, and you can correct it there.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="TitleMatchThreshold">How close a title must be (50 to 100 percent)</label>
+                        <input id="TitleMatchThreshold" type="number" min="50" max="100" is="emby-input" />
+                        <div class="fieldDescription">Higher is stricter. At 80, small differences in spelling or punctuation still match, but a different show does not. Raise it if you see wrong matches.</div>
+                    </div>
+
+                    <h2>Jellyfin libraries</h2>
+                    <div class="checkboxContainer">
+                        <label><input id="PublishLibraries" type="checkbox" is="emby-checkbox" /><span>Publish the themes as Jellyfin libraries</span></label>
+                        <div class="fieldDescription">
+                            Two ordinary libraries, kept up to date after every scan: a <b>Music Videos</b> library of the theme videos and a
+                            <b>Music</b> library of their songs, an album per show. Playlists, favourites, watched state, search and parental
+                            controls then work as for anything else in Jellyfin, and apps show them like any library. The videos are links to
+                            the playable copies, so they take no extra space; the songs are small copies with their details written inside.
+                        </div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="LibraryPath">Folder for the libraries (as Jellyfin sees it)</label>
+                        <input id="LibraryPath" type="text" is="emby-input" placeholder="/config/oped-library" />
+                        <div class="fieldDescription">The plugin fills this folder itself, with <code>Videos</code> and <code>Songs</code> inside. It must be outside the themes folder and every other library.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="VideosLibraryName">Music Videos library name</label>
+                        <input id="VideosLibraryName" type="text" is="emby-input" />
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="SongsLibraryName">Music library name</label>
+                        <input id="SongsLibraryName" type="text" is="emby-input" />
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="NsfwRating">Rating for NSFW themes</label>
+                        <input id="NsfwRating" type="text" is="emby-input" />
+                        <div class="fieldDescription">Given to videos marked NSFW, so users whose parental controls stop at a lower rating don't see them. Spoiler and NSFW themes are also tagged "Spoiler" and "NSFW".</div>
+                    </div>
+                    <div id="OpEdLibraryStatus" class="fieldDescription" style="margin-bottom:1em"></div>
+                    <button is="emby-button" type="button" id="OpEdCreateLibraries" class="raised block"><span>Save and create the libraries</span></button>
+                    <button is="emby-button" type="button" id="OpEdSyncLibraries" class="raised block"><span>Sync the libraries now</span></button>
+
+                    <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
+                    <button is="emby-button" type="button" id="OpEdScan" class="raised block"><span>Save and scan now</span></button>
+                </form>
+
+                <h2>Last scan</h2>
+                <div id="OpEdReport" class="fieldDescription">Loading…</div>
+
+                <h2>Clips from chapters</h2>
+                <div class="fieldDescription"><b>Libraries to search</b> (tick at least one, or nothing is searched). Save above to keep your choice; "Look for clips now" on the Review tab saves it too.</div>
+                <div id="OpEdLibraries" class="checkboxList paperList" style="margin-bottom:1em">Loading…</div>
+                </div>
+
+                <div class="oped-panel" data-panel="review" hidden>
+                <h2>Review clips</h2>
+                <div class="fieldDescription">
+                    Missing an OP or ED? The plugin can cut it out of your own episodes, using chapters named OP/Opening or
+                    ED/Ending (for endings, also Credits, End Credits, Outro or Closing). Each clip waits below for your review and
+                    isn't served until you approve it. Approving moves it into the themes folder; then use
+                    <b>Add to library</b> to index it and fetch song details. This also runs as a scheduled task, Cut OP/ED clips from chapters.
+                </div>
+                <button is="emby-button" type="button" id="OpEdExtract" class="raised block"><span>Look for clips now</span></button>
+                <div id="OpEdClipStatus" class="fieldDescription" style="margin:.8em 0"></div>
+                <div class="fieldDescription" style="margin-bottom:.5em">Click a clip to select it, then <b>A</b> approve, <b>R</b> reject, <b>T</b> reject and try another episode, <b>P</b> preview, <b>↑/↓</b> move.</div>
+                <div id="OpEdClips" class="fieldDescription"><div class="oped-list">Loading…</div><div class="oped-foot"></div></div>
+                </div>
+
+                <div class="oped-panel" data-panel="library" hidden>
+                <h2>Song details</h2>
+                <div class="fieldDescription">
+                    Fix or fill in a theme's details. Save stores your entry in <code>themes.json</code> in the show's theme
+                    folder, and it takes priority over the file name and AnimeThemes. Clear removes it. You can also put details
+                    in the file name: <code>OP1 - Yuusha - YOASOBI [1-16].webm</code>.
+                </div>
+                <div style="display:flex;gap:.6em;flex-wrap:wrap;align-items:center;margin:1em 0 .5em">
+                    <input id="OpEdSearch" type="search" placeholder="Search show, theme, song or artist" style="flex:1;min-width:14em;padding:.5em;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.15);border-radius:4px" />
+                    <select id="OpEdFilter" style="padding:.5em;background:rgba(40,40,40,1);color:inherit;border:1px solid rgba(255,255,255,.15);border-radius:4px">
+                        <option value="all">All themes</option>
+                        <option value="needs">Needs details</option>
+                        <option value="guess">Season was guessed</option>
+                        <option value="hand">Edited by hand</option>
+                    </select>
+                    <span id="OpEdEditorCount" class="fieldDescription"></span>
+                </div>
+                <div id="OpEdEditor">Loading…</div>
+                </div>
+
+                <!-- Visible on every tab while approved clips wait to be indexed. Manual on purpose: indexing contacts AnimeThemes. -->
+                <div id="OpEdApplyBar" style="display:none;position:sticky;bottom:0;z-index:5;margin-top:1.5em;padding:.8em 1em;background:rgba(128,128,128,.22);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-top:1px solid rgba(128,128,128,.4);color:inherit;display:flex;align-items:center;gap:1em;flex-wrap:wrap"></div>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var pluginId = 'd459e0a2-e073-4e1e-b0ec-71883075cf4a';
+
+            function esc(s) {
+                return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
+            }
+
+            function list(title, items) {
+                if (!items || !items.length) return '';
+                return '<p><b>' + esc(title) + ' (' + items.length + ')</b></p><ul>' +
+                    items.map(function (i) { return '<li>' + esc(i) + '</li>'; }).join('') + '</ul>';
+            }
+
+            function showReport(page) {
+                ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Status'), type: 'GET', dataType: 'json' }).then(function (s) {
+                    var r = s.Report || {};
+                    var html = s.Scanning ? '<p>Scanning…</p>' : '';
+                    if (r.Error) html += '<p><b>Problem:</b> ' + esc(r.Error) + '</p>';
+                    if (r.FinishedAt) {
+                        html += '<p>' + esc(new Date(r.FinishedAt).toLocaleString()) + ': ' + r.Themes + ' themes, ' +
+                            r.WithMetadata + ' with song metadata.</p>';
+                    } else if (!s.Scanning) {
+                        html += '<p>No scan yet.</p>';
+                    }
+                    html += list('Folders that match no show', r.UnmatchedFolders);
+                    html += list('Files not recognised as an OP or ED', r.UnparsedFiles);
+                    html += list('Themes without AnimeThemes metadata', r.NoMetadata);
+                    page.querySelector('#OpEdReport').innerHTML = html;
+                    if (s.Scanning) setTimeout(function () { showReport(page); }, 3000);
+                });
+            }
+
+            var SOURCE = { 'themes.json': 'themes.json', 'filename': 'file name', 'animethemes': 'AnimeThemes' };
+
+            function field(cls, value, placeholder, width) {
+                return '<input class="' + cls + '" type="text" value="' + esc(value || '') + '" placeholder="' + esc(placeholder) +
+                    '" style="width:' + width + ';padding:.4em;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.15);border-radius:4px" />';
+            }
+
+            // How a theme got its season, in plain words, with a link to check the AniDB entry it is tied to.
+            function matchRow(t) {
+                var how = {
+                    'picked': 'picked by you',
+                    'folder': 'from its anidb-' + t.AniDbId + ' folder',
+                    'lookup': 'found on AnimeThemes',
+                    'only-season': 'the only season it could be',
+                    'title': 'matched by the show title',
+                    'date': 'matched to this season by when it premiered'
+                }[t.MatchedBy] || (t.AniDbId ? 'matched automatically' : 'no season matched, so it applies to the whole show');
+                var link = t.AniDbId ? ' (<a href="https://anidb.net/anime/' + t.AniDbId + '" target="_blank" rel="noopener">AniDB ' + t.AniDbId + '</a>)' : '';
+                var inList = (t.Seasons || []).some(function (s) { return s.AniDbId === t.SeasonOverride; });
+                var select = t.Seasons && t.Seasons.length
+                    ? '<select class="oped-season" style="padding:.3em;background:rgba(40,40,40,1);color:inherit;border:1px solid rgba(255,255,255,.15);border-radius:4px"><option value="">Automatic</option>' +
+                        t.Seasons.map(function (s) { return '<option value="' + s.AniDbId + '"' + (t.SeasonOverride === s.AniDbId ? ' selected' : '') + '>' + esc(s.Name) + ' (AniDB ' + s.AniDbId + ')</option>'; }).join('') + '</select> or '
+                    : '';
+                return '<div style="margin-top:.3em" class="fieldDescription">Season: ' + (t.Season ? esc(t.Season) + ', ' : '') + how + link + '<br>Change it: ' + select +
+                    '<input class="oped-anidb" type="number" min="1" placeholder="AniDB id" value="' + (t.SeasonOverride && !inList ? t.SeasonOverride : '') +
+                    '" style="width:7em;padding:.3em;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.15);border-radius:4px" /> (leave empty for automatic)</div>';
+            }
+
+            // The editor keeps the list in memory and filters it there; rows open one at a time into the edit form.
+            var opedThemes = [], opedOpenShows = {}, opedEditing = {};
+
+            function needsDetails(t) { return !t.Title; }
+            function guessed(t) { return t.MatchedBy === 'title' || t.MatchedBy === 'date'; }
+
+            function loadEditor(page) {
+                ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Admin/Themes'), type: 'GET', dataType: 'json' }).then(function (themes) {
+                    opedThemes = themes;
+                    renderEditor(page);
+                });
+            }
+
+            function themeRow(t) {
+                var media = (t.HasVideo ? 'video' : '') + (t.HasVideo && t.HasAudio ? ' + ' : '') + (t.HasAudio ? 'audio' : '');
+                var editing = !!opedEditing[t.Id];
+                var song = t.Title ? esc(t.Title) + ((t.Artists || []).length ? ' – ' + esc(t.Artists.join(', ')) : '') : '<i>no song details</i>';
+                var chip = t.Source === 'themes.json' ? 'by hand' : t.Source ? SOURCE[t.Source] || t.Source : 'no details';
+                var html = '<div class="oped-theme" data-id="' + esc(t.Id) + '" style="border-top:1px solid rgba(255,255,255,.08);padding:.5em 0">' +
+                    '<div style="display:flex;gap:1em;align-items:center;flex-wrap:wrap">' +
+                    '<b style="min-width:4em">' + esc(t.Key) + '</b>' +
+                    '<span style="flex:1;min-width:12em">' + song + '<br><span class="fieldDescription">' + esc(media) + (t.Season ? ' · ' + esc(t.Season) : '') + ' · ' + esc(chip) +
+                        (guessed(t) ? ' · season guessed' : '') + '</span></span>' +
+                    '<button is="emby-button" type="button" class="raised oped-edit" style="margin:0"><span>' + (editing ? 'Close' : 'Edit') + '</span></button></div>';
+                if (editing) {
+                    html += '<div style="margin-top:.6em">' + field('oped-title', t.Title, 'Song title', '100%') +
+                        '<div style="display:flex;gap:.4em;margin-top:.3em">' + field('oped-artists', (t.Artists || []).join(', '), 'Artists, comma separated', '60%') +
+                        field('oped-episodes', t.Episodes, 'Episodes, e.g. 1-12', '40%') + '</div>' +
+                        matchRow(t) +
+                        '<div style="margin-top:.3em" class="fieldDescription">' +
+                        '<label><input class="oped-spoiler" type="checkbox"' + (t.Spoiler ? ' checked' : '') + '> Spoiler</label> &nbsp; ' +
+                        '<label><input class="oped-nsfw" type="checkbox"' + (t.Nsfw ? ' checked' : '') + '> NSFW</label>' +
+                        (t.Overlap === 'transition' ? ' &middot; has a little episode footage' : t.Overlap === 'over' ? ' &middot; plays over the episode' : '') + '</div>' +
+                        '<div style="margin-top:.5em"><button is="emby-button" type="button" class="raised oped-save" style="margin:0 .5em 0 0"><span>Save</span></button>' +
+                        (t.Source === 'themes.json' ? '<button is="emby-button" type="button" class="raised oped-clear" style="margin:0"><span>Clear</span></button>' : '') + '</div></div>';
+                }
+                return html + '</div>';
+            }
+
+            function renderEditor(page) {
+                var box = page.querySelector('#OpEdEditor');
+                if (!opedThemes.length) {
+                    box.innerHTML = '<p class="fieldDescription">No themes yet. Set the themes folder in Setup, then press Save and scan now.</p>';
+                    page.querySelector('#OpEdEditorCount').textContent = '';
+                    return;
+                }
+                var q = page.querySelector('#OpEdSearch').value.trim().toLowerCase(), f = page.querySelector('#OpEdFilter').value;
+                var shown = opedThemes.filter(function (t) {
+                    if (f === 'needs' && !needsDetails(t)) return false;
+                    if (f === 'guess' && !guessed(t)) return false;
+                    if (f === 'hand' && t.Source !== 'themes.json') return false;
+                    return !q || (t.Show + ' ' + t.Key + ' ' + (t.Title || '') + ' ' + (t.Artists || []).join(' ')).toLowerCase().indexOf(q) >= 0;
+                });
+                page.querySelector('#OpEdEditorCount').textContent = shown.length + ' of ' + opedThemes.length + ' themes';
+                if (!shown.length) {
+                    box.innerHTML = '<p class="fieldDescription">Nothing matches.</p>';
+                    return;
+                }
+                var groups = [], byShow = {};
+                shown.forEach(function (t) {
+                    if (!byShow[t.Show]) groups.push(byShow[t.Show] = { show: t.Show, items: [] });
+                    byShow[t.Show].items.push(t);
+                });
+                var filtering = !!q || f !== 'all';
+                box.innerHTML = groups.map(function (g) {
+                    var open = filtering || opedOpenShows[g.show] || g.items.some(function (t) { return opedEditing[t.Id]; });
+                    var need = g.items.filter(needsDetails).length;
+                    return '<details class="oped-show" data-show="' + esc(g.show) + '"' + (open ? ' open' : '') + ' style="margin:.3em 0;border-top:1px solid rgba(255,255,255,.15)">' +
+                        '<summary style="cursor:pointer;padding:.6em 0;font-weight:bold;display:flex;gap:.8em;align-items:center;flex-wrap:wrap"><span>' + esc(g.show) + ' <span class="fieldDescription" style="font-weight:normal">· ' + g.items.length +
+                        ' theme' + (g.items.length === 1 ? '' : 's') + (need ? ' · ' + need + ' need details' : '') + '</span></span>' +
+                        '<span class="oped-rescan-status fieldDescription" style="flex:1"></span>' +
+                        '<button is="emby-button" type="button" class="raised oped-rescan" style="margin:0" title="Picks up files you replaced in this show\'s folder, makes them playable right there, and moves the originals into an _originals folder next to them. Nothing is deleted and AnimeThemes isn\'t contacted."><span>Rescan files</span></button></summary>' +
+                        g.items.map(themeRow).join('') + '</details>';
+                }).join('');
+            }
+
+            function rowDetails(row) {
+                var artists = row.querySelector('.oped-artists').value.split(',').map(function (a) { return a.trim(); }).filter(Boolean);
+                return {
+                    Title: row.querySelector('.oped-title').value,
+                    Artists: artists,
+                    Episodes: row.querySelector('.oped-episodes').value,
+                    // Only a ticked box is saved; an unticked one leaves the flag to the other sources.
+                    Spoiler: row.querySelector('.oped-spoiler').checked ? true : null,
+                    Nsfw: row.querySelector('.oped-nsfw').checked ? true : null,
+                    AniDbId: parseInt(row.querySelector('.oped-anidb').value, 10) > 0 ? parseInt(row.querySelector('.oped-anidb').value, 10)
+                        : row.querySelector('.oped-season') && row.querySelector('.oped-season').value ? parseInt(row.querySelector('.oped-season').value, 10) : null
+                };
+            }
+
+            document.querySelector('#OpEdEditor').addEventListener('toggle', function (e) {
+                if (e.target.classList && e.target.classList.contains('oped-show')) opedOpenShows[e.target.getAttribute('data-show')] = e.target.open;
+            }, true);
+
+            document.querySelector('#OpEdEditor').addEventListener('click', function (e) {
+                var page = document.querySelector('#OpEdConfigPage');
+                var rescan = e.target.closest('.oped-rescan');
+                if (rescan) {
+                    e.preventDefault(); // the button lives in the show's <summary>; don't fold it
+                    var det = rescan.closest('.oped-show'), label = det.querySelector('.oped-rescan-status');
+                    var ids = opedThemes.filter(function (t) { return t.Show === det.getAttribute('data-show'); }).map(function (t) { return t.Id; });
+                    rescan.disabled = true;
+                    label.textContent = 'Rescanning…';
+                    // The scan is quick; re-encoding replaced files runs after it, so wait for that before reloading.
+                    var waitForEncoding = function () {
+                        ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Status'), type: 'GET', dataType: 'json' }).then(function (st) {
+                            if (st.Converting) {
+                                label.textContent = 'Working…';
+                                setTimeout(waitForEncoding, 3000);
+                            } else {
+                                loadEditor(page);
+                                showReport(page);
+                            }
+                        });
+                    };
+                    ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Admin/Themes/Rescan'), type: 'POST', data: JSON.stringify({ ThemeIds: ids }), contentType: 'application/json' }).then(function () {
+                        setTimeout(waitForEncoding, 1500); // conversion starts a moment after the response
+                    }, function () {
+                        rescan.disabled = false;
+                        label.textContent = 'Couldn\'t rescan.';
+                    });
+                    return;
+                }
+                var edit = e.target.closest('.oped-edit');
+                if (edit) {
+                    var id = edit.closest('.oped-theme').getAttribute('data-id');
+                    if (opedEditing[id]) delete opedEditing[id]; else opedEditing[id] = true;
+                    renderEditor(page);
+                    return;
+                }
+                var btn = e.target.closest('.oped-save, .oped-clear');
+                if (!btn) return;
+                var row = btn.closest('.oped-theme'), rowId = row.getAttribute('data-id');
+                var clear = btn.classList.contains('oped-clear');
+                Dashboard.showLoadingMsg();
+                ApiClient.fetch({
+                    url: ApiClient.getUrl('OpEd/Admin/Themes/' + rowId + '/Details'),
+                    type: clear ? 'DELETE' : 'POST',
+                    data: clear ? undefined : JSON.stringify(rowDetails(row)),
+                    contentType: 'application/json'
+                }).then(function () {
+                    delete opedEditing[rowId];
+                    Dashboard.hideLoadingMsg();
+                    loadClips(page);
+                    setTimeout(function () { loadClips(page); }, 1500); // a started run shows up as busy a moment later; the editor reloads when it finishes
+                    renderEditor(page);
+                }, function () {
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert('Couldn\'t save. Is the themes folder writable by Jellyfin?');
+                });
+            });
+
+            var opedSearchTimer;
+            document.querySelector('#OpEdSearch').addEventListener('input', function () {
+                clearTimeout(opedSearchTimer);
+                opedSearchTimer = setTimeout(function () { renderEditor(document.querySelector('#OpEdConfigPage')); }, 150);
+            });
+            document.querySelector('#OpEdFilter').addEventListener('change', function () { renderEditor(document.querySelector('#OpEdConfigPage')); });
+
+            var opedCards = {}, opedGroups = {}, opedOpenGroups = {}, opedFocusId = null, opedFocusNext = null;
+
+            // A compact row: what it is on the left, the decision on the right, the preview opens underneath on demand.
+            function clipCard(c) {
+                var base = ApiClient.getUrl('OpEd/Admin/Clips/' + c.Id);
+                var mins = Math.floor(c.DurationSeconds / 60), secs = Math.round(c.DurationSeconds % 60);
+                var song = c.SongTitle ? esc(c.SongTitle) + (c.Artists && c.Artists.length ? ' – ' + esc(c.Artists.join(', ')) : '') : 'no AnimeThemes details';
+                var div = document.createElement('div');
+                div.className = 'oped-clip';
+                div.tabIndex = 0;
+                div.setAttribute('data-id', c.Id);
+                div.style.cssText = 'padding:.6em .6em;border-top:1px solid rgba(255,255,255,.08);border-left:3px solid transparent;outline:none';
+                div.innerHTML =
+                    '<div style="display:flex;gap:1em;flex-wrap:wrap;align-items:center">' +
+                    '<div style="flex:1;min-width:240px"><b>' + esc(c.Slug) + '</b> · ' + esc(c.Sub) + (c.Season ? ' (' + esc(c.Season) + ')' : '') +
+                    ' · ep ' + esc(c.EpisodeNumber == null ? '?' : c.EpisodeNumber) + (c.EpisodeName ? ' "' + esc(c.EpisodeName) + '"' : '') +
+                    ' · ' + mins + ':' + (secs < 10 ? '0' : '') + secs +
+                    '<br><span class="fieldDescription">Chapter "' + esc(c.Chapter) + '" · expected: ' + song + (c.Episodes ? ' [episodes ' + esc(c.Episodes) + ']' : '') + '</span>' +
+                    '<div class="oped-hint" style="font-weight:bold">' + esc(c.Hint || '') + '</div></div>' +
+                    '<div style="white-space:nowrap"><label class="fieldDescription" style="margin-right:.6em">' + esc(c.Type) + ' no. <input class="oped-seq" type="number" min="1" max="99" value="' + esc(c.SuggestedSequence || c.Sequence || 1) + '" style="width:3.5em;padding:.3em;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.15);border-radius:4px" /></label>' +
+                    '<button is="emby-button" type="button" class="raised oped-preview-btn" style="margin:0 .4em 0 0" title="Preview (P)"><span>Preview</span></button>' +
+                    '<button is="emby-button" type="button" class="raised oped-approve" style="margin:0 .4em 0 0" title="Approve (A)"><span>Approve</span></button>' +
+                    '<button is="emby-button" type="button" class="raised oped-reject" style="margin:0 .4em 0 0" title="Reject (R)"><span>Reject</span></button>' +
+                    '<button is="emby-button" type="button" class="raised oped-retry" style="margin:0" title="Delete this clip and cut the next episode that has an OP/ED chapter, e.g. when text or credits run over it (T)"><span>Try another episode</span></button></div></div>' +
+                    '<div class="oped-preview" hidden data-url="' + esc(base + '/Video') + '" style="width:480px;max-width:100%;aspect-ratio:16/9;background:#000;margin-top:.6em;align-items:center;justify-content:center;text-align:center;color:#fff"></div>';
+                return div;
+            }
+
+            function groupEl(show, openByDefault) {
+                var det = document.createElement('details');
+                det.className = 'oped-group';
+                det.setAttribute('data-show', show);
+                det.style.cssText = 'margin:.3em 0;border-top:1px solid rgba(255,255,255,.15)';
+                det.open = opedOpenGroups[show] === undefined ? openByDefault : opedOpenGroups[show];
+                det.innerHTML = '<summary style="cursor:pointer;padding:.6em 0;display:flex;gap:.8em;align-items:center;flex-wrap:wrap"><b>' + esc(show) + '</b>' +
+                    '<span class="fieldDescription oped-gcount"></span><span class="oped-gstatus fieldDescription" style="flex:1"></span>' +
+                    '<button is="emby-button" type="button" class="raised oped-group-approve" style="margin:0"><span>Approve all</span></button>' +
+                    '<button is="emby-button" type="button" class="raised oped-group-reject" style="margin:0"><span>Reject all</span></button></summary>' +
+                    '<div class="oped-group-body"></div>';
+                return det;
+            }
+
+            // Updates a region only when its markup changed.
+            function setIfChanged(el, html) {
+                if (el.getAttribute('data-sig') !== html) {
+                    el.setAttribute('data-sig', html);
+                    el.innerHTML = html;
+                }
+            }
+
+            function loadClips(page) {
+                ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Admin/Clips'), type: 'GET', dataType: 'json' }).then(function (r) {
+                    var list = page.querySelector('#OpEdClips .oped-list'), foot = page.querySelector('#OpEdClips .oped-foot');
+
+                    // Reconciled by show and clip id: groups and cards already on the page are left alone (a preview that is loading
+                    // or playing must survive new clips turning up), only new ones are inserted and finished ones removed.
+                    if (!list.hasAttribute('data-init')) {
+                        list.setAttribute('data-init', '1');
+                        list.textContent = ''; // drops the initial "Loading…" text
+                    }
+                    var wanted = {}, byShow = {}, shows = [];
+                    r.Clips.forEach(function (c) {
+                        wanted[c.Id] = true;
+                        if (!byShow[c.Show]) { byShow[c.Show] = []; shows.push(c.Show); }
+                        byShow[c.Show].push(c);
+                    });
+                    Object.keys(opedCards).forEach(function (id) {
+                        if (!wanted[id]) { var gone = opedCards[id]; if (gone.parentNode) gone.parentNode.removeChild(gone); delete opedCards[id]; }
+                    });
+                    Object.keys(opedGroups).forEach(function (show) {
+                        if (!byShow[show]) { opedGroups[show].parentNode.removeChild(opedGroups[show]); delete opedGroups[show]; }
+                    });
+                    shows.forEach(function (show) {
+                        var group = opedGroups[show];
+                        if (!group) {
+                            group = opedGroups[show] = groupEl(show, shows.length === 1);
+                            var before = null;
+                            Array.prototype.some.call(list.querySelectorAll('.oped-group'), function (g) {
+                                if (g.getAttribute('data-show').toLowerCase() > show.toLowerCase()) { before = g; return true; }
+                                return false;
+                            });
+                            list.insertBefore(group, before);
+                        }
+                        var body = group.querySelector('.oped-group-body');
+                        byShow[show].forEach(function (c, i) {
+                            var card = opedCards[c.Id];
+                            if (!card) card = opedCards[c.Id] = clipCard(c);
+                            if (body.children[i] !== card) body.insertBefore(card, body.children[i] || null);
+                            // Hints depend on what has been approved since the card was drawn: refresh them, and the pre-filled
+                            // number unless the reviewer has already typed one.
+                            var hint = card.querySelector('.oped-hint'), seq = card.querySelector('.oped-seq');
+                            if (hint && hint.textContent !== (c.Hint || '')) hint.textContent = c.Hint || '';
+                            if (seq && !seq.getAttribute('data-touched')) seq.value = c.SuggestedSequence || c.Sequence || 1;
+                        });
+                        group.querySelector('.oped-gcount').textContent = '· ' + byShow[show].length + ' clip' + (byShow[show].length === 1 ? '' : 's');
+                    });
+                    var empty = list.querySelector('.oped-empty');
+                    if (!r.Clips.length) {
+                        if (!empty) {
+                            empty = document.createElement('p');
+                            empty.className = 'oped-empty';
+                            list.appendChild(empty);
+                        }
+                        empty.textContent = r.Extracting ? 'No clips yet; they appear here as they finish.' : 'No clips waiting for review.';
+                    } else if (empty) {
+                        list.removeChild(empty);
+                    }
+
+                    var bar = page.querySelector('#OpEdApplyBar');
+                    setIfChanged(bar, r.ApprovedWaiting
+                        ? '<span><b>' + r.ApprovedWaiting + ' approved clip' + (r.ApprovedWaiting === 1 ? '' : 's') + '</b> in the themes folder, not in your library yet. ' +
+                            'Finish reviewing, then add them all at once (this looks up song details on AnimeThemes).</span>' +
+                            '<button is="emby-button" type="button" class="raised button-submit oped-apply" style="margin:0"><span>Add to library</span></button>'
+                        : '');
+                    bar.style.display = r.ApprovedWaiting ? 'flex' : 'none';
+                    page.querySelector('#OpEdTabReview').textContent = r.Clips.length ? 'Review (' + r.Clips.length + ')' : 'Review';
+                    page.querySelector('#OpEdTabLibrary').textContent = r.ApprovedWaiting ? 'Library (' + r.ApprovedWaiting + ' waiting)' : 'Library';
+                    setIfChanged(foot, r.Rejected ? '<p>' + r.Rejected + ' rejected slot(s) won\'t be tried again. <a href="#" class="oped-clear-rejected">Forget rejections</a></p>' : '');
+
+                    var status = page.querySelector('#OpEdClipStatus'), btn = page.querySelector('#OpEdExtract');
+                    if (r.Extracting) {
+                        var pct = r.SeasonsTotal ? ' (' + r.SeasonsDone + ' of ' + r.SeasonsTotal + ' seasons)' : '';
+                        status.innerHTML = '<b>Working…</b> ' + esc(r.Activity || 'Starting…') + esc(pct) + '. Cut so far: ' + r.CutThisRun +
+                            '. Each clip takes about 15–25 seconds and appears below when it is done.';
+                    } else {
+                        status.innerHTML = r.Indexing ? '<b>Indexing themes and fetching metadata…</b>' : (r.LastResult ? 'Last run: ' + esc(r.LastResult) : '');
+                    }
+                    btn.disabled = !!r.Extracting;
+                    btn.querySelector('span').textContent = r.Extracting ? 'Looking for clips…' : 'Look for clips now';
+                    applyFocus(false);
+                    clearTimeout(window.opedClipTimer);
+                    if (r.Extracting || r.Indexing) window.opedClipTimer = setTimeout(function () { loadClips(page); }, 4000);
+                    if (window.opedWasIndexing && !r.Indexing) {
+                        loadEditor(page);
+                        showReport(page);
+                    }
+                    window.opedWasIndexing = r.Indexing;
+                });
+            }
+
+            function runClipAction(url, type) {
+                var page = document.querySelector('#OpEdConfigPage');
+                Dashboard.showLoadingMsg();
+                ApiClient.fetch({ url: ApiClient.getUrl(url), type: type }).then(function () {
+                    Dashboard.hideLoadingMsg();
+                    loadClips(page);
+                    loadEditor(page);
+                    showReport(page);
+                }, function (err) {
+                    Dashboard.hideLoadingMsg();
+                    if (err && err.json) {
+                        err.json().then(function (j) { Dashboard.alert(j.Message || 'Failed.'); }, function () { Dashboard.alert('Failed.'); });
+                    } else {
+                        Dashboard.alert('Failed.');
+                    }
+                    loadClips(page);
+                });
+            }
+
+            // Tabs. The choice is remembered for the session; the page works without storage.
+            function showTab(page, name) {
+                Array.prototype.forEach.call(page.querySelectorAll('.oped-panel'), function (p) { p.hidden = p.getAttribute('data-panel') !== name; });
+                Array.prototype.forEach.call(page.querySelectorAll('.oped-tab'), function (t) {
+                    var on = t.getAttribute('data-tab') === name;
+                    t.setAttribute('aria-selected', on ? 'true' : 'false');
+                    t.style.cssText = 'margin:0;border-radius:4px 4px 0 0;background:transparent;color:inherit;border-bottom:3px solid ' + (on ? 'currentColor' : 'transparent') + ';opacity:' + (on ? '1' : '.6');
+                });
+                try { sessionStorage.setItem('opedTab', name); } catch (e) { }
+            }
+
+            document.querySelector('.oped-tabs').addEventListener('click', function (e) {
+                var tab = e.target.closest('.oped-tab');
+                if (tab) showTab(document.querySelector('#OpEdConfigPage'), tab.getAttribute('data-tab'));
+            });
+
+            document.querySelector('#OpEdApplyBar').addEventListener('click', function (e) {
+                if (e.target.closest('.oped-apply')) runClipAction('OpEd/Admin/Clips/Apply', 'POST');
+            });
+
+            // Resolves to the server's message for a failed request.
+            function errMessage(err) {
+                if (err && err.json) return err.json().then(function (j) { return j.Message || 'Failed.'; }, function () { return 'Failed.'; });
+                return Promise.resolve('Failed.');
+            }
+
+            function visibleCards(page) {
+                return Array.prototype.filter.call(page.querySelectorAll('#OpEdClips .oped-clip'), function (c) { return c.offsetParent !== null; });
+            }
+
+            function setFocus(card, scroll) {
+                opedFocusId = card ? card.getAttribute('data-id') : null;
+                applyFocus(scroll);
+            }
+
+            function applyFocus(scroll) {
+                if (opedFocusNext && opedCards[opedFocusNext]) { opedFocusId = opedFocusNext; scroll = true; }
+                opedFocusNext = null;
+                Object.keys(opedCards).forEach(function (id) {
+                    var on = id === opedFocusId;
+                    opedCards[id].style.borderLeftColor = on ? 'currentColor' : 'transparent';
+                    opedCards[id].style.background = on ? 'rgba(128,128,128,.14)' : '';
+                    if (on && scroll && opedCards[id].scrollIntoView) opedCards[id].scrollIntoView({ block: 'nearest' });
+                });
+            }
+
+            function clipUrl(card, kind) {
+                return 'OpEd/Admin/Clips/' + card.getAttribute('data-id') +
+                    (kind === 'approve' ? '/Approve?sequence=' + (parseInt(card.querySelector('.oped-seq').value, 10) || 1) : kind === 'retry' ? '/Reject?tryAnother=true' : '/Reject');
+            }
+
+            // One decision on one clip: no blocking overlay, so a run of keystrokes keeps flowing.
+            function clipAction(card, kind) {
+                var page = document.querySelector('#OpEdConfigPage');
+                var cards = visibleCards(page), i = cards.indexOf(card), next = cards[i + 1] || cards[i - 1];
+                if (opedFocusId === card.getAttribute('data-id')) opedFocusNext = next ? next.getAttribute('data-id') : null;
+                card.style.opacity = '.4';
+                card.style.pointerEvents = 'none';
+                ApiClient.fetch({ url: ApiClient.getUrl(clipUrl(card, kind)), type: 'POST' }).then(function () {
+                    loadClips(page);
+                }, function (err) {
+                    card.style.opacity = '';
+                    card.style.pointerEvents = '';
+                    opedFocusNext = null;
+                    errMessage(err).then(function (m) { Dashboard.alert(m); });
+                    loadClips(page);
+                });
+            }
+
+            // The same decision for every clip of one show, one after the other, stopping to report anything the server refuses.
+            function groupAction(group, kind) {
+                var page = document.querySelector('#OpEdConfigPage');
+                var cards = Array.prototype.slice.call(group.querySelectorAll('.oped-clip'));
+                var show = group.getAttribute('data-show');
+                if (!cards.length || !window.confirm((kind === 'approve' ? 'Approve' : 'Reject') + ' all ' + cards.length + ' clip(s) for ' + show + '?' +
+                    (kind === 'approve' ? '\nEach is filed under the number shown on its row.' : '\nRejected slots won\'t be cut again.'))) return;
+                var status = group.querySelector('.oped-gstatus'), problems = [], done = 0;
+                group.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+                cards.reduce(function (chain, card) {
+                    return chain.then(function () {
+                        status.textContent = (kind === 'approve' ? 'Approving' : 'Rejecting') + ' ' + (++done) + ' of ' + cards.length + '…';
+                        return ApiClient.fetch({ url: ApiClient.getUrl(clipUrl(card, kind)), type: 'POST' }).then(null, function (err) {
+                            return errMessage(err).then(function (m) { problems.push(card.querySelector('b').textContent + ': ' + m); });
+                        });
+                    });
+                }, Promise.resolve()).then(function () {
+                    group.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+                    status.textContent = '';
+                    if (problems.length) Dashboard.alert(problems.join('\n'));
+                    loadClips(page);
+                });
+            }
+
+            // The preview is fetched with the sign-in header and played from a typed blob: a plain <video src> can't send
+            // the header, and loading every clip up front would pull tens of MB each.
+            function togglePreview(card) {
+                var box = card.querySelector('.oped-preview');
+                if (!box.hidden) {
+                    var playing = box.querySelector('video');
+                    if (playing) playing.pause();
+                    box.hidden = true;
+                    box.style.display = '';
+                    return;
+                }
+                box.hidden = false;
+                box.style.display = 'flex';
+                if (box.getAttribute('data-loaded')) return;
+                box.setAttribute('data-loaded', '1');
+                box.innerHTML = '<span>Loading…</span>';
+                fetch(box.getAttribute('data-url'), { headers: { 'Authorization': 'MediaBrowser Token="' + ApiClient.accessToken() + '"' } }).then(function (res) {
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return res.blob();
+                }).then(function (blob) {
+                    var video = document.createElement('video');
+                    video.controls = true;
+                    video.style.cssText = 'width:100%;height:100%';
+                    video.src = URL.createObjectURL(new Blob([blob], { type: 'video/mp4' }));
+                    video.onerror = function () { box.innerHTML = '<span>This browser couldn\'t play the clip.</span>'; };
+                    box.innerHTML = '';
+                    box.appendChild(video);
+                    video.play().then(null, function () { });
+                }, function (err) {
+                    box.removeAttribute('data-loaded');
+                    box.innerHTML = '<span>Couldn\'t load the clip (' + esc(err.message) + ').</span>';
+                });
+            }
+
+            document.querySelector('#OpEdClips').addEventListener('toggle', function (e) {
+                if (e.target.classList && e.target.classList.contains('oped-group')) opedOpenGroups[e.target.getAttribute('data-show')] = e.target.open;
+            }, true);
+
+            document.querySelector('#OpEdClips').addEventListener('click', function (e) {
+                var page = document.querySelector('#OpEdConfigPage');
+                if (e.target.closest('.oped-clear-rejected')) {
+                    e.preventDefault();
+                    runClipAction('OpEd/Admin/Clips/Rejected', 'DELETE');
+                    return;
+                }
+                var bulk = e.target.closest('.oped-group-approve, .oped-group-reject');
+                if (bulk) {
+                    e.preventDefault(); // the buttons live in the group's <summary>; don't fold it
+                    groupAction(bulk.closest('.oped-group'), bulk.classList.contains('oped-group-approve') ? 'approve' : 'reject');
+                    return;
+                }
+                var card = e.target.closest('.oped-clip');
+                if (!card) return;
+                setFocus(card, false);
+                var btn = e.target.closest('button');
+                if (!btn) return;
+                if (btn.classList.contains('oped-preview-btn')) togglePreview(card);
+                else if (btn.classList.contains('oped-approve')) clipAction(card, 'approve');
+                else if (btn.classList.contains('oped-retry')) clipAction(card, 'retry');
+                else if (btn.classList.contains('oped-reject')) clipAction(card, 'reject');
+            });
+
+            document.addEventListener('keydown', function (e) {
+                var page = document.querySelector('#OpEdConfigPage');
+                var panel = page && page.querySelector('.oped-panel[data-panel="review"]');
+                if (!panel || panel.offsetParent === null || e.ctrlKey || e.metaKey || e.altKey) return;
+                if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+                var key = e.key.toLowerCase(), cards = visibleCards(page);
+                var card = opedFocusId && opedCards[opedFocusId] && cards.indexOf(opedCards[opedFocusId]) >= 0 ? opedCards[opedFocusId] : null;
+                if (key === 'arrowdown' || key === 'j' || key === 'arrowup' || key === 'k') {
+                    if (!cards.length) return;
+                    e.preventDefault();
+                    var i = card ? cards.indexOf(card) + (key === 'arrowdown' || key === 'j' ? 1 : -1) : 0;
+                    setFocus(cards[Math.max(0, Math.min(cards.length - 1, i))], true);
+                } else if (card && (key === 'a' || key === 'r' || key === 't' || key === 'p')) {
+                    e.preventDefault();
+                    if (key === 'p') togglePreview(card);
+                    else clipAction(card, key === 'a' ? 'approve' : key === 'r' ? 'reject' : 'retry');
+                }
+            });
+
+            document.querySelector('#OpEdClips').addEventListener('input', function (e) {
+                if (e.target.classList && e.target.classList.contains('oped-seq')) e.target.setAttribute('data-touched', '1');
+            });
+
+            document.querySelector('#OpEdExtract').addEventListener('click', function () {
+                var page = document.querySelector('#OpEdConfigPage');
+                page.querySelector('#OpEdClipStatus').innerHTML = '<b>Starting…</b>';
+                page.querySelector('#OpEdExtract').disabled = true;
+                save(page).then(function () {
+                    return ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Admin/Clips/Extract'), type: 'POST' });
+                }).then(function () {
+                    setTimeout(function () { loadClips(page); }, 1000);
+                });
+            });
+
+            function loadLibraries(page, config) {
+                var chosen = (config.ClipLibraryIds || []).map(function (i) { return String(i).toLowerCase().replace(/-/g, ''); });
+                ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Admin/Libraries'), type: 'GET', dataType: 'json' }).then(function (libs) {
+                    page.querySelector('#OpEdLibraries').innerHTML = libs.length ? libs.map(function (l) {
+                        var on = chosen.indexOf(String(l.Id).toLowerCase().replace(/-/g, '')) >= 0;
+                        return '<div class="checkboxContainer"><label><input type="checkbox" is="emby-checkbox" class="oped-lib" value="' + esc(l.Id) + '"' +
+                            (on ? ' checked' : '') + ' /><span>' + esc(l.Name) + '</span></label></div>';
+                    }).join('') : '<p>No TV libraries found.</p>';
+                });
+            }
+
+            function showLibraryStatus(page) {
+                ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Admin/Library'), type: 'GET', dataType: 'json' }).then(function (s) {
+                    var lines = [];
+                    if (s.Problem) lines.push('<b>' + esc(s.Problem) + '</b>');
+                    lines.push('Music Videos library: ' + (s.VideosLibraryId ? 'created' : 'not created yet') + ' · Music library: ' + (s.SongsLibraryId ? 'created' : 'not created yet'));
+                    lines.push('Published: ' + s.Videos + ' videos, ' + s.Songs + ' songs' + (s.LastSync ? ' · last sync ' + new Date(s.LastSync).toLocaleString() : ''));
+                    if (s.Syncing) lines.push('Syncing…');
+                    if (s.LastError) lines.push('<span style="white-space:pre-wrap">Problems: ' + esc(s.LastError) + '</span>');
+                    page.querySelector('#OpEdLibraryStatus').innerHTML = lines.join('<br>');
+                    if (s.Syncing) setTimeout(function () { showLibraryStatus(page); }, 3000);
+                });
+            }
+
+            function libraryAction(page, url) {
+                Dashboard.showLoadingMsg();
+                save(page).then(function () {
+                    return ApiClient.fetch({ url: ApiClient.getUrl(url), type: 'POST' });
+                }).then(function () {
+                    Dashboard.hideLoadingMsg();
+                    setTimeout(function () { showLibraryStatus(page); }, 1000);
+                }, function (err) {
+                    Dashboard.hideLoadingMsg();
+                    errMessage(err).then(function (m) { Dashboard.alert(m); });
+                    showLibraryStatus(page);
+                });
+            }
+
+            document.querySelector('#OpEdCreateLibraries').addEventListener('click', function () {
+                var page = document.querySelector('#OpEdConfigPage');
+                page.querySelector('#PublishLibraries').checked = true;
+                libraryAction(page, 'OpEd/Admin/Library/Create');
+            });
+
+            document.querySelector('#OpEdSyncLibraries').addEventListener('click', function () {
+                libraryAction(document.querySelector('#OpEdConfigPage'), 'OpEd/Admin/Library/Sync');
+            });
+
+            function save(page) {
+                return ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    config.PublishLibraries = page.querySelector('#PublishLibraries').checked;
+                    config.LibraryPath = page.querySelector('#LibraryPath').value.trim();
+                    config.VideosLibraryName = page.querySelector('#VideosLibraryName').value.trim() || 'Anime Openings & Endings';
+                    config.SongsLibraryName = page.querySelector('#SongsLibraryName').value.trim() || 'Anime Theme Songs';
+                    config.NsfwRating = page.querySelector('#NsfwRating').value.trim() || 'NC-17';
+                    config.ThemesPath = page.querySelector('#ThemesPath').value.trim();
+                    config.FetchMetadata = page.querySelector('#FetchMetadata').checked;
+                    config.MetadataRefreshDays = parseInt(page.querySelector('#MetadataRefreshDays').value, 10) || 14;
+                    config.EnableTitleFallback = page.querySelector('#EnableTitleFallback').checked;
+                    config.TitleMatchThreshold = Math.min(100, Math.max(50, parseInt(page.querySelector('#TitleMatchThreshold').value, 10) || 80));
+                    // Keep the saved choice if the checkboxes haven't loaded yet.
+                    if (page.querySelector('.oped-lib')) {
+                        config.ClipLibraryIds = Array.prototype.map.call(page.querySelectorAll('.oped-lib:checked'), function (c) { return c.value; });
+                    }
+                    return ApiClient.updatePluginConfiguration(pluginId, config);
+                });
+            }
+
+            document.querySelector('#OpEdConfigPage').addEventListener('pageshow', function () {
+                var page = this;
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    page.querySelector('#ThemesPath').value = config.ThemesPath || '';
+                    page.querySelector('#FetchMetadata').checked = !!config.FetchMetadata;
+                    page.querySelector('#MetadataRefreshDays').value = config.MetadataRefreshDays;
+                    page.querySelector('#EnableTitleFallback').checked = config.EnableTitleFallback !== false;
+                    page.querySelector('#TitleMatchThreshold').value = config.TitleMatchThreshold || 80;
+                    page.querySelector('#PublishLibraries').checked = !!config.PublishLibraries;
+                    page.querySelector('#LibraryPath').value = config.LibraryPath || '';
+                    page.querySelector('#VideosLibraryName').value = config.VideosLibraryName || 'Anime Openings & Endings';
+                    page.querySelector('#SongsLibraryName').value = config.SongsLibraryName || 'Anime Theme Songs';
+                    page.querySelector('#NsfwRating').value = config.NsfwRating || 'NC-17';
+                    loadLibraries(page, config);
+                    showLibraryStatus(page);
+                    Dashboard.hideLoadingMsg();
+                });
+                var tab = 'setup';
+                try { tab = sessionStorage.getItem('opedTab') || tab; } catch (e) { }
+                showTab(page, tab);
+                showReport(page);
+                loadEditor(page);
+                loadClips(page);
+            });
+
+            document.querySelector('#OpEdConfigForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                Dashboard.showLoadingMsg();
+                save(document.querySelector('#OpEdConfigPage')).then(function (result) {
+                    Dashboard.processPluginConfigurationUpdateResult(result);
+                });
+                return false;
+            });
+
+            document.querySelector('#OpEdScan').addEventListener('click', function () {
+                var page = document.querySelector('#OpEdConfigPage');
+                Dashboard.showLoadingMsg();
+                save(page).then(function () {
+                    page.querySelector('#OpEdReport').innerHTML = '<p>Scanning…</p>';
+                    return ApiClient.fetch({ url: ApiClient.getUrl('OpEd/Scan'), type: 'POST', dataType: 'json' });
+                }).then(function () {
+                    Dashboard.hideLoadingMsg();
+                    showReport(page);
+                    loadEditor(page);
+                }, function () {
+                    Dashboard.hideLoadingMsg();
+                    showReport(page);
+                });
+            });
+        </script>
+    </div>
+</body>
+</html>

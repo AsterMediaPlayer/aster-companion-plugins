@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "menuId": "a7c1e3f2-5b84-4d96-8e21-3f0c9d5a6b47",
+  "revision": 1,
+  "meta": {
+    "author": "example",
+    "language": "en-US",
+    "notes": "EXAMPLE 7 - fanart.tv backgrounds. Each page asks the Jellyfin server for a picture from fanart.tv by its numeric image id; the server looks it up with the administrator's fanart.tv API key (Dashboard, Disc Menus) and caches it, so viewers never contact fanart.tv. The ids here are PLACEHOLDERS: list the real ones for a title with GET /DiscMenus/Fanart/List/{itemId}. A page whose picture can't be found shows plain dark."
+  },
+  "match": { "itemType": "Movie", "providerIds": {"Tmdb": "603", "Imdb": "tt0133093"}, "release": {"edition": "Example", "format": "BluRay", "region": "A", "year": 2008} },
+  "background": { "source": "fanart", "fanartId": "47835", "dim": 0.5 },
+  "theme": { "id": "fanart-dark", "accent": "#ffb703", "align": "left" },
+  "extras": {
+    "making-of": { "type": "BehindTheScenes", "durationSec": 1500 },
+    "trailer": { "type": "Trailer", "durationSec": 150, "optional": true }
+  },
+  "root": "main",
+  "menus": {
+    "main": {
+      "title": "Main Menu",
+      "entries": [
+        { "action": "playFeature", "label": "Play Movie" },
+        { "action": "chapters", "label": "Scene Selection", "perPage": 6 },
+        { "action": "submenu", "label": "Special Features", "menu": "features" }
+      ]
+    },
+    "features": {
+      "title": "Special Features",
+      "background": { "source": "fanart", "fanartId": "47836", "dim": 0.6 },
+      "entries": [
+        { "action": "playExtra", "label": "Making Of", "extra": "making-of" },
+        { "action": "playExtra", "label": "Theatrical Trailer", "extra": "trailer" },
+        { "action": "back", "label": "Back" }
+      ]
+    }
+  },
+  "layout": { "transition": {"style": "fade", "durationMs": 250} }
+}

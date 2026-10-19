@@ -1,0 +1,116 @@
+{
+  "MenuId": "3f2b8c1e6d4a4e2b9a710c5d2e8f1a44",
+  "Root": "main",
+  "Background": {
+    "Source": "jellyfin",
+    "ImageType": "Backdrop",
+    "Index": 0,
+    "Dim": 0.45
+  },
+  "Theme": {
+    "Id": "grid-dark",
+    "Accent": "#3ddc84",
+    "Align": "left"
+  },
+  "Menus": {
+    "main": {
+      "Title": "Main Menu",
+      "Layout": {
+        "TitlePosition": {
+          "X": 50,
+          "Y": 12,
+          "Anchor": "top"
+        },
+        "ButtonStyle": "arrow"
+      },
+      "Entries": [
+        {
+          "Action": "playFeature",
+          "Label": "Play Movie",
+          "Position": {
+            "X": 20,
+            "Y": 88,
+            "Anchor": "bottom"
+          }
+        },
+        {
+          "Action": "chapters",
+          "Label": "Scene Selection",
+          "Position": {
+            "X": 50,
+            "Y": 88,
+            "Anchor": "bottom"
+          },
+          "PerPage": 6
+        },
+        {
+          "Action": "submenu",
+          "Label": "Special Features",
+          "Position": {
+            "X": 80,
+            "Y": 88,
+            "Anchor": "bottom"
+          },
+          "Menu": "features"
+        }
+      ]
+    },
+    "features": {
+      "Title": "Special Features",
+      "Layout": {
+        "Flow": {
+          "Region": {
+            "X": 50,
+            "Y": 60,
+            "W": 60,
+            "H": 30,
+            "Anchor": "center"
+          },
+          "Columns": 2,
+          "Rows": 3
+        }
+      },
+      "Entries": [
+        {
+          "Action": "playExtra",
+          "Label": "Making Of"
+        },
+        {
+          "Action": "submenu",
+          "Label": "Deleted Scenes",
+          "Menu": "deleted"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Theatrical Trailer"
+        },
+        {
+          "Action": "back",
+          "Label": "Back"
+        }
+      ]
+    },
+    "deleted": {
+      "Title": "Deleted Scenes",
+      "Entries": [
+        {
+          "Action": "playSequence",
+          "Label": "Play All",
+          "ItemIds": []
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Rooftop"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Lobby"
+        },
+        {
+          "Action": "back",
+          "Label": "Back"
+        }
+      ]
+    }
+  }
+}

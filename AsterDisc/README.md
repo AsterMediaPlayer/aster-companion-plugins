@@ -76,7 +76,7 @@ viewer on the right:
    **Catalogue**, install **Aster Disc** and restart Jellyfin:
 
    ```
-   https://raw.githubusercontent.com/peppy6582/aster-companion-plugins/main/manifest.json
+   https://raw.githubusercontent.com/AsterMediaPlayer/aster-companion-plugins/main/manifest.json
    ```
 
    (Or build it yourself: see the [development guide](docs/DEVELOPMENT.md#trying-it-on-a-jellyfin-server).)

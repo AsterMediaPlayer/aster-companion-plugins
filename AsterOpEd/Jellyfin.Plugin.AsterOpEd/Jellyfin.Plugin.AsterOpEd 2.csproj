@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
+    <Copyright>Copyright (C) 2026 Phillip Berryman</Copyright>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Jellyfin.Plugin.AsterOpEd</RootNamespace>
+    <AssemblyVersion>0.3.0.0</AssemblyVersion>
+    <FileVersion>0.3.0.0</FileVersion>
+    <Description>Anime opening and ending themes from a folder you supply, matched to your shows, with song metadata from AnimeThemes and an API for clients.</Description>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Jellyfin.Controller" Version="12.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Configuration/configPage.html" />
+  </ItemGroup>
+
+</Project>

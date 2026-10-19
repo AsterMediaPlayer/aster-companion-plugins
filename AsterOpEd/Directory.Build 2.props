@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    When $(OPED_ARTIFACTS) is set (docker-compose.yml sets it to a named volume), bin/ and obj/ are redirected
+    there instead of into the source tree. When it is empty, i.e. building on your own machine, none of this
+    applies and MSBuild uses its normal ./bin and ./obj.
+  -->
+  <PropertyGroup Condition="'$(OPED_ARTIFACTS)' != ''">
+    <BaseOutputPath>$(OPED_ARTIFACTS)/$(MSBuildProjectName)/bin/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(OPED_ARTIFACTS)/$(MSBuildProjectName)/obj/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+</Project>

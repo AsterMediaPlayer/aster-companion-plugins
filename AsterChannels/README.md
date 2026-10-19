@@ -1,13 +1,13 @@
 # Aster Channels for Jellyfin
 
-A **Channels** page in the Jellyfin dashboard for [Aster Media Player](https://github.com/AsterFIN-app/AsterFIN)'s TV channels: your playlists played like live TV, on a schedule every device sees the same.
+A **Channels** page in the Jellyfin dashboard for [Aster Media Player](https://github.com/AsterMediaPlayer/Aster-Media-Player)'s TV channels: your playlists played like live TV, on a schedule every device sees the same.
 
 In Aster, a channel is just a video playlist with tags on it (`aster:channel`, `aster:number=101`, `aster:mode=blocks` and so on). This page edits those tags for you, with dropdowns, checkboxes and drag-to-renumber. It reads and writes them exactly as the app does, so the app, this page and tagging by hand in Jellyfin all change the same channels. You can uninstall the plugin at any time and your channels keep working.
 
 ## Install
 
 1. In Jellyfin, open **Dashboard ▸ Plugins ▸ Repositories** and add:
-   `https://raw.githubusercontent.com/peppy6582/aster-companion-plugins/main/manifest.json`
+   `https://raw.githubusercontent.com/AsterMediaPlayer/aster-companion-plugins/main/manifest.json`
 2. Install **Aster Channels** from the catalogue, and restart Jellyfin.
 3. **Channels** now appears in the dashboard menu.
 
@@ -23,7 +23,7 @@ It needs Jellyfin 12.1 or later, and an administrator account, as changing playl
 
 Other users only see a channel in Aster if its playlist is shared with them or public. Channels made with New Channel are public.
 
-Every tag is listed in Aster's [channel tag reference](https://github.com/AsterFIN-app/AsterFIN/blob/main/docs/channel-tags.md).
+Every tag is listed in Aster's [channel tag reference](https://github.com/AsterMediaPlayer/Aster-Media-Player/blob/main/docs/channel-tags.md).
 
 ## Building
 

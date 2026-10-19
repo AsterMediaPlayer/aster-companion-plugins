@@ -18,14 +18,14 @@ Requires Jellyfin 12.
 
 1. Dashboard → Plugins → Repositories → add this URL:
    ```
-   https://raw.githubusercontent.com/peppy6582/aster-companion-plugins/main/manifest.json
+   https://raw.githubusercontent.com/AsterMediaPlayer/aster-companion-plugins/main/manifest.json
    ```
 2. Catalog → Metadata → Aster OP/ED → Install.
 3. Restart Jellyfin.
 
 **By hand**
 
-1. Download the Aster OP/ED zip from the [releases](https://github.com/peppy6582/aster-companion-plugins/releases) (tags `asteroped-v…`).
+1. Download the Aster OP/ED zip from the [releases](https://github.com/AsterMediaPlayer/aster-companion-plugins/releases) (tags `asteroped-v…`).
 2. Unzip `Jellyfin.Plugin.AsterOpEd.dll` into a new `Aster OP-ED_<version>` folder under Jellyfin's `data/plugins/`.
 3. Restart Jellyfin.
 

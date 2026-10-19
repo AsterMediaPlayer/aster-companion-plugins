@@ -3,7 +3,7 @@ guid: "913b9d44-cafe-4fe7-ae0b-f1362dc12cc7"
 version: "0.6.0.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
-owner: "peppy6582"
+owner: "AsterMediaPlayer"
 overview: "User-authored, shareable disc menus for Jellyfin special features."
 description: >
   Loads user-authored disc menu definitions (schema/menu.schema.json),

@@ -5,7 +5,7 @@ A release is a plugin zip and a plugin-repository manifest, published on GitHub 
 manifest, which always lives at
 
 ```
-https://raw.githubusercontent.com/peppy6582/aster-companion-plugins/main/manifest.json
+https://raw.githubusercontent.com/AsterMediaPlayer/aster-companion-plugins/main/manifest.json
 ```
 
 The manifest is shared by every Aster companion plugin and keeps every earlier version, so a server can still choose an older one.

@@ -4,14 +4,14 @@
         "name": "Aster Channels",
         "description": "A Channels page in the Jellyfin dashboard for Aster Media Player. A channel is a video playlist tagged aster:channel, its settings more aster: tags on the same playlist; this page reads and writes those tags exactly as the app does, so the app, the page and tagging by hand all edit the same channels. It adds nothing else to the server.\n",
         "overview": "Make and edit Aster Media Player's TV channels from the dashboard.",
-        "owner": "peppy6582",
+        "owner": "AsterMediaPlayer",
         "category": "General",
         "versions": [
             {
                 "version": "0.1.1.0",
                 "changelog": "- 0.1.1.0: A \"?\" beside every setting explains it in plain words: hover over it, tab to it or tap it. - 0.1.0.0: First release. A Channels page in the dashboard: the channel list, drag to renumber, a Basic and\n  Advanced editor for every setting, and New Channel from a show, genre, network, collection or playlist.\n",
                 "targetAbi": "12.1.0.0",
-                "sourceUrl": "https://github.com/peppy6582/aster-companion-plugin/releases/download/v0.1.1/aster-channels_0.1.1.0.zip",
+                "sourceUrl": "https://github.com/AsterMediaPlayer/aster-companion-plugins/releases/download/v0.1.1/aster-channels_0.1.1.0.zip",
                 "checksum": "0b3753a77d59c1849b672e7429a07d09",
                 "timestamp": "2026-10-18T20:53:53Z"
             },
@@ -19,7 +19,7 @@
                 "version": "0.1.0.0",
                 "changelog": "- 0.1.0.0: First release. A Channels page in the dashboard: the channel list, drag to renumber, a Basic and\n  Advanced editor for every setting, and New Channel from a show, genre, network, collection or playlist.\n",
                 "targetAbi": "12.1.0.0",
-                "sourceUrl": "https://github.com/peppy6582/aster-companion-plugin/releases/download/v0.1.0/aster-channels_0.1.0.0.zip",
+                "sourceUrl": "https://github.com/AsterMediaPlayer/aster-companion-plugins/releases/download/v0.1.0/aster-channels_0.1.0.0.zip",
                 "checksum": "6bffb6ee96413f81add466a1e97d6a34",
                 "timestamp": "2026-10-18T20:38:39Z"
             }
@@ -30,14 +30,14 @@
         "name": "Aster Disc",
         "description": "Loads user-authored disc menu definitions (schema/menu.schema.json), resolves them against a local, never-shared binding file (schema/binding.schema.json), and exposes the matched entries as the parent item's Special Features. Developed primarily with an AI coding assistant (Claude Code) and not independently reviewed by a human: see the README before relying on it.\n",
         "overview": "User-authored, shareable disc menus for Jellyfin special features.",
-        "owner": "peppy6582",
+        "owner": "AsterMediaPlayer",
         "category": "General",
         "versions": [
             {
                 "version": "0.6.0.0",
                 "changelog": "- 0.6.0.0: Disc Menus is now Aster Disc, one of the Aster companion plugins, installed from github.com/peppy6582/aster-companion-plugins. It updates in place: on first start it moves its settings and data (menus, bindings, catalogue, assets) across from the old name. Nothing else changes; its API paths stay the same. - 0.5.0.0: Arrange on the preview: click a button, the title or a decoration in the Menu Editor's preview, drag it\n  into place (snapping to a grid and the centre lines), resize layers with a handle, nudge with the arrow keys,\n  and undo it in one step; pages that lay their buttons out themselves can be switched to free placement. The\n  plugin no longer needs the File Transformation plugin: it adds its own button to the web client (right after\n  Play) and works with a configured base URL. Fixes: the preview no longer pulls the cursor out of a form field\n  while you type.\n- 0.4.1.0: Menu Editor: upload pictures and sounds for a menu and choose them from a panel (checked for type,\n  contents and size; uploaded files are public like all menu assets), and pick a title's TMDB backdrops from\n  a list. The Disc Menu button now sits in the item page's own button row, right after Play.\n- 0.4.0.0: A new Menu Editor: choose a page or button from a list and change it in a form (the raw text is\n  optional, behind Show text), with only the essentials shown and the rest under More options. Problems say\n  which part they are about and clicking one selects it. Add, move and remove buttons, pages, extras and\n  decorative layers, with Undo and Redo. Backups made in the same moment no longer overwrite each other.\n- 0.3.0.0: Menu Editor: create a menu for a title in your library, duplicate or delete a menu, and list and\n  restore earlier saved versions. Editing from the editor now changes the text in place, so formatting is\n  kept and undo works step by step. A key repeated within one menu is now an error instead of silently\n  using the last one.\n- 0.2.0.0: A Menu Catalogue page in the dashboard to browse, install, update and remove menus from the\n  community catalogue (your library is never sent anywhere; every menu is checked against a published\n  fingerprint). fanart.tv backgrounds, looked up and served by your own server with your own API key, and a\n  fanart.tv picker in the Menu Editor. The settings page gains a write-only fanart.tv key with a test button.\n- 0.1.0.0: Early alpha. Shareable disc menus with layouts, backgrounds, music, transitions and scene\n  selection; automatic matching to library titles; a dashboard menu editor with live preview.\n",
                 "targetAbi": "12.0.0.0",
-                "sourceUrl": "https://github.com/peppy6582/aster-companion-plugins/releases/download/asterdisc-v0.6.0/aster-disc_0.6.0.0.zip",
+                "sourceUrl": "https://github.com/AsterMediaPlayer/aster-companion-plugins/releases/download/asterdisc-v0.6.0/aster-disc_0.6.0.0.zip",
                 "checksum": "5adf74cc6ada29a84b8d328584c9c090",
                 "timestamp": "2026-10-19T00:57:40Z"
             },
@@ -96,14 +96,14 @@
         "name": "Aster OP/ED",
         "description": "Put opening and ending theme files (video, audio or both) in a folder, one folder per show. The plugin matches them to your shows and seasons, adds song title, artists and episode ranges from AnimeThemes.moe, and serves them to clients through an authenticated API. Missing a theme? It can cut one out of your own episodes from their chapter markers, for you to review. Developed primarily with an AI coding assistant (Claude Code); see the README.\n",
         "overview": "Anime openings and endings for your shows, matched from a folder you fill.",
-        "owner": "peppy6582",
+        "owner": "AsterMediaPlayer",
         "category": "Metadata",
         "versions": [
             {
                 "version": "0.3.0.0",
                 "changelog": "- 0.3.0.0: OP/ED is now Aster OP/ED, one of the Aster companion plugins, installed from github.com/peppy6582/aster-companion-plugins. It updates in place: on first start it moves its settings and data (the theme index, playable copies, caches and published libraries' record) across from the old name. Nothing else changes; its API paths stay the same.\n- 0.2.0.0: Publishes your themes as two Jellyfin libraries, kept up to date after every scan: a Music Videos library of the theme videos (links to the playable copies, with song, artists, show, season and episodes, a picture from the video, and Spoiler/NSFW tags; NSFW gets an adult rating for parental controls) and a Music library of their songs, an album per show with the show's art. Playlists, favourites and watched state then work as for anything else in Jellyfin. Turn it on and create both libraries from the Setup tab. For clients: themes now give their library items' ids, GET /OpEd/Library gives the libraries' ids, and GET /OpEd/LibraryItems/{id}/Theme gives the theme behind a library item.\n- 0.1.4.0: A tidier settings page: Setup, Review and Library tabs. Clips are grouped by show, with Approve all and Reject all, keyboard shortcuts and previews on request. The library list can be searched and filtered, and a bar stays at the bottom while approved clips wait to be added to the library. New Rescan files button per show: replace a theme file, press it, and the plugin picks it up, makes it playable in the themes folder and moves the original to an _originals folder.\n- 0.1.3.0: Works without Shokofin: AniList, MyAnimeList and Kitsu ids, then a title search (ten shows to a request, with an adjustable threshold), and seasons matched by premiere date. The editor says how each theme got its season and lets you type any AniDB id. Not-found shows are retried after 1, 3 and 7 days, then every 30. Duplicate AnimeThemes entries no longer override the main one, and themes now report overlap and whether a creditless version exists.\n- 0.1.2.2: Same as 0.1.2.1 (settings page fix); re-released so the plugin repository lists it.\n- 0.1.2.1: Fixes the settings page not loading in 0.1.2.0 (a script error).\n- 0.1.2.0: Clearer wording throughout: settings page, plugin and task descriptions, and the README.\n- 0.1.1.0: Looks themes up through the AnimeThemes GraphQL API with the user agent agreed with them. Season picker and OP/ED number on approval, library picker and a length hint for the chapter clip review queue, previews that stay put while clips are being cut, credit to AnimeThemes in the README and settings page.\n- 0.1.0.0: First version. Indexes OP/ED theme files, matches them to shows and seasons, song details from AnimeThemes.moe, themes.json and file names, MP4/M4A copies for Apple TV, client API, and cutting missing OPs/EDs from episode chapters into a review queue.\n",
                 "targetAbi": "12.0.0.0",
-                "sourceUrl": "https://github.com/peppy6582/aster-companion-plugins/releases/download/asteroped-v0.3.0/aster-op-ed_0.3.0.0.zip",
+                "sourceUrl": "https://github.com/AsterMediaPlayer/aster-companion-plugins/releases/download/asteroped-v0.3.0/aster-op-ed_0.3.0.0.zip",
                 "checksum": "865a471cd00dc2780f2099545e67d87a",
                 "timestamp": "2026-10-19T00:56:55Z"
             },

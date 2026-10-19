@@ -1,0 +1,69 @@
+{
+  "MenuId": "d08494ee3e974d1cb36502ab3eb1549f",
+  "Root": "main",
+  "Background": {
+    "Source": "jellyfin",
+    "ImageType": "Backdrop",
+    "Index": 0,
+    "Dim": 0.55
+  },
+  "Theme": {
+    "Id": "list-dark",
+    "Accent": "#4cc9f0",
+    "Align": "left"
+  },
+  "Layout": {
+    "Transition": {
+      "Style": "fade",
+      "DurationMs": 250
+    }
+  },
+  "Audio": {
+    "Sounds": {
+      "Preset": "click",
+      "Volume": 0.4
+    }
+  },
+  "Menus": {
+    "main": {
+      "Title": "Main Menu",
+      "Entries": [
+        {
+          "Action": "playFeature",
+          "Label": "Play Movie"
+        },
+        {
+          "Action": "chapters",
+          "Label": "Scene Selection",
+          "PerPage": 6
+        },
+        {
+          "Action": "submenu",
+          "Label": "Special Features",
+          "Menu": "features"
+        }
+      ]
+    },
+    "features": {
+      "Title": "Special Features",
+      "Entries": [
+        {
+          "Action": "playExtra",
+          "Label": "Making Of"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Featurette"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Theatrical Trailer"
+        },
+        {
+          "Action": "back",
+          "Label": "Back"
+        }
+      ]
+    }
+  }
+}

@@ -3,7 +3,7 @@ guid: "d459e0a2-e073-4e1e-b0ec-71883075cf4a"
 version: "0.3.0.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
-owner: "peppy6582"
+owner: "AsterMediaPlayer"
 overview: "Anime openings and endings for your shows, matched from a folder you fill."
 description: >
   Put opening and ending theme files (video, audio or both) in a folder, one
