@@ -8,6 +8,8 @@ namespace Jellyfin.Plugin.AsterOpEd.Themes;
 ///   AnimeThemes' own names    "SousouNoFrieren-OP1.webm", "SousouNoFrieren-ED1-TV.webm", "Foo-OP2v2-NCBD1080.ogg"
 ///   names with song details   "OP1 - Yuusha - YOASOBI.webm", "ED1-TV - bliss - milet [1].ogg",
 ///                             "OP2 - Haru - Yorushika [17-28].webm"  (title - artists [episodes])
+///   full-length versions      "OP1-Full.mp4", "OP1-Full - Yuusha - YOASOBI.m4a": the whole song (the single, or its
+///                             music video) for the theme of the same name, not a theme of its own
 /// </summary>
 public static partial class ThemeFileName
 {
@@ -24,7 +26,11 @@ public static partial class ThemeFileName
     };
 
     /// <summary>What a file name says about its theme.</summary>
-    public sealed record Parsed(string Type, int Sequence, int Version, string Variant, string? Title, List<string> Artists, string? Episodes);
+    /// <param name="IsFull">A full-length version of the theme (the "-Full" tag), not the theme itself.</param>
+    public sealed record Parsed(string Type, int Sequence, int Version, string Variant, string? Title, List<string> Artists, string? Episodes, bool IsFull = false);
+
+    /// <summary>The tag that marks a full-length version: "OP1-Full".</summary>
+    public const string FullTag = "FULL";
 
     public static bool IsVideo(string path) => VideoExtensions.Contains(Path.GetExtension(path));
 
@@ -47,11 +53,24 @@ public static partial class ThemeFileName
 
         // A variant is glued on with a hyphen and no spaces ("ED1-TV"); "OP1 - Title" is song details instead.
         var variant = string.Empty;
+        var isFull = false;
         var vm = VariantRegex().Match(rest);
         if (vm.Success && !SourceTags.Contains(vm.Groups[1].Value))
         {
             variant = vm.Groups[1].Value.ToUpperInvariant();
             rest = rest[vm.Length..];
+        }
+
+        // "-Full" isn't a variant: it's the same theme's full-length version ("OP1-TV-Full" for a variant's).
+        if (variant == FullTag)
+        {
+            isFull = true;
+            variant = string.Empty;
+        }
+        else if (VariantRegex().Match(rest) is { Success: true } fm && string.Equals(fm.Groups[1].Value, FullTag, StringComparison.OrdinalIgnoreCase))
+        {
+            isFull = true;
+            rest = rest[fm.Length..];
         }
 
         // Song details: " - Title - Artist, Artist [episodes]".
@@ -79,7 +98,7 @@ public static partial class ThemeFileName
             }
         }
 
-        return new Parsed(type, sequence, version, variant, title, artists, episodes);
+        return new Parsed(type, sequence, version, variant, title, artists, episodes, isFull);
     }
 
     public static List<string> SplitArtists(string value) =>

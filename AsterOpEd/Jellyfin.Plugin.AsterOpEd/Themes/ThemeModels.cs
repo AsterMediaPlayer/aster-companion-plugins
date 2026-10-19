@@ -63,6 +63,21 @@ public sealed class Theme
     /// <summary>"pending", "converting", "ready" or "failed"; null when the theme has no audio.</summary>
     public string? M4aStatus { get; set; }
 
+    /// <summary>A full-length version ("OP1-Full"): the whole song as a video and/or audio, with playable copies.</summary>
+    public string? FullVideoPath { get; set; }
+
+    public string? FullAudioPath { get; set; }
+
+    public string? FullMp4Path { get; set; }
+
+    public string? FullMp4Status { get; set; }
+
+    public string? FullM4aPath { get; set; }
+
+    public string? FullM4aStatus { get; set; }
+
+    public bool HasFullVersion => FullVideoPath is not null || FullAudioPath is not null;
+
     public string? SongTitle { get; set; }
 
     public List<string> Artists { get; set; } = [];

@@ -329,7 +329,18 @@ public sealed partial class ThemeIndex
                         fromFileNames[theme] = parsed;
                     }
 
-                    if (ThemeFileName.IsVideo(file))
+                    if (parsed.IsFull)
+                    {
+                        if (ThemeFileName.IsVideo(file))
+                        {
+                            theme.FullVideoPath ??= file;
+                        }
+                        else
+                        {
+                            theme.FullAudioPath ??= file;
+                        }
+                    }
+                    else if (ThemeFileName.IsVideo(file))
                     {
                         theme.VideoPath ??= file;
                     }
@@ -337,6 +348,16 @@ public sealed partial class ThemeIndex
                     {
                         theme.AudioPath ??= file;
                     }
+                }
+            }
+
+            // A full version with no TV-size file beside it is the only version there is, so it's the theme itself.
+            foreach (var theme in groups.Values)
+            {
+                if (theme.VideoPath is null && theme.AudioPath is null)
+                {
+                    (theme.VideoPath, theme.AudioPath) = (theme.FullVideoPath, theme.FullAudioPath);
+                    (theme.FullVideoPath, theme.FullAudioPath) = (null, null);
                 }
             }
 

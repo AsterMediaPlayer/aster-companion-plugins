@@ -103,6 +103,7 @@ Returns a single `Theme` (without `PlaysInEpisode`). Status: 200, 401, 404 (unkn
 | Endpoint | Content | Content-Type |
 |---|---|---|
 | `GET /OpEd/Themes/{themeId}/VideoMp4` | **Use this for video.** MP4, H.264 High profile, yuv420p, ≤1080p wide, AAC-LC stereo 192 kbps, `moov` atom at the front (fast start) | `video/mp4` |
+| `GET /OpEd/Themes/{themeId}/FullVideoMp4`, `/FullAudioM4a` (0.4.0) | The full-length version (`OP1-Full`), as playable MP4 and AAC. `/FullVideo` and `/FullAudio` give the original files | as above |
 | `GET /OpEd/Themes/{themeId}/AudioM4a` | **Use this for audio.** AAC-LC 256 kbps stereo in M4A, or the original file when it's already MP3/AAC | `audio/mp4` (or `audio/mpeg` for an original MP3) |
 | `GET /OpEd/Themes/{themeId}/Audio` | The owner's audio file, unchanged (often Ogg/Opus, which tvOS can't play) | per file: `audio/ogg`, `audio/mpeg`, `audio/mp4`, `audio/flac`, `audio/wav` |
 | `GET /OpEd/Themes/{themeId}/Video` | The owner's original video file, unchanged (often WebM/VP9, which tvOS can't play) | per file: `video/webm`, `video/mp4`, `video/x-matroska`, `video/quicktime` |
@@ -174,6 +175,11 @@ NSFW videos the owner's chosen rating (default `NC-17`), so Jellyfin's parental 
 | `HasCreditlessVersion` | bool | no | From AnimeThemes: whether a creditless version of this OP/ED exists there. Omitted when unknown |
 | `LibraryItemId` | string | no | The `MusicVideo` item this theme was published as (0.2.0). Omitted when it isn't published |
 | `SongItemId` | string | no | The `Audio` item this theme's song was published as (0.2.0). Omitted when it isn't published |
+| `HasFullVersion` | bool | yes | Whether the owner added a full-length version (`OP1-Full`) (0.4.0) |
+| `FullVideoMp4Url` / `FullVideoMp4Status` | string | no | As `VideoMp4Url` / `VideoMp4Status`, for the full version (0.4.0) |
+| `FullAudioM4aUrl` / `FullAudioM4aStatus` | string | no | As `AudioM4aUrl` / `AudioM4aStatus`, for the full version (0.4.0) |
+| `FullLibraryItemId` / `FullSongItemId` | string | no | The full version's own published items, titled "Song (Full)" (0.4.0) |
+| `IsFullVersionItem` | bool | no | Only from `LibraryItems/{itemId}/Theme`: whether that item is the full version (0.4.0) |
 
 `VideoMp4Status` / `AudioM4aStatus` lifecycle: a new file is `pending`, becomes `converting` and then `ready`, usually
 within seconds (a 90-second 720p OP video converts in about 15–25 s, its audio in about 1.5 s; files already in an

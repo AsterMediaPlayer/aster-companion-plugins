@@ -22,6 +22,7 @@ namespace Jellyfin.Plugin.AsterOpEd.Api;
 ///   GET  /OpEd/Themes/{themeId}/VideoMp4  the same video as MP4 (H.264/HEVC + AAC) that every client can play
 ///   GET  /OpEd/Themes/{themeId}/Audio   the original audio file
 ///   GET  /OpEd/Themes/{themeId}/AudioM4a  the same audio as AAC (or MP3) that every client can play
+///   GET  /OpEd/Themes/{themeId}/FullVideoMp4, /FullAudioM4a, /FullVideo, /FullAudio  its full-length version ("OP1-Full")
 ///   POST /OpEd/Scan                     rescan the themes folder (admins)
 ///   GET  /OpEd/Admin/Libraries             TV libraries the clip search can be limited to (admins)
 ///   POST /OpEd/Admin/Clips/Extract         cut missing OPs/EDs out of episodes by chapter marker, into the review queue (admins)
@@ -138,12 +139,14 @@ public sealed class OpEdController : ControllerBase
     public ActionResult<ThemeDto> GetThemeForLibraryItem([FromRoute] Guid itemId)
     {
         var item = itemId == Guid.Empty ? null : _libraryManager.GetItemById(itemId);
-        if (item is null || !CanSee(item) || _publisher.ThemeIdForPath(item.Path) is not { } themeId || _index.Get(themeId) is not { } theme)
+        if (item is null || !CanSee(item) || _publisher.ThemeForPath(item.Path) is not { } found || _index.Get(found.ThemeId) is not { } theme)
         {
             return NotFound();
         }
 
-        return ToDto(theme, null);
+        var dto = ToDto(theme, null);
+        dto.IsFullVersionItem = found.Full;
+        return dto;
     }
 
     [HttpGet("Admin/Library")]
@@ -206,6 +209,38 @@ public sealed class OpEdController : ControllerBase
     {
         var theme = VisibleTheme(themeId);
         return theme?.M4aStatus == "ready" ? Stream(theme.M4aPath) : NotFound();
+    }
+
+    [HttpGet("Themes/{themeId}/FullVideo")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status206PartialContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult GetFullVideo([FromRoute] string themeId) => Stream(VisibleTheme(themeId)?.FullVideoPath);
+
+    [HttpGet("Themes/{themeId}/FullVideoMp4")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status206PartialContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult GetFullVideoMp4([FromRoute] string themeId)
+    {
+        var theme = VisibleTheme(themeId);
+        return theme?.FullMp4Status == "ready" ? Stream(theme.FullMp4Path) : NotFound();
+    }
+
+    [HttpGet("Themes/{themeId}/FullAudio")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status206PartialContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult GetFullAudio([FromRoute] string themeId) => Stream(VisibleTheme(themeId)?.FullAudioPath);
+
+    [HttpGet("Themes/{themeId}/FullAudioM4a")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status206PartialContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult GetFullAudioM4a([FromRoute] string themeId)
+    {
+        var theme = VisibleTheme(themeId);
+        return theme?.FullM4aStatus == "ready" ? Stream(theme.FullM4aPath) : NotFound();
     }
 
     [HttpPost("Scan")]
@@ -489,11 +524,18 @@ public sealed class OpEdController : ControllerBase
 
     private ThemeDto ToDto(Theme t, bool? playsInEpisode)
     {
-        var (videoItem, songItem) = _publisher.ItemIds(t.Id);
+        var items = _publisher.ItemIds(t.Id);
         return new ThemeDto
         {
-        LibraryItemId = videoItem,
-        SongItemId = songItem,
+        LibraryItemId = items.Video,
+        SongItemId = items.Song,
+        FullLibraryItemId = items.FullVideo,
+        FullSongItemId = items.FullSong,
+        HasFullVersion = t.HasFullVersion,
+        FullVideoMp4Url = t.FullMp4Status == "ready" ? $"/OpEd/Themes/{t.Id}/FullVideoMp4" : null,
+        FullVideoMp4Status = t.FullMp4Status,
+        FullAudioM4aUrl = t.FullM4aStatus == "ready" ? $"/OpEd/Themes/{t.Id}/FullAudioM4a" : null,
+        FullAudioM4aStatus = t.FullM4aStatus,
         Id = t.Id,
         Type = t.Type,
         Sequence = t.Sequence,
@@ -612,6 +654,27 @@ public sealed class ThemeDto
 
     /// <summary>The song this theme was published as in the Music library; omitted when it isn't.</summary>
     public Guid? SongItemId { get; set; }
+
+    /// <summary>Whether there's a full-length version ("OP1-Full") as well.</summary>
+    public bool HasFullVersion { get; set; }
+
+    /// <summary>The full-length version as MP4, once ready.</summary>
+    public string? FullVideoMp4Url { get; set; }
+
+    public string? FullVideoMp4Status { get; set; }
+
+    /// <summary>The full-length song as AAC, once ready.</summary>
+    public string? FullAudioM4aUrl { get; set; }
+
+    public string? FullAudioM4aStatus { get; set; }
+
+    /// <summary>The full-length version's own items in the published libraries ("Yuusha (Full)").</summary>
+    public Guid? FullLibraryItemId { get; set; }
+
+    public Guid? FullSongItemId { get; set; }
+
+    /// <summary>Only from LibraryItems/{id}/Theme: whether that item is the full-length version.</summary>
+    public bool? IsFullVersionItem { get; set; }
 }
 
 public sealed class EditorThemeDto

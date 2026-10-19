@@ -168,20 +168,20 @@ public sealed class LibraryPublisher
 
     // MARK: Lookups for the API
 
-    /// <summary>The Jellyfin items a theme was published as: its music video and its song.</summary>
-    public (Guid? Video, Guid? Song) ItemIds(string themeId)
+    /// <summary>The Jellyfin items a theme was published as: its music video and song, and its full version's.</summary>
+    public (Guid? Video, Guid? Song, Guid? FullVideo, Guid? FullSong) ItemIds(string themeId)
     {
         if (!Manifest.TryGetValue(themeId, out var published))
         {
-            return (null, null);
+            return (null, null, null, null);
         }
 
         Guid? Find(string? path) => path is not null && _libraryManager.FindByPath(path, false) is { } item ? item.Id : null;
-        return (Find(published.Video), Find(published.Song));
+        return (Find(published.Video), Find(published.Song), Find(published.FullVideo), Find(published.FullSong));
     }
 
-    /// <summary>The theme a published file belongs to, by the file's path.</summary>
-    public string? ThemeIdForPath(string? path)
+    /// <summary>The theme a published file belongs to, by the file's path, and whether it's the full version.</summary>
+    public (string ThemeId, bool Full)? ThemeForPath(string? path)
     {
         if (path is null)
         {
@@ -192,7 +192,12 @@ public sealed class LibraryPublisher
         {
             if (SamePath(path, published.Video) || SamePath(path, published.Song))
             {
-                return id;
+                return (id, false);
+            }
+
+            if (SamePath(path, published.FullVideo) || SamePath(path, published.FullSong))
+            {
+                return (id, true);
             }
         }
 
@@ -429,6 +434,11 @@ public sealed class LibraryPublisher
                 // Not "{Show} - …": Jellyfin takes files named after their folder like that for versions of one video.
                 plan.VideoName = Unique(usedVideoNames, SafeName($"{track:00} {code}" + (song is null ? string.Empty : $" - {song}")));
                 plan.SongName = Unique(usedSongNames, SafeName($"{track:00} {code}" + (song is null ? string.Empty : $" - {song}")));
+                if (theme.HasFullVersion)
+                {
+                    plan.FullVideoName = Unique(usedVideoNames, SafeName($"{track:00} {code} (Full)" + (song is null ? string.Empty : $" - {song}")));
+                    plan.FullSongName = Unique(usedSongNames, SafeName($"{track:00} {code} (Full)" + (song is null ? string.Empty : $" - {song}")));
+                }
                 plan.Hash = Hash(plan);
                 plans.Add(plan);
             }
@@ -462,7 +472,7 @@ public sealed class LibraryPublisher
             published.Video = video;
 
             var nfo = Path.Combine(folder, plan.VideoName + ".nfo");
-            WriteNfo(plan, nfo);
+            WriteNfo(plan, nfo, full: false);
             published.Nfo = nfo;
 
             // The same frame as the item's picture ("-poster") and its landscape thumbnail ("-thumb").
@@ -480,13 +490,55 @@ public sealed class LibraryPublisher
             var folder = Path.Combine(SongsDir!, plan.ShowFolder);
             Directory.CreateDirectory(folder);
             var songFile = Path.Combine(folder, plan.SongName + ".m4a");
-            if (await WriteSongAsync(plan, source, songFile, ct).ConfigureAwait(false))
+            if (await WriteSongAsync(plan, source, songFile, full: false, ct).ConfigureAwait(false))
             {
                 published.Song = songFile;
             }
         }
 
+        // The full-length version, as items of its own: "Yuusha (Full)".
+        if (plan.FullVideoName is { } fullVideoName && theme.FullMp4Status == "ready" && theme.FullMp4Path is { } fullMp4 && File.Exists(fullMp4))
+        {
+            var folder = Path.Combine(VideosDir!, plan.ShowFolder);
+            Directory.CreateDirectory(folder);
+            var video = Path.Combine(folder, fullVideoName + ".mp4");
+            LinkOrCopy(fullMp4, video);
+            published.FullVideo = video;
+            var nfo = Path.Combine(folder, fullVideoName + ".nfo");
+            WriteNfo(plan, nfo, full: true);
+            published.FullNfo = nfo;
+            var poster = Path.Combine(folder, fullVideoName + "-poster.jpg");
+            if (await GrabFrameAsync(fullMp4, poster, ct).ConfigureAwait(false))
+            {
+                var thumb = Path.Combine(folder, fullVideoName + "-thumb.jpg");
+                File.Copy(poster, thumb, overwrite: true);
+                published.Pictures.AddRange([poster, thumb]);
+            }
+        }
+
+        if (plan.FullSongName is { } fullSongName && FullSongSource(theme) is { } fullSource)
+        {
+            var folder = Path.Combine(SongsDir!, plan.ShowFolder);
+            Directory.CreateDirectory(folder);
+            var songFile = Path.Combine(folder, fullSongName + ".m4a");
+            if (await WriteSongAsync(plan, fullSource, songFile, full: true, ct).ConfigureAwait(false))
+            {
+                published.FullSong = songFile;
+            }
+        }
+
         return published;
+    }
+
+    /// <summary>Where the full version's song comes from: its audio when ready, else its video's sound.</summary>
+    private static string? FullSongSource(Theme theme)
+    {
+        if (theme.FullM4aStatus == "ready" && theme.FullM4aPath is { } m4a && File.Exists(m4a))
+        {
+            return m4a;
+        }
+
+        return theme.FullMp4Status == "ready" && theme.FullMp4Path is { } mp4 && File.Exists(mp4) ? mp4 : null;
     }
 
     /// <summary>The playable copy to take a theme's song from: its audio when that's ready, else its video's sound.</summary>
@@ -514,7 +566,7 @@ public sealed class LibraryPublisher
         }
     }
 
-    private static void WriteNfo(ThemePlan plan, string path)
+    private static void WriteNfo(ThemePlan plan, string path, bool full)
     {
         var theme = plan.Theme;
         var kind = theme.Type == "OP" ? "Opening" : "Ending";
@@ -522,7 +574,7 @@ public sealed class LibraryPublisher
         using var writer = XmlWriter.Create(path, settings);
         writer.WriteStartDocument(true);
         writer.WriteStartElement("musicvideo");
-        writer.WriteElementString("title", plan.Song ?? $"{plan.Show} {kind} {theme.Sequence}");
+        writer.WriteElementString("title", Title(plan, full));
         foreach (var artist in theme.Artists.Where(a => !string.IsNullOrWhiteSpace(a)))
         {
             writer.WriteElementString("artist", artist.Trim());
@@ -543,6 +595,11 @@ public sealed class LibraryPublisher
         writer.WriteElementString("genre", "Anime");
         writer.WriteElementString("genre", kind);
         writer.WriteElementString("tag", kind);
+        if (full)
+        {
+            writer.WriteElementString("tag", "Full Version");
+        }
+
         if (plan.SeasonName is { } seasonName)
         {
             writer.WriteElementString("tag", seasonName);
@@ -563,8 +620,8 @@ public sealed class LibraryPublisher
             writer.WriteElementString("mpaa", rating);
         }
 
-        writer.WriteElementString("plot", Plot(plan));
-        writer.WriteElementString("sorttitle", SortTitle(plan));
+        writer.WriteElementString("plot", full ? Plot(plan) + " · Full version" : Plot(plan));
+        writer.WriteElementString("sorttitle", SortTitle(plan) + (full ? " full" : string.Empty));
         writer.WriteStartElement("uniqueid");
         writer.WriteAttributeString("type", "oped");
         writer.WriteAttributeString("default", "true");
@@ -572,6 +629,13 @@ public sealed class LibraryPublisher
         writer.WriteEndElement();
         writer.WriteEndElement();
         writer.WriteEndDocument();
+    }
+
+    /// <summary>The song's title ("Yuusha", or "Yuusha (Full)" for the full version).</summary>
+    private static string Title(ThemePlan plan, bool full)
+    {
+        var title = plan.Song ?? $"{plan.Show} {(plan.Theme.Type == "OP" ? "Opening" : "Ending")} {plan.Theme.Sequence}";
+        return full ? title + " (Full)" : title;
     }
 
     /// <summary>"Opening 2 of Hell's Paradise · Season 2 · Episodes 5–13 · Contains spoilers".</summary>
@@ -606,7 +670,7 @@ public sealed class LibraryPublisher
     private static string SortTitle(ThemePlan plan) =>
         $"{plan.Show} {plan.Track:000}";
 
-    private async Task<bool> WriteSongAsync(ThemePlan plan, string source, string path, CancellationToken ct)
+    private async Task<bool> WriteSongAsync(ThemePlan plan, string source, string path, bool full, CancellationToken ct)
     {
         var theme = plan.Theme;
         var codec = await ProbeAudioAsync(source, ct).ConfigureAwait(false);
@@ -616,7 +680,7 @@ public sealed class LibraryPublisher
         }
 
         var copy = codec is "aac" or "alac";
-        var comment = Plot(plan);
+        var comment = full ? Plot(plan) + " · Full version" : Plot(plan);
         var args = new List<string> { "-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", source,
             "-map", "0:a:0", "-vn", "-sn", "-dn", "-map_metadata", "-1" };
         args.AddRange(copy ? ["-c:a", "copy"] : ["-c:a", "aac", "-b:a", "256k", "-ac", "2"]);
@@ -628,7 +692,7 @@ public sealed class LibraryPublisher
             }
         }
 
-        Tag("title", plan.Song ?? $"{plan.Show} {(theme.Type == "OP" ? "Opening" : "Ending")} {theme.Sequence}");
+        Tag("title", Title(plan, full));
         Tag("artist", theme.Artists.Count > 0 ? string.Join(", ", theme.Artists) : null);
         Tag("album", $"{plan.Show} — Openings & Endings");
         Tag("album_artist", plan.Show);
@@ -755,10 +819,12 @@ public sealed class LibraryPublisher
         var t = plan.Theme;
         var parts = new object?[]
         {
-            2, // bump to republish everything when the layout changes (2: videos no longer start with the show's name)
+            3, // bump to republish everything when the layout changes (3: full versions)
             plan.Show, plan.ShowFolder, plan.VideoName, plan.SongName, plan.Code, plan.Song, plan.Track, plan.Year, plan.Premiered,
             plan.SeasonName, plan.NsfwRating, string.Join("|", t.Artists), t.Episodes, t.Spoiler, t.Nsfw,
             t.Mp4Status == "ready" ? t.Mp4Path : null, t.M4aStatus == "ready" ? t.M4aPath : null,
+            plan.FullVideoName, plan.FullSongName,
+            t.FullMp4Status == "ready" ? t.FullMp4Path : null, t.FullM4aStatus == "ready" ? t.FullM4aPath : null,
         };
         var text = string.Join("\u001f", parts.Select(p => Convert.ToString(p, CultureInfo.InvariantCulture)));
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)))[..32];
@@ -819,6 +885,10 @@ public sealed class LibraryPublisher
 
         public string SongName { get; set; } = string.Empty;
 
+        public string? FullVideoName { get; set; }
+
+        public string? FullSongName { get; set; }
+
         public string Hash { get; set; } = string.Empty;
     }
 }
@@ -836,7 +906,13 @@ public sealed class Published
 
     public string? Song { get; set; }
 
-    private IEnumerable<string> Files => new[] { Video, Nfo, Song }.Concat(Pictures).OfType<string>();
+    public string? FullVideo { get; set; }
+
+    public string? FullNfo { get; set; }
+
+    public string? FullSong { get; set; }
+
+    private IEnumerable<string> Files => new[] { Video, Nfo, Song, FullVideo, FullNfo, FullSong }.Concat(Pictures).OfType<string>();
 
     /// <summary>Whether every file is still there (a link counts only while its target is).</summary>
     public bool FilesExist() => Files.All(File.Exists);

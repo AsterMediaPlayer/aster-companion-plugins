@@ -50,7 +50,13 @@ public sealed class VideoConverter
     {
         Video,
         Audio,
+        FullVideo,
+        FullAudio,
     }
+
+    private static bool IsVideoKind(Kind kind) => kind is Kind.Video or Kind.FullVideo;
+
+    private static readonly Kind[] AllKinds = [Kind.Video, Kind.Audio, Kind.FullVideo, Kind.FullAudio];
 
     public static string CacheDir => Path.Combine(Plugin.Instance?.DataFolderPath ?? Path.GetTempPath(), "mp4-cache");
 
@@ -59,8 +65,11 @@ public sealed class VideoConverter
     /// <summary>Fills in the playable-copy path/status fields from what's on disk; no conversion.</summary>
     public void Classify(Theme theme)
     {
-        (theme.Mp4Path, theme.Mp4Status) = ClassifyOne(theme, Kind.Video);
-        (theme.M4aPath, theme.M4aStatus) = ClassifyOne(theme, Kind.Audio);
+        foreach (var kind in AllKinds)
+        {
+            var (path, status) = ClassifyOne(theme, kind);
+            SetResult(theme, kind, path, status);
+        }
     }
 
     /// <summary>Converts every pending video and audio, one at a time. <paramref name="saved"/> is called after each one.</summary>
@@ -70,8 +79,8 @@ public sealed class VideoConverter
         try
         {
             Directory.CreateDirectory(CacheDir);
-            var pending = themes.Where(t => t.Mp4Status == "pending").Select(t => (Theme: t, Kind: Kind.Video))
-                .Concat(themes.Where(t => t.M4aStatus == "pending").Select(t => (Theme: t, Kind: Kind.Audio)))
+            var pending = AllKinds
+                .SelectMany(kind => themes.Where(t => Status(t, kind) == "pending").Select(t => (Theme: t, Kind: kind)))
                 .ToList();
             var done = 0;
             foreach (var (theme, kind) in pending)
@@ -107,14 +116,9 @@ public sealed class VideoConverter
         var keep = new HashSet<string>(StringComparer.Ordinal);
         foreach (var t in themes)
         {
-            if (t.VideoPath is not null)
+            foreach (var kind in AllKinds.Where(k => Source(t, k) is not null))
             {
-                keep.Add(TargetPath(t, Kind.Video));
-            }
-
-            if (t.AudioPath is not null)
-            {
-                keep.Add(TargetPath(t, Kind.Audio));
+                keep.Add(TargetPath(t, kind));
             }
         }
 
@@ -128,17 +132,38 @@ public sealed class VideoConverter
         }
     }
 
-    private static string? Source(Theme theme, Kind kind) => kind == Kind.Video ? theme.VideoPath : theme.AudioPath;
+    private static string? Source(Theme theme, Kind kind) => kind switch
+    {
+        Kind.Video => theme.VideoPath,
+        Kind.Audio => theme.AudioPath,
+        Kind.FullVideo => theme.FullVideoPath,
+        _ => theme.FullAudioPath,
+    };
+
+    private static string? Status(Theme theme, Kind kind) => kind switch
+    {
+        Kind.Video => theme.Mp4Status,
+        Kind.Audio => theme.M4aStatus,
+        Kind.FullVideo => theme.FullMp4Status,
+        _ => theme.FullM4aStatus,
+    };
 
     private static void SetResult(Theme theme, Kind kind, string? path, string? status)
     {
-        if (kind == Kind.Video)
+        switch (kind)
         {
-            (theme.Mp4Path, theme.Mp4Status) = (path, status);
-        }
-        else
-        {
-            (theme.M4aPath, theme.M4aStatus) = (path, status);
+            case Kind.Video:
+                (theme.Mp4Path, theme.Mp4Status) = (path, status);
+                break;
+            case Kind.Audio:
+                (theme.M4aPath, theme.M4aStatus) = (path, status);
+                break;
+            case Kind.FullVideo:
+                (theme.FullMp4Path, theme.FullMp4Status) = (path, status);
+                break;
+            default:
+                (theme.FullM4aPath, theme.FullM4aStatus) = (path, status);
+                break;
         }
     }
 
@@ -164,9 +189,13 @@ public sealed class VideoConverter
     {
         var info = new FileInfo(Source(theme, kind)!);
         var stamp = info.Exists ? $"{info.Length:x}-{info.LastWriteTimeUtc.Ticks:x}" : "missing";
-        return kind == Kind.Video
-            ? Path.Combine(CacheDir, $"{theme.Id}-{stamp}.mp4")
-            : Path.Combine(CacheDir, $"{theme.Id}-a-{stamp}.m4a");
+        return kind switch
+        {
+            Kind.Video => Path.Combine(CacheDir, $"{theme.Id}-{stamp}.mp4"),
+            Kind.Audio => Path.Combine(CacheDir, $"{theme.Id}-a-{stamp}.m4a"),
+            Kind.FullVideo => Path.Combine(CacheDir, $"{theme.Id}-f-{stamp}.mp4"),
+            _ => Path.Combine(CacheDir, $"{theme.Id}-fa-{stamp}.m4a"),
+        };
     }
 
     private async Task ConvertOneAsync(Theme theme, Kind kind, CancellationToken ct)
@@ -177,7 +206,7 @@ public sealed class VideoConverter
         var args = new List<string> { "-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", source };
         string action;
 
-        if (kind == Kind.Video)
+        if (IsVideoKind(kind))
         {
             var appleVideo = video is not null && AppleVideo.Contains(video);
             if (appleVideo && (audio is null || audio == "aac") && Mp4Containers.Contains(Path.GetExtension(source)))
