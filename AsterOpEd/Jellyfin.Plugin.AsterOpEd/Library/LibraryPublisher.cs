@@ -21,7 +21,7 @@ namespace Jellyfin.Plugin.AsterOpEd.Library;
 /// Publishes the themes as two ordinary Jellyfin libraries, so playlists, favourites, watched state, search and parental
 /// controls all come from Jellyfin itself:
 ///
-///   {LibraryPath}/Videos/{Show}/{Show} - OP1 - Song.mp4    a Music Videos library: a link to the playable MP4 (no second
+///   {LibraryPath}/Videos/{Show}/01 OP1 - Song.mp4          a Music Videos library: a link to the playable MP4 (no second
 ///                                                           copy), a .nfo Jellyfin reads, and a frame as its picture
 ///   {LibraryPath}/Songs/{Show}/01 OP1 - Song.m4a           a Music library: the song with its tags written inside (Jellyfin's
 ///                                                           music libraries read tags, not .nfo files), an album per show
@@ -426,7 +426,8 @@ public sealed class LibraryPublisher
                     Premiered = premiere,
                     NsfwRating = theme.Nsfw ? (string.IsNullOrWhiteSpace(Config?.NsfwRating) ? "NC-17" : Config!.NsfwRating.Trim()) : null,
                 };
-                plan.VideoName = Unique(usedVideoNames, SafeName($"{showName} - {code}" + (song is null ? string.Empty : $" - {song}")));
+                // Not "{Show} - …": Jellyfin takes files named after their folder like that for versions of one video.
+                plan.VideoName = Unique(usedVideoNames, SafeName($"{track:00} {code}" + (song is null ? string.Empty : $" - {song}")));
                 plan.SongName = Unique(usedSongNames, SafeName($"{track:00} {code}" + (song is null ? string.Empty : $" - {song}")));
                 plan.Hash = Hash(plan);
                 plans.Add(plan);
@@ -754,7 +755,7 @@ public sealed class LibraryPublisher
         var t = plan.Theme;
         var parts = new object?[]
         {
-            1, // bump to republish everything when the layout changes
+            2, // bump to republish everything when the layout changes (2: videos no longer start with the show's name)
             plan.Show, plan.ShowFolder, plan.VideoName, plan.SongName, plan.Code, plan.Song, plan.Track, plan.Year, plan.Premiered,
             plan.SeasonName, plan.NsfwRating, string.Join("|", t.Artists), t.Episodes, t.Spoiler, t.Nsfw,
             t.Mp4Status == "ready" ? t.Mp4Path : null, t.M4aStatus == "ready" ? t.M4aPath : null,
