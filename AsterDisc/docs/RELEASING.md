@@ -1,15 +1,14 @@
 # Releasing
 
 A release is a plugin zip and a plugin-repository manifest, published on GitHub Releases by
-[`.github/workflows/release.yml`](../.github/workflows/release.yml) when a version tag is pushed. Jellyfin installs from the
+[`.github/workflows/release.yml`](../../.github/workflows/release.yml) (the repository's, shared by every Aster plugin) when a version tag is pushed. Jellyfin installs from the
 manifest, which always lives at
 
 ```
-https://github.com/peppy6582/jellydisc/releases/latest/download/manifest.json
+https://raw.githubusercontent.com/peppy6582/aster-companion-plugins/main/manifest.json
 ```
 
-Each release's manifest contains every earlier version as well (the workflow downloads the previous manifest and adds to it), so
-a server can still choose an older one.
+The manifest is shared by every Aster companion plugin and keeps every earlier version, so a server can still choose an older one.
 
 ## Cutting a release
 
@@ -18,16 +17,16 @@ a server can still choose an older one.
      starting `- 0.2.0.0:` (that entry becomes the release notes);
    - `Jellyfin.Plugin.AsterDisc/Jellyfin.Plugin.AsterDisc.csproj`: `AssemblyVersion` and `FileVersion`.
 2. **Merge to `main`** and let CI pass. Its *Plugin package* job builds the same zip a release would.
-3. **Tag the commit and push the tag.** A tag `vX.Y.Z` releases version `X.Y.Z.0`:
+3. **Tag the commit and push the tag.** A tag `asterdisc-vX.Y.Z` releases version `X.Y.Z.0`:
 
    ```bash
-   git tag v0.2.0 && git push origin v0.2.0
+   git tag asterdisc-v0.2.0 && git push origin asterdisc-v0.2.0
    ```
 
 The workflow then checks that the tag, `build.yaml`, `Plugin.cs` and the project agree, runs the tests, builds the package with
 [jprm](https://github.com/oddstr13/jellyfin-plugin-repository-manager), adds it to the manifest, and creates the release. It refuses
-to touch a release that already exists. If it fails part-way, fix the cause and delete the tag (`git push --delete origin v0.2.0`
-and `git tag -d v0.2.0`) before trying again.
+to touch a release that already exists. If it fails part-way, fix the cause and delete the tag (`git push --delete origin asterdisc-v0.2.0`
+and `git tag -d asterdisc-v0.2.0`) before trying again.
 
 ## Things to know
 

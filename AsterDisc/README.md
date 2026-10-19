@@ -73,15 +73,15 @@ viewer on the right:
 ## Getting started
 
 1. **Install:** in Jellyfin go to **Dashboard, Plugins, Repositories**, add this repository URL, then open the plugin
-   **Catalogue**, install **Disc Menus** and restart Jellyfin:
+   **Catalogue**, install **Aster Disc** and restart Jellyfin:
 
    ```
-   https://github.com/peppy6582/jellydisc/releases/latest/download/manifest.json
+   https://raw.githubusercontent.com/peppy6582/aster-companion-plugins/main/manifest.json
    ```
 
    (Or build it yourself: see the [development guide](docs/DEVELOPMENT.md#trying-it-on-a-jellyfin-server).)
 2. **Choose a folder for your menus:** the plugin uses a `menus` folder in its own data folder by default, or
-   set the **Menus directory** on the plugin's page in the Jellyfin dashboard (**Disc Menus** in the sidebar).
+   set the **Menus directory** on the plugin's page in the Jellyfin dashboard (**Aster Disc** in the sidebar).
 3. **Add a menu:** copy a `.menu.json` into that folder. Try one from [`examples/`](examples/README.md), or
    change its `match` ids to a title you own. The plugin finds the title in your library and links the
    extras by type and duration. The **Menu Files** table on the dashboard page shows how it went.

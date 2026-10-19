@@ -18,18 +18,18 @@ Requires Jellyfin 12.
 
 1. Dashboard → Plugins → Repositories → add this URL:
    ```
-   https://raw.githubusercontent.com/peppy6582/jellyfin-oped/main/manifest.json
+   https://raw.githubusercontent.com/peppy6582/aster-companion-plugins/main/manifest.json
    ```
-2. Catalog → Metadata → OP/ED → Install.
+2. Catalog → Metadata → Aster OP/ED → Install.
 3. Restart Jellyfin.
 
 **By hand**
 
-1. Download `jellyfin-oped_<version>.zip` from the [releases](https://github.com/peppy6582/jellyfin-oped/releases).
-2. Unzip `Jellyfin.Plugin.AsterOpEd.dll` into a new `OpEd_<version>` folder under Jellyfin's `data/plugins/`.
+1. Download the Aster OP/ED zip from the [releases](https://github.com/peppy6582/aster-companion-plugins/releases) (tags `asteroped-v…`).
+2. Unzip `Jellyfin.Plugin.AsterOpEd.dll` into a new `Aster OP-ED_<version>` folder under Jellyfin's `data/plugins/`.
 3. Restart Jellyfin.
 
-Either way, finish in Dashboard → OP/ED by choosing your themes folder.
+Either way, finish in Dashboard → Aster OP/ED by choosing your themes folder.
 
 ## Set up your themes folder
 
@@ -293,9 +293,6 @@ License: GPL-3.0.
 
 ## Releasing
 
-Bump `version` in `Jellyfin.Plugin.AsterOpEd/build.yaml` and the csproj, commit, then push a matching tag (`git tag v0.1.0.0 && git push origin v0.1.0.0`).
-`.github/workflows/release.yml` builds the plugin, creates the GitHub release with `jellyfin-oped_<version>.zip`, and
-records the version and the zip's MD5 in `manifest.json` on main.
-
-To package by hand instead: `bash scripts/package.sh` writes `dist/jellyfin-oped_<version>.zip` (just the DLL) and updates
-`manifest.json`; attach the zip to a release yourself.
+Bump `version` in `Jellyfin.Plugin.AsterOpEd/build.yaml` (with a changelog entry) and the csproj, merge to main, then push
+a tag like `asteroped-v0.3.0` (for version 0.3.0.0). The repository's release workflow builds it, publishes the release and
+adds the version to the shared `manifest.json`; see the [repository README](../README.md#releasing).

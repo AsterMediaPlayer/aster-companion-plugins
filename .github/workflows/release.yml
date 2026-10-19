@@ -1,15 +1,25 @@
 name: Release
 
-# Push a tag like v0.1.0 to publish a release: the plugin zip and a plugin-repository manifest, both attached to a
-# GitHub release. Jellyfin installs from the manifest at
+# Push a tag naming a plugin and its version to release it:
+#   asterchannels-v0.1.2    asterdisc-v0.6.0    asteroped-v0.3.0
+# The plugin's zip is attached to a GitHub release, and the version is added to manifest.json on main: the one plugin
+# repository for all of them. Every release also carries a copy of manifest.json, so
 #   https://github.com/<repo>/releases/latest/download/manifest.json
-# Each release's manifest carries every earlier version too (the previous one is downloaded and added to).
+# lists every plugin too. Older versions stay listed, so a server can pick one.
 on:
   push:
-    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+    tags:
+      - "asterchannels-v[0-9]+.[0-9]+.[0-9]+"
+      - "asterdisc-v[0-9]+.[0-9]+.[0-9]+"
+      - "asteroped-v[0-9]+.[0-9]+.[0-9]+"
 
 permissions:
   contents: write
+
+# One at a time, so two releases never write manifest.json at once.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -19,6 +29,8 @@ jobs:
       TAG: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -28,33 +40,44 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: pip install jprm
+      - run: pip install jprm jsonschema
+
+      - name: Which plugin the tag names
+        run: |
+          case "$TAG" in
+            asterchannels-v*) dir=AsterChannels; project=Jellyfin.Plugin.AsterChannels ;;
+            asterdisc-v*) dir=AsterDisc; project=Jellyfin.Plugin.AsterDisc ;;
+            asteroped-v*) dir=AsterOpEd; project=Jellyfin.Plugin.AsterOpEd ;;
+            *) echo "unknown tag $TAG" >&2; exit 1 ;;
+          esac
+          echo "DIR=$dir" >> "$GITHUB_ENV"
+          echo "PROJECT=$dir/$project" >> "$GITHUB_ENV"
+          echo "VTAG=v${TAG#*-v}" >> "$GITHUB_ENV"
 
       - name: The tag, build.yaml, Plugin.cs and the project agree
-        run: tools/check-versions.sh "$TAG"
+        run: python3 tools/check_versions.py "$PROJECT" "$VTAG"
 
       - name: Test before releasing
-        run: node --test tests/*.test.js
+        run: |
+          case "$DIR" in
+            AsterChannels)
+              dotnet build "$PROJECT" -c Release
+              node --test AsterChannels/tests/*.test.js ;;
+            AsterDisc)
+              cd AsterDisc
+              dotnet test Jellyfin.Plugin.AsterDisc.Tests
+              python3 tools/validate.py
+              python3 -m unittest discover -s tools -p "test_*.py" ;;
+            AsterOpEd)
+              dotnet build "$PROJECT" -c Release ;;
+          esac
 
       - name: Build the plugin package
         run: |
           mkdir -p dist
-          jprm plugin build Jellyfin.Plugin.AsterChannels --output "$PWD/dist"
+          jprm plugin build "$PROJECT" --output "$PWD/dist"
           ls -l dist
           test "$(ls dist/*.zip | wc -l)" = 1
-
-      - name: Add this version to the repository manifest
-        run: |
-          zip="$(ls dist/*.zip)"
-          mkdir repo
-          if curl -fsSL -o repo/manifest.json "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/manifest.json"; then
-            python3 -c 'import json; json.load(open("repo/manifest.json"))'
-          else
-            echo "No earlier release: starting a new manifest."
-            jprm repo init repo
-          fi
-          jprm repo add -U "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$(basename "$zip")" repo "$zip"
-          cat repo/manifest.json
 
       - name: Publish the release
         run: |
@@ -62,9 +85,24 @@ jobs:
             echo "A release for $TAG already exists; refusing to change it." >&2
             exit 1
           fi
+          name="$(python3 tools/check_versions.py "$PROJECT" --name)"
           {
+            python3 tools/check_versions.py "$PROJECT" --notes
+            echo
             echo "**Install:** in Jellyfin, Dashboard ▸ Plugins ▸ Repositories, add"
-            echo '`https://github.com/'"$GITHUB_REPOSITORY"'/releases/latest/download/manifest.json`, then install **Aster Channels** from the catalogue and restart Jellyfin.'
-            echo "Channels then appears in the dashboard menu."
+            echo '`https://raw.githubusercontent.com/'"$GITHUB_REPOSITORY"'/main/manifest.json`, then install **'"$name"'** from the catalogue and restart Jellyfin.'
           } > notes.md
-          gh release create "$TAG" dist/*.zip repo/manifest.json --title "Aster Channels ${TAG#v}" --notes-file notes.md
+          gh release create "$TAG" dist/*.zip --title "$name ${VTAG#v}" --notes-file notes.md
+
+      - name: Add this version to manifest.json on main
+        run: |
+          zip="$(ls dist/*.zip)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B main origin/main
+          jprm repo add -U "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$(basename "$zip")" . "$zip"
+          python3 -c 'import json; json.load(open("manifest.json"))'
+          git add manifest.json
+          git commit -m "manifest: $TAG [skip ci]"
+          git push origin main
+          gh release upload "$TAG" manifest.json

@@ -7,7 +7,7 @@ In Aster, a channel is just a video playlist with tags on it (`aster:channel`, `
 ## Install
 
 1. In Jellyfin, open **Dashboard ▸ Plugins ▸ Repositories** and add:
-   `https://github.com/peppy6582/aster-companion-plugin/releases/latest/download/manifest.json`
+   `https://raw.githubusercontent.com/peppy6582/aster-companion-plugins/main/manifest.json`
 2. Install **Aster Channels** from the catalogue, and restart Jellyfin.
 3. **Channels** now appears in the dashboard menu.
 
@@ -34,7 +34,7 @@ node --test tests/*.test.js
 
 `Web/channel-tags.js` is a port of the app's `ChannelTags.swift`. `tests/` runs it against the app's own vectors (`channel-tags.json`, from `AsterFINTests/Conformance`), so the two can't drift apart. After the app's tag rules change, run `tools/sync-vectors.sh ../AsterFIN`.
 
-To release, bump the version in `build.yaml` and the project, then push a tag like `v0.1.0`. The Release workflow builds the zip and adds it to the repository manifest.
+To release, bump the version in `build.yaml` and the project, then push a tag like `asterchannels-v0.1.2`. The Release workflow builds the zip and adds it to the repository manifest.
 
 ## License
 
