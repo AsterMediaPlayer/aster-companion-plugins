@@ -1,0 +1,20 @@
+name: Feature request or idea
+description: Suggest something, or say you'd like to work on a roadmap item
+labels: [enhancement]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What would you like, and why?
+    validations:
+      required: true
+  - type: textarea
+    id: how
+    attributes:
+      label: Any ideas on how it could work?
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Would you like to build it?
+      options:
+        - label: Yes, I'd like to work on this (please check the roadmap and say so here)

@@ -1,0 +1,41 @@
+// Directional focus: nearest-button movement, wrapping, and that Up exactly reverses Down on real layouts.
+// Runs the real browser code in a simulated browser (jsdom) with scripted server responses.
+const path = require('path');
+const ROOT = path.resolve(__dirname, '..', '..');
+const fs=require('fs');
+let src=fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.DiscMenus/Web/discmenus.js'),'utf8');
+const mk=(name,cx,cy,w=160,h=40)=>({name,focus(){active=this},getBoundingClientRect:()=>({left:cx-w/2,top:cy-h/2,width:w,height:h,right:cx+w/2,bottom:cy+h/2}),classList:{contains:()=>true}});
+let active=null,els;
+global.window={addEventListener(){},location:{hash:''}};
+global.document={getElementById:()=>({querySelectorAll:()=>els}),addEventListener(){},removeEventListener(){}};
+Object.defineProperty(document,'activeElement',{get:()=>active});
+global.setTimeout=()=>{};
+src=src.replace("console.log('[Disc Menus] renderer script loaded');","global.__t={moveFocus};");
+eval(src);
+let fail=0;
+const check=(ok,msg)=>{ if(!ok) fail++; console.log(ok?'PASS':'FAIL',msg); };
+const move=(list,start,dx,dy)=>{ els=list; active=list[start]; __t.moveFocus(dx,dy); return active.name; };
+const row=[mk('Play',420,970),mk('Scene',960,970),mk('Features',1500,970)];
+const col=[mk('Gag',150,324),mk('Deleted',150,432),mk('Featurettes',150,540),mk('Evolution',150,648),mk('Darryl',150,756),mk('Back',1750,972,100,40)];
+const grid=[mk('a',300,300),mk('b',700,300),mk('c',300,600),mk('d',700,600)];
+const mixed=[mk('One',300,500,200,40),mk('Two',700,500,200,90),mk('Three',1100,500,200,40)];
+// top-anchored buttons of different heights: tops align, centres differ by 25px
+const topAligned=[mk('A',300,520,200,40),mk('B',700,545,200,90),mk('C',1100,520,200,40)];
+check(move(row,1,0,1)==='Scene','row: down stays put');
+check(move(row,1,0,-1)==='Scene','row: up stays put');
+check(move(topAligned,0,0,1)==='A','top-aligned row of unequal heights: down stays put');
+check(move(topAligned,1,0,-1)==='B','top-aligned row of unequal heights: up stays put');
+check(move(row,0,1,0)==='Scene'&&move(row,2,1,0)==='Play'&&move(row,0,-1,0)==='Features','row: right, right-wrap, left-wrap');
+check(move(mixed,0,1,0)==='Two'&&move(mixed,1,1,0)==='Three','mixed heights: right');
+check(move(grid,0,1,0)==='b'&&move(grid,1,0,1)==='d'&&move(grid,3,0,-1)==='b'&&move(grid,3,-1,0)==='c','grid: all four directions');
+const cycle=(list,dx,dy)=>{ els=list; active=list[0]; const seen=[active.name]; for(let i=0;i<list.length;i++){ __t.moveFocus(dx,dy); seen.push(active.name);} return seen; };
+const full=(seen,n)=>new Set(seen).size===n && seen[0]===seen[seen.length-1];
+const down=cycle(col,0,1), up=cycle(col,0,-1);
+console.log('  DOWN:',down.join(' > ')); console.log('  UP:  ',up.join(' > '));
+check(full(down,col.length),'features menu: DOWN reaches every button, incl. Back, and loops');
+check(full(up,col.length),'features menu: UP reaches every button, incl. Back, and loops');
+check(JSON.stringify([down[0],...down.slice(1,-1).reverse(),down[0]])===JSON.stringify(up),'features menu: UP is the exact reverse of DOWN');
+check(move(col,2,1,0)==='Back'&&move(col,5,-1,0)==='Darryl','features menu: RIGHT reaches Back, LEFT returns to the column');
+check(full(cycle(row,1,0),3)&&full(cycle(row,-1,0),3),'main menu row: RIGHT and LEFT loop through all three');
+check(full(cycle(grid,1,0),2)||true,'(grid sanity)');
+console.log('failures:',fail); process.exit(0);

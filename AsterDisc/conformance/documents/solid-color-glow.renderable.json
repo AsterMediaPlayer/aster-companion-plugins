@@ -1,0 +1,165 @@
+{
+  "MenuId": "251e2e8b709841c0b5d4046b79225798",
+  "Root": "main",
+  "Background": {
+    "Source": "color",
+    "Color": "#0b132b"
+  },
+  "Theme": {
+    "Id": "storybook",
+    "Accent": "#ffd166",
+    "Align": "center",
+    "TextColor": "#f1e9d2",
+    "Font": "serif",
+    "FontSize": 3.2,
+    "Uppercase": true,
+    "LetterSpacing": 0.12
+  },
+  "Layout": {
+    "TitlePosition": {
+      "X": 50,
+      "Y": 14,
+      "Anchor": "top"
+    },
+    "ButtonStyle": "glow",
+    "Transition": {
+      "Style": "slide",
+      "DurationMs": 350
+    }
+  },
+  "Audio": {
+    "Sounds": {
+      "Preset": "chime",
+      "Volume": 0.35
+    }
+  },
+  "Menus": {
+    "main": {
+      "Title": "Main Menu",
+      "Entries": [
+        {
+          "Action": "playFeature",
+          "Label": "Play Movie",
+          "Position": {
+            "X": 50,
+            "Y": 42,
+            "Anchor": "center"
+          }
+        },
+        {
+          "Action": "chapters",
+          "Label": "Scene Selection",
+          "Position": {
+            "X": 50,
+            "Y": 54,
+            "Anchor": "center"
+          },
+          "PerPage": 6
+        },
+        {
+          "Action": "submenu",
+          "Label": "Special Features",
+          "Position": {
+            "X": 50,
+            "Y": 66,
+            "Anchor": "center"
+          },
+          "Menu": "features"
+        }
+      ]
+    },
+    "features": {
+      "Title": "Special Features",
+      "Entries": [
+        {
+          "Action": "playExtra",
+          "Label": "Making Of",
+          "Position": {
+            "X": 50,
+            "Y": 36,
+            "Anchor": "center"
+          }
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Director Interview",
+          "Position": {
+            "X": 50,
+            "Y": 48,
+            "Anchor": "center"
+          }
+        },
+        {
+          "Action": "submenu",
+          "Label": "Trailers",
+          "Position": {
+            "X": 50,
+            "Y": 60,
+            "Anchor": "center"
+          },
+          "Menu": "trailers"
+        },
+        {
+          "Action": "back",
+          "Label": "Back",
+          "Position": {
+            "X": 50,
+            "Y": 76,
+            "Anchor": "center"
+          }
+        }
+      ]
+    },
+    "trailers": {
+      "Title": "Trailers",
+      "Entries": [
+        {
+          "Action": "playSequence",
+          "Label": "Play All",
+          "Position": {
+            "X": 50,
+            "Y": 36,
+            "Anchor": "center"
+          },
+          "ItemIds": []
+        },
+        {
+          "Action": "playExtra",
+          "Label": "US Trailer",
+          "Position": {
+            "X": 50,
+            "Y": 48,
+            "Anchor": "center"
+          }
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Japanese Trailer",
+          "Position": {
+            "X": 50,
+            "Y": 60,
+            "Anchor": "center"
+          }
+        },
+        {
+          "Action": "back",
+          "Label": "Back",
+          "Position": {
+            "X": 35,
+            "Y": 78,
+            "Anchor": "center"
+          }
+        },
+        {
+          "Action": "home",
+          "Label": "Main Menu",
+          "Position": {
+            "X": 65,
+            "Y": 78,
+            "Anchor": "center"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "MenuId": "0e97d452f45b4be795db7620ecc3662a",
+  "Root": "main",
+  "Background": {
+    "Source": "trailer",
+    "TrailerIndex": 0,
+    "Muted": true,
+    "Dim": 0.35
+  },
+  "Theme": {
+    "Id": "cinema",
+    "Accent": "#ff9f1c",
+    "Align": "center",
+    "TextColor": "#ffffff",
+    "Font": "wide",
+    "FontSize": 2.2,
+    "Uppercase": true,
+    "Bold": true,
+    "LetterSpacing": 0.1
+  },
+  "Layout": {
+    "HideTitle": true,
+    "ButtonStyle": "arrow",
+    "Transition": {
+      "Style": "wipe",
+      "DurationMs": 400
+    },
+    "Layers": [
+      {
+        "Type": "panel",
+        "Position": {
+          "X": 50,
+          "Y": 96,
+          "W": 90,
+          "H": 16,
+          "Anchor": "bottom"
+        },
+        "Fill": "#000000",
+        "Opacity": 0.55,
+        "BorderColor": "#ff9f1c",
+        "BorderWidth": 0.2,
+        "Radius": 0.8
+      }
+    ]
+  },
+  "Audio": {
+    "Music": {
+      "Source": "themeSong",
+      "Volume": 0.4
+    },
+    "Sounds": {
+      "Preset": "beep",
+      "Volume": 0.4
+    }
+  },
+  "Menus": {
+    "main": {
+      "Title": "Main Menu",
+      "Entries": [
+        {
+          "Action": "playFeature",
+          "Label": "Play Movie",
+          "Position": {
+            "X": 22,
+            "Y": 88,
+            "W": 24,
+            "Anchor": "center"
+          }
+        },
+        {
+          "Action": "chapters",
+          "Label": "Scene Selection",
+          "Position": {
+            "X": 50,
+            "Y": 88,
+            "W": 24,
+            "Anchor": "center"
+          },
+          "PerPage": 6
+        },
+        {
+          "Action": "submenu",
+          "Label": "Special Features",
+          "Position": {
+            "X": 78,
+            "Y": 88,
+            "W": 24,
+            "Anchor": "center"
+          },
+          "Menu": "features"
+        }
+      ]
+    },
+    "features": {
+      "Title": "Special Features",
+      "Layout": {
+        "Flow": {
+          "Region": {
+            "X": 50,
+            "Y": 88,
+            "W": 86,
+            "H": 9,
+            "Anchor": "center"
+          },
+          "Columns": 6,
+          "Rows": 1
+        }
+      },
+      "Entries": [
+        {
+          "Action": "playExtra",
+          "Label": "Making Of"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Visual Effects"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Composer Interview"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Cast Interviews"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Deleted Scene 1"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Deleted Scene 2"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Short Film"
+        },
+        {
+          "Action": "home",
+          "Label": "Home"
+        }
+      ]
+    }
+  }
+}

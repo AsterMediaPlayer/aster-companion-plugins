@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "menuId": "ac8363be-07f3-4682-846d-703d101b5c0d",
+  "revision": 1,
+  "meta": {
+    "author": "peppy6582",
+    "language": "en-US",
+    "notes": "EXAMPLE 5 - a real menu (Thor: Ragnarok, UHD): Official Trailer behind the menu, one banner declared once and inherited by every menu, hand-placed main buttons, paged Special Features with Home, styled scene selection, slide transitions, click sounds. Its artwork (asset:thor-ragnarok/background.webp, menu-banner.webp) is NOT included - it belongs to the studio. Supply your own images with those names; without them the menu works, minus the pictures."
+  },
+  "match": { "itemType": "Movie", "providerIds": {"Tmdb": "284053", "Imdb": "tt3501632"}, "release": {"format": "UHD", "year": 2017} },
+  "background": { "source": "trailer", "trailerIndex": 0, "muted": true, "poster": "asset:thor-ragnarok/background.webp", "dim": 0.1 },
+  "theme": {
+    "id": "grid-dark",
+    "accent": "#ff4fd8",
+    "align": "center",
+    "textColor": "#c5e04a",
+    "font": "wide",
+    "fontSize": 2.3,
+    "uppercase": true,
+    "bold": true,
+    "letterSpacing": 0.08
+  },
+  "extras": {
+    "gag-reel": { "type": "BehindTheScenes", "durationSec": 138.368 },
+    "deleted-scenes": { "type": "DeletedScene", "durationSec": 441.536 },
+    "featurettes": { "type": "Featurette", "durationSec": 2064.864, "ordinal": 1 },
+    "evolution-of-heroes": { "type": "Featurette", "durationSec": 323.872, "ordinal": 2 },
+    "team-darryl": { "type": "Short", "durationSec": 368.864 }
+  },
+  "root": "main",
+  "menus": {
+    "main": {
+      "title": "Thor: Ragnarok",
+      "entries": [
+        { "action": "playFeature", "label": "Play", "position": {"x": 26, "y": 87.5, "w": 18, "anchor": "center"} },
+        { "action": "chapters", "label": "Scene Selection", "perPage": 6, "position": {"x": 49, "y": 87.5, "w": 18, "anchor": "center"}, "menu": "scenes" },
+        { "action": "submenu", "label": "Special Features", "menu": "features", "position": {"x": 72, "y": 87.5, "w": 18, "anchor": "center"} }
+      ]
+    },
+    "features": {
+      "title": "Special Features",
+      "entries": [
+        { "action": "playExtra", "label": "Gag Reel", "extra": "gag-reel" },
+        { "action": "playExtra", "label": "Deleted & Extended Scenes", "extra": "deleted-scenes" },
+        { "action": "playExtra", "label": "Featurettes", "extra": "featurettes" },
+        { "action": "playExtra", "label": "The Evolution of Heroes", "extra": "evolution-of-heroes" },
+        { "action": "playExtra", "label": "Team Darryl", "extra": "team-darryl" },
+        { "action": "home", "label": "Home" }
+      ],
+      "layout": {
+        "flow": { "region": {"x": 49, "y": 87.5, "w": 60, "h": 9, "anchor": "center"}, "columns": 5, "rows": 1 }
+      }
+    },
+    "scenes": {
+      "title": "Scene Selection",
+      "layout": {
+        "hideTitle": false,
+        "titlePosition": { "x": 50, "y": 9, "anchor": "top" },
+        "layers": [],
+        "flow": { "region": {"x": 50, "y": 54, "w": 86, "h": 66, "anchor": "center"}, "columns": 3, "rows": 3, "moreLabel": "More Scenes" }
+      },
+      "entries": [{"action":"home", "label":"Main Menu"}]
+    }
+  },
+  "layout": {
+    "hideTitle": true,
+    "buttonStyle": "text",
+    "layers": [
+      { "type": "image", "image": "asset:thor-ragnarok/menu-banner.webp", "position": {"x": 50, "y": 97, "w": 86, "h": 19, "anchor": "bottom"}, "fit": "contain" }
+    ],
+    "transition": { "style": "slide", "durationMs": 350 }
+  },
+  "audio": { "sounds": {"preset": "click", "volume": 0.4} }
+}

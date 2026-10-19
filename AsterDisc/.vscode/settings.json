@@ -1,0 +1,20 @@
+{
+  // Live validation while editing menu/binding JSON, so tools/validate.py is a
+  // confirmation rather than the first time you hear about a typo.
+  "json.schemas": [
+    {
+      "fileMatch": ["**/*.menu.json"],
+      "url": "./schema/menu.schema.json"
+    },
+    {
+      "fileMatch": ["**/*.binding.json"],
+      "url": "./schema/binding.schema.json"
+    }
+  ],
+  "files.exclude": {
+    "**/bin": true,
+    "**/obj": true,
+    "**/__pycache__": true
+  },
+  "dotnet.defaultSolution": "disable"
+}

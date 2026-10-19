@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Runs the plugin's own menu loader (MenuFileLoader.ParseMenu) on files, so CI for anything that collects
+    menus can prove the plugin itself accepts each one. Not shipped with the plugin.
+      Usage: dotnet run with the project path tools/MenuCheck, then the files to check.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Jellyfin.Plugin.DiscMenus\Jellyfin.Plugin.DiscMenus.csproj" />
+  </ItemGroup>
+
+</Project>

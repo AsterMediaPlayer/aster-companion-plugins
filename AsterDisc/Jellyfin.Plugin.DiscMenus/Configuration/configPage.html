@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <title>Disc Menus</title>
+</head>
+<body>
+    <div id="DiscMenusConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="DiscMenusConfigForm">
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MenusPath">Menus directory</label>
+                        <input id="MenusPath" name="MenusPath" type="text" is="emby-input" />
+                        <div class="fieldDescription">
+                            Directory scanned (recursively) for "*.menu.json" / "*.binding.json" pairs.
+                            Empty uses a "menus" folder under the plugin's data folder.
+                        </div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="FanartApiKey">fanart.tv API key (optional)</label>
+                        <input id="FanartApiKey" name="FanartApiKey" type="password" is="emby-input" autocomplete="off" />
+                        <div class="fieldDescription">
+                            Only needed for menus whose background is a <em>fanart</em> picture. Get a free key from your
+                            fanart.tv account. The server uses it to look pictures up and keep a copy: viewers never contact
+                            fanart.tv, and the key is never shown again, put in a link or sent to a client. Leave this empty to
+                            keep the saved key. <strong id="FanartKeyState"></strong>
+                        </div>
+                        <button id="FanartTestButton" is="emby-button" type="button" class="raised">
+                            <span>Test the saved key</span>
+                        </button>
+                        <button id="FanartClearButton" is="emby-button" type="button" class="raised">
+                            <span>Remove the saved key</span>
+                        </button>
+                        <span id="FanartTestResult" class="fieldDescription" aria-live="polite"></span>
+                    </div>
+                    <button is="emby-button" type="submit" class="raised button-submit block">
+                        <span>Save</span>
+                    </button>
+                </form>
+
+                <h2>Menu Files</h2>
+                <p class="fieldDescription">
+                    Every "*.menu.json" in the menus directory and how it was linked to your library.
+                    A menu is matched to a title automatically by its TMDB / IMDB / TVDB ids (never by
+                    file name), and its extras are matched by type and duration. A "*.binding.json"
+                    written by hand next to a menu always takes priority ("manual"). The plugin keeps
+                    the bindings it creates itself in its own data folder ("auto"). The library is
+                    re-checked when files or the library change; "Scan now" forces it.
+                </p>
+                <button id="MenuScanButton" is="emby-button" type="button" class="raised">
+                    <span>Scan now</span>
+                </button>
+                <table class="detailTable">
+                    <thead>
+                        <tr>
+                            <th class="detailTableHeaderCell">Menu file</th>
+                            <th class="detailTableHeaderCell">Status</th>
+                            <th class="detailTableHeaderCell">Title</th>
+                            <th class="detailTableHeaderCell">Linked item</th>
+                            <th class="detailTableHeaderCell">Extras</th>
+                            <th class="detailTableHeaderCell">Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="MenuStatusTableBody"></tbody>
+                </table>
+
+                <h2>Bound Menus</h2>
+                <p class="fieldDescription">
+                    Every "*.binding.json" found under the menus directory, with its paired menu.
+                    "Auto-Match" runs the duration matcher and writes results back to the binding
+                    file; it never touches bindings already set to Manual or Ignored. "Details"
+                    lists every extra key so you can link, ignore, or reset one by hand.
+                </p>
+                <table class="detailTable">
+                    <thead>
+                        <tr>
+                            <th class="detailTableHeaderCell">Menu</th>
+                            <th class="detailTableHeaderCell">Parent Item ID</th>
+                            <th class="detailTableHeaderCell">Matched</th>
+                            <th class="detailTableHeaderCell">Unmatched</th>
+                            <th class="detailTableHeaderCell">Ignored</th>
+                            <th class="detailTableHeaderCell"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="MenusTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+        <script type="text/javascript">
+        (function () {
+            // Must match build.yaml's guid.
+            var pluginId = '913b9d44-cafe-4fe7-ae0b-f1362dc12cc7';
+
+            function escapeHtml(value) {
+                var div = document.createElement('div');
+                div.textContent = value == null ? '' : String(value);
+                return div.innerHTML;
+            }
+
+            // The saved fanart.tv key is never put back in the page: the field stays empty, and only whether a key
+            // exists is shown. Leaving it empty keeps the saved key; typing one replaces it; "Remove" clears it.
+            function showFanartState(page) {
+                ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('DiscMenus/Fanart/Status'), dataType: 'json' }).then(function (r) {
+                    page.querySelector('#FanartKeyState').textContent = r && r.Configured ? 'A key is saved.' : 'No key is saved.';
+                }, function () {
+                    page.querySelector('#FanartKeyState').textContent = '';
+                });
+            }
+
+            function loadConfig(page) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    page.querySelector('#MenusPath').value = config.MenusPath || '';
+                    page.querySelector('#FanartApiKey').value = '';
+                    Dashboard.hideLoadingMsg();
+                });
+                showFanartState(page);
+            }
+
+            function saveConfig(page, clearKey) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    config.MenusPath = page.querySelector('#MenusPath').value;
+                    var typed = page.querySelector('#FanartApiKey').value.trim();
+                    if (clearKey) {
+                        config.FanartApiKey = '';
+                    } else if (typed) {
+                        config.FanartApiKey = typed;
+                    }
+
+                    ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+                        page.querySelector('#FanartApiKey').value = '';
+                        page.querySelector('#FanartTestResult').textContent = '';
+                        showFanartState(page);
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+            }
+
+            var FANART_TEST_RESULTS = {
+                Ok: 'The key works.',
+                NoKey: 'No key is saved.',
+                BadKey: 'fanart.tv rejected the key. Check it and save again.',
+                RateLimited: 'fanart.tv asked us to slow down. Try again in a minute.',
+                NotFound: 'fanart.tv answered, but had nothing for the test title.',
+                Unavailable: 'fanart.tv could not be reached.'
+            };
+
+            function testFanartKey(page) {
+                var out = page.querySelector('#FanartTestResult');
+                out.textContent = 'Asking fanart.tv…';
+                ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('DiscMenus/Fanart/Test'), dataType: 'json' }).then(function (r) {
+                    out.textContent = FANART_TEST_RESULTS[r && r.Status] || 'fanart.tv gave an answer this page does not understand.';
+                }, function () {
+                    out.textContent = 'The test could not be run. See the server log.';
+                });
+            }
+
+            function renderRow(item) {
+                var tr = document.createElement('tr');
+                tr.innerHTML =
+                    '<td class="detailTableBodyCell">' + escapeHtml(item.MenuTitle) + '</td>' +
+                    '<td class="detailTableBodyCell">' + escapeHtml(item.ParentItemId) + '</td>' +
+                    '<td class="detailTableBodyCell">' + escapeHtml(item.Matched) + '</td>' +
+                    '<td class="detailTableBodyCell">' + escapeHtml(item.Unmatched) + '</td>' +
+                    '<td class="detailTableBodyCell">' + escapeHtml(item.Ignored) + '</td>' +
+                    '<td class="detailTableBodyCell">' +
+                    '<button is="emby-button" type="button" class="raised" data-parentid="' + escapeHtml(item.ParentItemId) + '">' +
+                    '<span>Auto-Match</span></button> ' +
+                    '<button is="emby-button" type="button" class="raised" data-details="' + escapeHtml(item.ParentItemId) + '">' +
+                    '<span>Details</span></button></td>';
+                return tr;
+            }
+
+            var STATE_LABELS = {
+                bound: 'Bound',
+                pending: 'Waiting for the title',
+                ambiguous: 'Needs review',
+                conflict: 'Not used (another menu wins)',
+                invalid: 'Can\'t be loaded'
+            };
+
+            function renderStatusRow(status) {
+                var tr = document.createElement('tr');
+                var label = STATE_LABELS[status.State] || status.State;
+                var source = status.Source ? ' (' + escapeHtml(status.Source) + ')' : '';
+                var titleText = escapeHtml(status.Title || '') + (status.Edition ? ' &middot; ' + escapeHtml(status.Edition) : '');
+                var extras = status.ExtrasTotal == null ? '' : escapeHtml(status.ExtrasMatched) + ' of ' + escapeHtml(status.ExtrasTotal) + ' linked';
+                var notes = escapeHtml(status.Message || '');
+                if (status.Candidates && status.Candidates.length) {
+                    notes += '<br />Candidates: ' + status.Candidates.map(function (c) {
+                        return escapeHtml(c.Name || c.Id) + (c.Year ? ' (' + escapeHtml(c.Year) + ')' : '') + ' [' + escapeHtml(String(c.Id).substring(0, 8)) + ']';
+                    }).join('; ');
+                }
+
+                tr.innerHTML =
+                    '<td class="detailTableBodyCell">' + escapeHtml(status.MenuFile) + '</td>' +
+                    '<td class="detailTableBodyCell"><strong>' + escapeHtml(label) + '</strong>' + source + '</td>' +
+                    '<td class="detailTableBodyCell">' + titleText + '</td>' +
+                    '<td class="detailTableBodyCell">' + escapeHtml(status.ItemName || '') + '</td>' +
+                    '<td class="detailTableBodyCell">' + extras + '</td>' +
+                    '<td class="detailTableBodyCell">' + notes + '</td>';
+                return tr;
+            }
+
+            function showStatuses(page, statuses) {
+                var body = page.querySelector('#MenuStatusTableBody');
+                body.innerHTML = '';
+                (statuses || []).forEach(function (status) {
+                    body.appendChild(renderStatusRow(status));
+                });
+            }
+
+            function loadStatuses(page) {
+                ApiClient.getJSON(ApiClient.getUrl('DiscMenus/Status')).then(function (statuses) {
+                    showStatuses(page, statuses);
+                });
+            }
+
+            function scanNow(page) {
+                Dashboard.showLoadingMsg();
+                ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('DiscMenus/Scan'), dataType: 'json' }).then(function (statuses) {
+                    Dashboard.hideLoadingMsg();
+                    showStatuses(page, statuses);
+                    loadMenus(page);
+                }, function () {
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert('Scan failed. See the server log.');
+                });
+            }
+
+            function loadMenus(page) {
+                loadStatuses(page);
+                ApiClient.getJSON(ApiClient.getUrl('DiscMenus')).then(function (items) {
+                    var body = page.querySelector('#MenusTableBody');
+                    body.innerHTML = '';
+                    (items || []).forEach(function (item) {
+                        body.appendChild(renderRow(item));
+                    });
+                });
+            }
+
+            function runAutoMatch(page, parentItemId) {
+                Dashboard.showLoadingMsg();
+                ApiClient.ajax({
+                    type: 'POST',
+                    url: ApiClient.getUrl('DiscMenus/' + parentItemId + '/AutoMatch', { userId: ApiClient.getCurrentUserId() })
+                }).then(function () {
+                    Dashboard.hideLoadingMsg();
+                    loadMenus(page);
+                }, function () {
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert('Auto-match failed. See the server log.');
+                });
+            }
+
+            function toggleDetail(page, button, parentItemId) {
+                var row = button.closest('tr');
+                var next = row.nextElementSibling;
+                if (next && next.classList.contains('discMenuDetailRow')) {
+                    next.parentNode.removeChild(next);
+                    return;
+                }
+
+                var detailRow = document.createElement('tr');
+                detailRow.className = 'discMenuDetailRow';
+                var td = document.createElement('td');
+                td.colSpan = 6;
+                td.textContent = 'Loading…';
+                detailRow.appendChild(td);
+                row.parentNode.insertBefore(detailRow, row.nextSibling);
+                loadDetail(page, parentItemId, td);
+            }
+
+            function loadDetail(page, parentItemId, container) {
+                Promise.all([
+                    ApiClient.getJSON(ApiClient.getUrl('DiscMenus/' + parentItemId)),
+                    ApiClient.getJSON(ApiClient.getUrl('DiscMenus/' + parentItemId + '/Candidates', { userId: ApiClient.getCurrentUserId() }))
+                ]).then(function (results) {
+                    renderDetail(page, parentItemId, container, results[0], results[1]);
+                }, function () {
+                    container.textContent = 'Failed to load details.';
+                });
+            }
+
+            function renderDetail(page, parentItemId, container, detail, candidates) {
+                var rows = detail.Extras.map(function (extra) {
+                    var options = candidates.map(function (c) {
+                        var selected = c.ItemId === extra.ItemId ? ' selected' : '';
+                        return '<option value="' + escapeHtml(c.ItemId) + '"' + selected + '>' +
+                            escapeHtml(c.Name) + ' (' + escapeHtml(c.Type) + ', ' + Math.round(c.DurationSec) + 's)</option>';
+                    }).join('');
+
+                    var statusText = escapeHtml(extra.Status) + (extra.Method ? ' (' + escapeHtml(extra.Method) + ')' : '');
+
+                    return '<tr>' +
+                        '<td class="detailTableBodyCell">' + escapeHtml(extra.Key) + '</td>' +
+                        '<td class="detailTableBodyCell">' + escapeHtml(extra.Type) + '</td>' +
+                        '<td class="detailTableBodyCell">' + Math.round(extra.DurationSec) + 's</td>' +
+                        '<td class="detailTableBodyCell">' + statusText + '</td>' +
+                        '<td class="detailTableBodyCell">' +
+                        '<select is="emby-select" class="discMenuLinkSelect" data-key="' + escapeHtml(extra.Key) + '">' +
+                        '<option value="">-- choose --</option>' + options + '</select>' +
+                        '</td>' +
+                        '<td class="detailTableBodyCell">' +
+                        '<button is="emby-button" type="button" class="raised discMenuLinkButton" data-key="' + escapeHtml(extra.Key) + '"><span>Link</span></button> ' +
+                        '<button is="emby-button" type="button" class="raised discMenuIgnoreButton" data-key="' + escapeHtml(extra.Key) + '"><span>Ignore</span></button> ' +
+                        '<button is="emby-button" type="button" class="raised discMenuResetButton" data-key="' + escapeHtml(extra.Key) + '"><span>Reset</span></button>' +
+                        '</td></tr>';
+                }).join('');
+
+                container.innerHTML =
+                    '<table class="detailTable"><thead><tr>' +
+                    '<th class="detailTableHeaderCell">Key</th>' +
+                    '<th class="detailTableHeaderCell">Type</th>' +
+                    '<th class="detailTableHeaderCell">Duration</th>' +
+                    '<th class="detailTableHeaderCell">Status</th>' +
+                    '<th class="detailTableHeaderCell">Link to</th>' +
+                    '<th class="detailTableHeaderCell"></th>' +
+                    '</tr></thead><tbody>' + rows + '</tbody></table>';
+
+                function refresh() {
+                    loadDetail(page, parentItemId, container);
+                    loadMenus(page);
+                }
+
+                container.querySelectorAll('.discMenuLinkButton').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var key = btn.getAttribute('data-key');
+                        var select = container.querySelector('select[data-key="' + key + '"]');
+                        if (!select.value) {
+                            Dashboard.alert('Choose an item to link first.');
+                            return;
+                        }
+
+                        postBindingAction(parentItemId, key, 'Link', { itemId: select.value }, refresh);
+                    });
+                });
+
+                container.querySelectorAll('.discMenuIgnoreButton').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        postBindingAction(parentItemId, btn.getAttribute('data-key'), 'Ignore', {}, refresh);
+                    });
+                });
+
+                container.querySelectorAll('.discMenuResetButton').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        postBindingAction(parentItemId, btn.getAttribute('data-key'), 'Reset', {}, refresh);
+                    });
+                });
+            }
+
+            function postBindingAction(parentItemId, extraKey, action, query, onDone) {
+                Dashboard.showLoadingMsg();
+                ApiClient.ajax({
+                    type: 'POST',
+                    url: ApiClient.getUrl('DiscMenus/' + parentItemId + '/Bindings/' + encodeURIComponent(extraKey) + '/' + action, query)
+                }).then(function () {
+                    Dashboard.hideLoadingMsg();
+                    onDone();
+                }, function () {
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert(action + ' failed. See the server log.');
+                });
+            }
+
+            document.querySelector('#DiscMenusConfigPage').addEventListener('pageshow', function () {
+                loadConfig(this);
+                loadMenus(this);
+            });
+
+            document.querySelector('#MenusTableBody').addEventListener('click', function (e) {
+                var page = document.querySelector('#DiscMenusConfigPage');
+                var autoMatchButton = e.target.closest('button[data-parentid]');
+                if (autoMatchButton) {
+                    runAutoMatch(page, autoMatchButton.getAttribute('data-parentid'));
+                    return;
+                }
+
+                var detailsButton = e.target.closest('button[data-details]');
+                if (detailsButton) {
+                    toggleDetail(page, detailsButton, detailsButton.getAttribute('data-details'));
+                }
+            });
+
+            document.querySelector('#FanartTestButton').addEventListener('click', function () {
+                testFanartKey(document.querySelector('#DiscMenusConfigPage'));
+            });
+
+            document.querySelector('#FanartClearButton').addEventListener('click', function () {
+                if (window.confirm('Remove the saved fanart.tv key? Menus that use fanart pictures will show a plain dark background.')) {
+                    saveConfig(document.querySelector('#DiscMenusConfigPage'), true);
+                }
+            });
+
+            document.querySelector('#MenuScanButton').addEventListener('click', function () {
+                scanNow(document.querySelector('#DiscMenusConfigPage'));
+            });
+
+            document.querySelector('#DiscMenusConfigForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                saveConfig(document.querySelector('#DiscMenusConfigPage'));
+                return false;
+            });
+        })();
+    </script>
+    </div>
+</body>
+</html>

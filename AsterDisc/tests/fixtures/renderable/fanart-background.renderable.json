@@ -1,0 +1,63 @@
+{
+  "MenuId": "a7c1e3f25b844d968e213f0c9d5a6b47",
+  "Root": "main",
+  "Background": {
+    "Source": "fanart",
+    "FanartId": "47835",
+    "Dim": 0.5
+  },
+  "Theme": {
+    "Id": "fanart-dark",
+    "Accent": "#ffb703",
+    "Align": "left"
+  },
+  "Layout": {
+    "Transition": {
+      "Style": "fade",
+      "DurationMs": 250
+    }
+  },
+  "Menus": {
+    "main": {
+      "Title": "Main Menu",
+      "Entries": [
+        {
+          "Action": "playFeature",
+          "Label": "Play Movie"
+        },
+        {
+          "Action": "chapters",
+          "Label": "Scene Selection",
+          "PerPage": 6
+        },
+        {
+          "Action": "submenu",
+          "Label": "Special Features",
+          "Menu": "features"
+        }
+      ]
+    },
+    "features": {
+      "Title": "Special Features",
+      "Background": {
+        "Source": "fanart",
+        "FanartId": "47836",
+        "Dim": 0.6
+      },
+      "Entries": [
+        {
+          "Action": "playExtra",
+          "Label": "Making Of"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Theatrical Trailer"
+        },
+        {
+          "Action": "back",
+          "Label": "Back"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "jellyfin-disc-menus",
+  "dockerComposeFile": ["../docker-compose.yml"],
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+  // Leave the container running when the VS Code window closes; it is shared
+  // with `docker compose` usage from the shell.
+  "shutdownAction": "none",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csdevkit",
+        "ms-dotnettools.csharp",
+        "ms-python.python",
+        "redhat.vscode-yaml"
+      ]
+    }
+  }
+}

@@ -1,0 +1,20 @@
+bin/
+obj/
+*.user
+.vs/
+__pycache__/
+
+# Local-only: binding files map menu keys to THIS server's Jellyfin item IDs
+# and must never be committed or shared (see README "Layout").
+*.binding.json
+!examples/example.binding.json
+
+# Local docker compose-manager project files
+/autostart
+/name
+
+# Node
+node_modules/
+.deploy-tmp/
+tests/browser/shots/
+tests/browser/tests/

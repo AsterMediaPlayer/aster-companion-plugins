@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://peppy6582.github.io/jellydisc-menus/schema/v1/binding.schema.json",
+  "title": "Disc Menu Binding (local, never shared)",
+  "description": "Resolves a shared menu's extra keys to this server's Jellyfin item IDs. Stored server-side by the plugin; contains local identifiers, so it is excluded from any export/share.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "menuId", "menuRevision", "parentItemId", "bindings"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "menuId": { "type": "string", "format": "uuid" },
+    "menuRevision": {
+      "description": "Menu revision these bindings were resolved against. If the menu's revision is newer, re-run matching for changed keys.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "parentItemId": { "$ref": "#/$defs/jellyfinId" },
+    "resolvedAt": { "type": "string", "format": "date-time" },
+    "bindings": {
+      "type": "object",
+      "propertyNames": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" },
+      "additionalProperties": { "$ref": "#/$defs/binding" }
+    }
+  },
+  "$defs": {
+    "jellyfinId": {
+      "description": "Jellyfin item GUID, 32 hex chars (N format) or hyphenated.",
+      "type": "string",
+      "pattern": "^([0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$"
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["matched", "unmatched", "ignored"] },
+        "itemId": { "$ref": "#/$defs/jellyfinId" },
+        "method": { "enum": ["duration", "duration+ordinal", "manual"] },
+        "confidence": {
+          "description": "0 to 1. Manual bindings are 1.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "observedDurationSec": {
+          "description": "Local runtime at bind time; lets the plugin detect a replaced file.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "if": { "properties": { "status": { "const": "matched" } } },
+      "then": { "required": ["itemId", "method"] }
+    }
+  }
+}

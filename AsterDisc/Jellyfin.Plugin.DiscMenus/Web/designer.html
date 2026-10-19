@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Menu Designer</title>
+<style>
+/* The full-size Menu Designer: the editor page's own markup and code, in a window of its own with a sidebar and the preview as large as it will go.
+   It is the editor page's body (see DesignerPage.cs) plus these styles, which stand in for the dashboard's. */
+:root { color-scheme: dark; }
+[hidden] { display: none !important; } /* many rules below set display; hidden must always win */
+html, body { margin: 0; height: 100%; background: #101010; color: #eee; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+body.discDesigner { overflow: hidden; }
+a { color: #7cc7ff; }
+.dsLabel { display: block; font-size: 0.8em; opacity: 0.8; margin: 0 0 0.15em; }
+button { font: inherit; color: #eee; background: #2a2a2a; border: 1px solid #555; border-radius: 4px; padding: 0.35em 0.85em; cursor: pointer; }
+button:hover:not(:disabled) { background: #383838; }
+button:disabled { opacity: 0.45; cursor: default; }
+button.button-submit { background: #00a4dc; border-color: #00a4dc; color: #fff; }
+button[aria-pressed="true"] { background: #00507a; border-color: #00a4dc; }
+select, input[type=text], input[type=number], input[type=search] { font: inherit; color: #eee; background: #1d1d1d; border: 1px solid #555; border-radius: 4px; padding: 0.35em 0.5em; box-sizing: border-box; max-width: 100%; }
+select option { color: #000; }
+.fieldDescription { opacity: 0.8; font-size: 0.9em; }
+.grow { flex: 1 1 auto; min-width: 0; }
+.grow > select, .grow > input { width: 100%; }
+#discDesignerGate { position: fixed; inset: 0; z-index: 100; background: #101010; display: flex; align-items: center; justify-content: center; }
+#discDesignerGate .gateBox { max-width: 32em; padding: 1.5em; border: 1px solid #555; border-radius: 8px; background: #181818; }
+#discDesignerGate h1 { margin: 0 0 0.5em; font-size: 1.4em; }
+#discDesignerGate a { display: inline-block; margin-top: 0.5em; padding: 0.4em 0.9em; border: 1px solid #00a4dc; border-radius: 4px; text-decoration: none; }
+
+/* layout: a bar across the top, then outline | form | preview filling the rest of the window */
+body.discDesigner #DiscMenusEditorPage, body.discDesigner #DiscMenusEditorPage > [data-role="content"], body.discDesigner .content-primary {
+    height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; min-height: 0; margin: 0; padding: 0; max-width: none;
+}
+body.discDesigner #DiscMenusEditorPage > [data-role="content"] { padding: 0 0.75em; }
+body.discDesigner .content-primary > h2, body.discDesigner .content-primary > p.fieldDescription { display: none; }
+body.discDesigner .discEdBar { margin: 0.5em 0; flex: 0 0 auto; }
+body.discDesigner .discEdBar .discEdFileWrap { flex: 0 1 20em; }
+body.discDesigner #discEdOpenFull { display: none; }
+body.discDesigner .discEdBody { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 15em 24em minmax(0, 1fr); gap: 0.75em; align-items: stretch; flex-wrap: nowrap; }
+body.discDesigner .discEdSide, body.discDesigner .discEdFormPane { max-width: none; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+body.discDesigner .discEdOutline, body.discDesigner .discEdInspector { max-height: none; flex: 1 1 auto; min-height: 0; overflow: auto; }
+body.discDesigner .discEdPane:not(#discEdTextPane) { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: auto; flex: initial; }
+body.discDesigner #discEdStage { width: min(100%, calc((100vh - 19em) * 16 / 9)); margin: 0 auto; flex: 0 0 auto; }
+body.discDesigner #discEdTextPane { position: fixed; right: 0; top: 3.2em; bottom: 0; width: min(46em, 48vw); z-index: 20; background: #151515; padding: 0.5em; box-shadow: -6px 0 18px rgba(0, 0, 0, 0.6); box-sizing: border-box; }
+body.discDesigner #discEdTextPane[hidden] { display: none; }
+body.discDesigner #discEdText { height: 100%; min-height: 0; resize: none; }
+/* panels (new menu, pictures, backups, fanart) float over the page instead of pushing it around */
+body.discDesigner .discEdPanel, body.discDesigner .discEdFanart {
+    position: fixed; z-index: 30; top: 4em; left: 50%; transform: translateX(-50%); width: min(62em, 92vw); max-height: 82vh; overflow: auto;
+    background: #1b1b1b; border: 1px solid #555; border-radius: 6px; padding: 0.75em; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7); box-sizing: border-box; margin: 0;
+}
+body.discDesigner .discEdErrors { flex: 0 0 auto; margin: 0 0 0.4em; }
+body.discDesigner .discEdConflict { flex: 0 0 auto; }
+@media (max-width: 1150px) { body.discDesigner .discEdBody { grid-template-columns: 12em 20em minmax(0, 1fr); } }
+</style>
+</head>
+<body class="discDesigner">
+<div id="discDesignerGate" hidden>
+    <div class="gateBox">
+        <h1>Menu Designer</h1>
+        <p id="discDesignerGateText"></p>
+        <a id="discDesignerGateLink" href="/web/">Open Jellyfin</a>
+    </div>
+</div>
+<script src="editor/designer-host.js"></script>
+<script>DiscMenusDesignerHost.install(window, document);</script>
+@@BODY@@
+<script>DiscMenusDesignerHost.ready(window, document);</script>
+</body>
+</html>

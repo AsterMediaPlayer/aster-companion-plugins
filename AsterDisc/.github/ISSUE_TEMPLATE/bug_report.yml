@@ -1,0 +1,43 @@
+name: Bug report
+description: Something doesn't work or looks wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Menu file ...  2. Open the title ...  3. Click ..."
+  - type: input
+    id: jellyfin
+    attributes:
+      label: Jellyfin version
+      placeholder: "12.1.0"
+    validations:
+      required: true
+  - type: input
+    id: plugin
+    attributes:
+      label: Plugin version or commit
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      placeholder: "Firefox 150 on Linux"
+  - type: textarea
+    id: menu
+    attributes:
+      label: The menu file (or the relevant part)
+      description: Don't include anything private. If it's long, the part that misbehaves is enough.
+      render: json
+  - type: textarea
+    id: logs
+    attributes:
+      label: Browser console and server log
+      description: Lines starting with `[Disc Menus]`, plus any errors. Remove tokens or addresses you don't want to share.
+      render: text

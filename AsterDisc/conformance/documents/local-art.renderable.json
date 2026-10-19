@@ -1,0 +1,161 @@
+{
+  "MenuId": "5d31d43ccb6b488693ad7d2028f4dc00",
+  "Root": "main",
+  "Background": {
+    "Source": "image",
+    "Image": "asset:local-art/background.webp",
+    "Dim": 0
+  },
+  "Theme": {
+    "Id": "local-art",
+    "Accent": "#c77dff",
+    "Align": "center",
+    "TextColor": "#dfe9f5",
+    "Font": "sans",
+    "FontSize": 2.4,
+    "Uppercase": true,
+    "Bold": true,
+    "LetterSpacing": 0.05
+  },
+  "Layout": {
+    "HideTitle": true,
+    "ButtonStyle": "text",
+    "Transition": {
+      "Style": "zoom",
+      "DurationMs": 350
+    },
+    "Layers": [
+      {
+        "Type": "image",
+        "Position": {
+          "X": 50,
+          "Y": 95,
+          "W": 86,
+          "H": 20,
+          "Anchor": "bottom"
+        },
+        "Image": "asset:local-art/banner.webp",
+        "Fit": "contain"
+      }
+    ]
+  },
+  "Audio": {
+    "Music": {
+      "Source": "file",
+      "File": "asset:local-art/ambient.wav",
+      "Volume": 0.35
+    },
+    "Sounds": {
+      "Preset": "chime",
+      "Volume": 0.35
+    }
+  },
+  "Menus": {
+    "main": {
+      "Title": "Main Menu",
+      "Entries": [
+        {
+          "Action": "playFeature",
+          "Label": "Play Movie",
+          "Position": {
+            "X": 24,
+            "Y": 85,
+            "W": 22,
+            "Anchor": "center"
+          }
+        },
+        {
+          "Action": "chapters",
+          "Label": "Scene Selection",
+          "Position": {
+            "X": 50,
+            "Y": 85,
+            "W": 22,
+            "Anchor": "center"
+          },
+          "Menu": "scenes",
+          "PerPage": 6
+        },
+        {
+          "Action": "submenu",
+          "Label": "Special Features",
+          "Position": {
+            "X": 76,
+            "Y": 85,
+            "W": 22,
+            "Anchor": "center"
+          },
+          "Menu": "features"
+        }
+      ]
+    },
+    "features": {
+      "Title": "Special Features",
+      "Layout": {
+        "Flow": {
+          "Region": {
+            "X": 50,
+            "Y": 85,
+            "W": 76,
+            "H": 12,
+            "Anchor": "center"
+          },
+          "Columns": 5,
+          "Rows": 1
+        }
+      },
+      "Entries": [
+        {
+          "Action": "playExtra",
+          "Label": "Making Of"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Tour"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Trailer"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Short Film"
+        },
+        {
+          "Action": "home",
+          "Label": "Home"
+        }
+      ]
+    },
+    "scenes": {
+      "Title": "Scene Selection",
+      "Layout": {
+        "TitlePosition": {
+          "X": 50,
+          "Y": 9,
+          "Anchor": "top"
+        },
+        "HideTitle": false,
+        "Flow": {
+          "Region": {
+            "X": 50,
+            "Y": 54,
+            "W": 86,
+            "H": 66,
+            "Anchor": "center"
+          },
+          "Columns": 3,
+          "Rows": 3,
+          "MoreLabel": "More Scenes"
+        },
+        "Layers": []
+      },
+      "Entries": [
+        {
+          "Action": "home",
+          "Label": "Main Menu"
+        }
+      ]
+    }
+  }
+}

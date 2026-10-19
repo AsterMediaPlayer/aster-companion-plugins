@@ -1,0 +1,162 @@
+{
+  "MenuId": "ac8363be07f34682846d703d101b5c0d",
+  "Root": "main",
+  "Background": {
+    "Source": "trailer",
+    "TrailerIndex": 0,
+    "Muted": true,
+    "Poster": "asset:thor-ragnarok/background.webp",
+    "Dim": 0.1
+  },
+  "Theme": {
+    "Id": "grid-dark",
+    "Accent": "#ff4fd8",
+    "Align": "center",
+    "TextColor": "#c5e04a",
+    "Font": "wide",
+    "FontSize": 2.3,
+    "Uppercase": true,
+    "Bold": true,
+    "LetterSpacing": 0.08
+  },
+  "Layout": {
+    "HideTitle": true,
+    "ButtonStyle": "text",
+    "Transition": {
+      "Style": "slide",
+      "DurationMs": 350
+    },
+    "Layers": [
+      {
+        "Type": "image",
+        "Position": {
+          "X": 50,
+          "Y": 97,
+          "W": 86,
+          "H": 19,
+          "Anchor": "bottom"
+        },
+        "Image": "asset:thor-ragnarok/menu-banner.webp",
+        "Fit": "contain"
+      }
+    ]
+  },
+  "Audio": {
+    "Sounds": {
+      "Preset": "click",
+      "Volume": 0.4
+    }
+  },
+  "Menus": {
+    "main": {
+      "Title": "Thor: Ragnarok",
+      "Entries": [
+        {
+          "Action": "playFeature",
+          "Label": "Play",
+          "Position": {
+            "X": 26,
+            "Y": 87.5,
+            "W": 18,
+            "Anchor": "center"
+          }
+        },
+        {
+          "Action": "chapters",
+          "Label": "Scene Selection",
+          "Position": {
+            "X": 49,
+            "Y": 87.5,
+            "W": 18,
+            "Anchor": "center"
+          },
+          "Menu": "scenes",
+          "PerPage": 6
+        },
+        {
+          "Action": "submenu",
+          "Label": "Special Features",
+          "Position": {
+            "X": 72,
+            "Y": 87.5,
+            "W": 18,
+            "Anchor": "center"
+          },
+          "Menu": "features"
+        }
+      ]
+    },
+    "features": {
+      "Title": "Special Features",
+      "Layout": {
+        "Flow": {
+          "Region": {
+            "X": 49,
+            "Y": 87.5,
+            "W": 60,
+            "H": 9,
+            "Anchor": "center"
+          },
+          "Columns": 5,
+          "Rows": 1
+        }
+      },
+      "Entries": [
+        {
+          "Action": "playExtra",
+          "Label": "Gag Reel"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Deleted \u0026 Extended Scenes"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Featurettes"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "The Evolution of Heroes"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Team Darryl"
+        },
+        {
+          "Action": "home",
+          "Label": "Home"
+        }
+      ]
+    },
+    "scenes": {
+      "Title": "Scene Selection",
+      "Layout": {
+        "TitlePosition": {
+          "X": 50,
+          "Y": 9,
+          "Anchor": "top"
+        },
+        "HideTitle": false,
+        "Flow": {
+          "Region": {
+            "X": 50,
+            "Y": 54,
+            "W": 86,
+            "H": 66,
+            "Anchor": "center"
+          },
+          "Columns": 3,
+          "Rows": 3,
+          "MoreLabel": "More Scenes"
+        },
+        "Layers": []
+      },
+      "Entries": [
+        {
+          "Action": "home",
+          "Label": "Main Menu"
+        }
+      ]
+    }
+  }
+}

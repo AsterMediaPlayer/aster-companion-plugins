@@ -1,0 +1,532 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://peppy6582.github.io/jellydisc-menus/schema/v1/menu.schema.json",
+  "title": "Disc Menu Definition (shareable)",
+  "description": "Portable menu definition. Anchored to a Jellyfin-matched parent item via provider IDs. Contains NO file names, paths, or local Jellyfin item IDs; those live in the separate binding file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "menuId", "revision", "match", "extras", "menus", "root"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "menuId": {
+      "description": "Stable UUID for this menu across revisions. Bindings reference it.",
+      "type": "string",
+      "format": "uuid"
+    },
+    "revision": {
+      "description": "Monotonic revision number. Bump on any change to extras or menus.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "meta": { "$ref": "#/$defs/meta" },
+    "match": { "$ref": "#/$defs/match" },
+    "background": { "$ref": "#/$defs/background" },
+    "theme": { "$ref": "#/$defs/theme" },
+    "audio": {
+      "description": "Default music and button sounds for every menu. A menu's own audio overrides it per part (its music replaces the default music, its sounds replace the default sounds). Nothing plays unless this is set.",
+      "$ref": "#/$defs/audio"
+    },
+    "layout": {
+      "description": "Default layout for every menu. A menu's own layout overrides it field by field, so submenus can share the main menu's banner and style without repeating it.",
+      "$ref": "#/$defs/menuLayout"
+    },
+    "extras": {
+      "description": "Extras this release is expected to contain, keyed by a menu-local key. Entries reference these keys; each is resolved once to a local item in the binding file.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/key" },
+      "additionalProperties": { "$ref": "#/$defs/extraSpec" },
+      "minProperties": 0
+    },
+    "root": {
+      "description": "Key of the menu shown first.",
+      "$ref": "#/$defs/key"
+    },
+    "menus": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/key" },
+      "additionalProperties": { "$ref": "#/$defs/menu" },
+      "minProperties": 1
+    }
+  },
+
+  "$defs": {
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "label": {
+      "description": "Plain text only. Renderers MUST insert as text (textContent), never as HTML.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[^<>]*$"
+    },
+
+    "percent": { "type": "number", "minimum": 0, "maximum": 100 },
+
+    "position": {
+      "description": "Where an element sits, as percentages of the menu screen so layouts scale to any display. x/y place the element's anchor point; w/h optionally size it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "$ref": "#/$defs/percent" },
+        "y": { "$ref": "#/$defs/percent" },
+        "w": { "$ref": "#/$defs/percent" },
+        "h": { "$ref": "#/$defs/percent" },
+        "anchor": {
+          "description": "Which point of the element x/y refers to. Default top-left.",
+          "enum": ["top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"]
+        }
+      }
+    },
+
+    "buttonStyle": {
+      "description": "How a button looks and how its highlight is drawn: plain text, an outline frame, a glow, or a pointer arrow beside the label.",
+      "enum": ["text", "frame", "glow", "arrow"]
+    },
+
+    "imageRef": {
+      "description": "Artwork for a button. Never a file path. Either an https URL, a small inline data: URI for icons, or an asset:<folder>/<file> reference naming a file in the server's menu assets folder (the menu's own art, served by the plugin). Renderers draw it only via an image element, never as markup.",
+      "type": "string",
+      "maxLength": 20000,
+      "pattern": "^(https://[^\\s\"'()<>\\\\]+|data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+|asset:[A-Za-z0-9][A-Za-z0-9._-]{0,63}(/[A-Za-z0-9][A-Za-z0-9._-]{0,63}){0,3})$"
+    },
+
+    "menuLayout": {
+      "description": "Optional screen layout. Without it (or for entries with no position) buttons flow in a column.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "titlePosition": { "$ref": "#/$defs/position" },
+        "hideTitle": { "type": "boolean" },
+        "buttonStyle": { "description": "Default for entries that don't set their own style.", "$ref": "#/$defs/buttonStyle" },
+        "flow": { "$ref": "#/$defs/flow" },
+        "transition": { "$ref": "#/$defs/transition" },
+        "layers": {
+          "description": "Decorative shapes and images drawn behind the buttons, in order (later layers on top). They are not focusable.",
+          "type": "array",
+          "maxItems": 20,
+          "items": { "$ref": "#/$defs/layer" }
+        }
+      }
+    },
+
+    "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+
+    "volume": { "type": "number", "minimum": 0, "maximum": 1 },
+
+    "audioRef": {
+      "description": "An audio file: an https URL, or asset:<folder>/<file>.<ext> naming a file (mp3, ogg, opus, m4a or wav) in the server's menu assets folder.",
+      "type": "string",
+      "maxLength": 2000,
+      "pattern": "^(https://[^\\s\"'()<>\\\\]+|asset:[A-Za-z0-9][A-Za-z0-9._-]{0,63}(/[A-Za-z0-9][A-Za-z0-9._-]{0,63}){0,3}\\.(mp3|ogg|opus|m4a|wav))$"
+    },
+
+    "transition": {
+      "description": "Animation when moving between menus or pages. The background (including trailer video) and any layers shared by both screens stay put; the buttons and title animate. Ignored for viewers who prefer reduced motion.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["style"],
+      "properties": {
+        "style": { "enum": ["none", "fade", "slide", "rise", "zoom", "wipe"] },
+        "durationMs": { "description": "Default 300.", "type": "integer", "minimum": 0, "maximum": 2000 }
+      }
+    },
+
+    "audio": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "music": {
+          "description": "Background music, looped with fades. It keeps playing across menus that name the same track. source 'none' silences it for a menu.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source"],
+          "properties": {
+            "source": { "enum": ["file", "themeSong", "none"] },
+            "file": { "description": "For source=file.", "$ref": "#/$defs/audioRef" },
+            "volume": { "description": "Default 0.5.", "$ref": "#/$defs/volume" }
+          },
+          "allOf": [
+            { "if": { "properties": { "source": { "const": "file" } } }, "then": { "required": ["file"] } }
+          ]
+        },
+        "sounds": {
+          "description": "Button sounds. 'preset' picks built-in synthesized sounds (no files needed); move/select/back can each be replaced by an audio file.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "preset": { "enum": ["none", "click", "chime", "beep"] },
+            "volume": { "description": "Default 0.5.", "$ref": "#/$defs/volume" },
+            "move": { "description": "Played when the highlight moves.", "$ref": "#/$defs/audioRef" },
+            "select": { "description": "Played when a button is activated.", "$ref": "#/$defs/audioRef" },
+            "back": { "description": "Played when going back or home.", "$ref": "#/$defs/audioRef" }
+          }
+        }
+      }
+    },
+
+    "flow": {
+      "description": "Automatic grid placement with paging. Entries that have no position of their own are laid out left-to-right, top-to-bottom inside the region. If they don't all fit, the renderer adds a More button (and Previous on later pages); 'back' entries stay on every page. A menu using flow must not also give entries positions.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["region", "columns", "rows"],
+      "properties": {
+        "region": {
+          "description": "The box the grid fills, e.g. the inside of a banner image.",
+          "$ref": "#/$defs/position",
+          "required": ["x", "y", "w", "h"]
+        },
+        "columns": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "rows": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "moreLabel": { "description": "Default: More.", "$ref": "#/$defs/label" },
+        "previousLabel": { "description": "Default: Previous.", "$ref": "#/$defs/label" }
+      }
+    },
+
+    "layer": {
+      "type": "object",
+      "required": ["type", "position"],
+      "oneOf": [
+        {
+          "title": "A flat panel (a bar or box behind the buttons)",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "panel" },
+            "position": { "$ref": "#/$defs/position" },
+            "fill": { "$ref": "#/$defs/color" },
+            "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+            "borderColor": { "$ref": "#/$defs/color" },
+            "borderWidth": { "description": "Percent of the screen height.", "type": "number", "minimum": 0, "maximum": 10 },
+            "radius": { "description": "Corner radius, percent of the screen height.", "type": "number", "minimum": 0, "maximum": 50 }
+          }
+        },
+        {
+          "title": "A decorative image",
+          "additionalProperties": false,
+          "required": ["image"],
+          "properties": {
+            "type": { "const": "image" },
+            "position": { "$ref": "#/$defs/position" },
+            "image": { "$ref": "#/$defs/imageRef" },
+            "fit": { "description": "contain (default) keeps the picture's proportions inside the box; fill stretches it; cover crops it to fill.", "enum": ["contain", "fill", "cover"] },
+            "opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      ]
+    },
+
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "author": { "type": "string", "maxLength": 64 },
+        "created": { "type": "string", "format": "date-time" },
+        "updated": { "type": "string", "format": "date-time" },
+        "language": {
+          "description": "BCP 47 language tag of the labels.",
+          "type": "string",
+          "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+        },
+        "notes": { "type": "string", "maxLength": 500 }
+      }
+    },
+
+    "match": {
+      "description": "Identifies the parent item via Jellyfin's metadata match, not files. At least one provider ID is required.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["itemType", "providerIds"],
+      "properties": {
+        "itemType": { "enum": ["Movie", "Series", "Season"] },
+        "providerIds": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "Tmdb": { "type": "string", "pattern": "^[0-9]+$" },
+            "Imdb": { "type": "string", "pattern": "^tt[0-9]{7,9}$" },
+            "Tvdb": { "type": "string", "pattern": "^[0-9]+$" }
+          }
+        },
+        "seasonNumber": {
+          "description": "Required when itemType is Season.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "release": {
+          "description": "Which physical release this menu describes. Extras differ between editions, so this disambiguates multiple menus for the same title.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "edition": { "type": "string", "maxLength": 80 },
+            "format": { "enum": ["DVD", "BluRay", "UHD", "Digital", "Other"] },
+            "region": { "type": "string", "maxLength": 16 },
+            "year": { "type": "integer", "minimum": 1900, "maximum": 2100 },
+            "publisher": { "type": "string", "maxLength": 80 },
+            "upc": { "type": "string", "pattern": "^[0-9]{8,14}$" }
+          }
+        }
+      },
+      "if": { "properties": { "itemType": { "const": "Season" } } },
+      "then": { "required": ["seasonNumber"] }
+    },
+
+    "background": {
+      "description": "Image references only; images are fetched locally at render time and never stored in the shared file.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source"],
+      "properties": {
+        "source": { "enum": ["jellyfin", "tmdb", "fanart", "color", "image", "trailer"] },
+        "trailerIndex": {
+          "description": "For source=trailer: which of the item's trailers to use, 0-based (default 0). Local trailer files come first, then the YouTube trailers Jellyfin has stored for the item.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9
+        },
+        "muted": {
+          "description": "For source=trailer: play without sound (default true). Browsers may refuse unmuted autoplay.",
+          "type": "boolean"
+        },
+        "poster": {
+          "description": "For source=trailer: picture shown until the video is playing, and kept if the item has no usable trailer or embedding is blocked.",
+          "$ref": "#/$defs/imageRef"
+        },
+        "image": {
+          "description": "For source=image: the picture to use (https URL, data: URI, or asset: reference).",
+          "$ref": "#/$defs/imageRef"
+        },
+        "imageType": {
+          "description": "For source=jellyfin: which of the parent item's images to use.",
+          "enum": ["Primary", "Art", "Backdrop", "Banner", "Logo", "Thumb", "Disc", "Box", "Screenshot", "Menu", "BoxRear"]
+        },
+        "index": {
+          "description": "Image index for multi-image types (e.g. backdrop #2).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "tmdbFilePath": {
+          "description": "For source=tmdb: the TMDB file_path of a backdrop, e.g. /abc123.jpg. Jellyfin's TheMovieDb provider lists them: GET /Items/{id}/RemoteImages?type=Backdrop&providerName=TheMovieDb.",
+          "type": "string",
+          "pattern": "^/[A-Za-z0-9_-]+\\.(jpg|png)$"
+        },
+        "tmdbSize": {
+          "description": "For source=tmdb: image size to fetch from TMDB's image server (default w1280). 'original' can be several megabytes.",
+          "enum": ["w780", "w1280", "original"]
+        },
+        "fanartId": {
+          "description": "For source=fanart: the numeric id of an image in fanart.tv's listing for the title (1 to 12 digits). The Jellyfin server looks it up with its administrator's fanart.tv API key and serves it, so viewers never contact fanart.tv; without a key, or for an unknown id, the page shows plain dark. List a library title's ids with GET /DiscMenus/Fanart/List/{itemId}.",
+          "type": "string",
+          "pattern": "^[0-9]{1,12}$"
+        },
+        "color": {
+          "description": "For source=color, or as a fallback tint.",
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "dim": {
+          "description": "Overlay darkening, 0 to 1, for label legibility.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "source": { "const": "tmdb" } } }, "then": { "required": ["tmdbFilePath"] } },
+        { "if": { "properties": { "source": { "const": "fanart" } } }, "then": { "required": ["fanartId"] } },
+        { "if": { "properties": { "source": { "const": "color" } } }, "then": { "required": ["color"] } },
+        { "if": { "properties": { "source": { "const": "image" } } }, "then": { "required": ["image"] } },
+        { "if": { "properties": { "source": { "const": "jellyfin" } } }, "then": { "required": ["imageType"] } }
+      ]
+    },
+
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "description": "Built-in theme/layout name shipped with the renderer. Unknown ids fall back to the default.",
+          "type": "string",
+          "pattern": "^[a-z0-9-]{1,32}$"
+        },
+        "accent": { "description": "Highlight colour of the focused button.", "$ref": "#/$defs/color" },
+        "align": { "enum": ["left", "center", "right"] },
+        "textColor": { "description": "Button text colour when not highlighted. Default white.", "$ref": "#/$defs/color" },
+        "font": {
+          "description": "A built-in font family. Arbitrary font names are not accepted.",
+          "enum": ["sans", "serif", "condensed", "wide", "mono"]
+        },
+        "fontSize": { "description": "Button text size as percent of the screen height, so it scales with the display.", "type": "number", "minimum": 1, "maximum": 10 },
+        "uppercase": { "type": "boolean" },
+        "bold": { "type": "boolean" },
+        "letterSpacing": { "description": "Extra spacing between letters, in em.", "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+
+    "extraSpec": {
+      "description": "Properties used to match an expected extra to one of the parent item's local Special Features. Deliberately excludes file names.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "durationSec"],
+      "properties": {
+        "type": {
+          "description": "Jellyfin ExtraType (MediaBrowser.Model.Entities.ExtraType; verified against master for Jellyfin 12).",
+          "enum": ["Clip", "Trailer", "BehindTheScenes", "DeletedScene", "Interview", "Scene", "Sample", "ThemeSong", "ThemeVideo", "Featurette", "Short", "Unknown"]
+        },
+        "durationSec": {
+          "description": "Reference runtime in seconds. Primary matching signal.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "toleranceSec": {
+          "description": "Allowed +/- deviation. Default is renderer-defined (suggest 3s).",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 120
+        },
+        "ordinal": {
+          "description": "1-based position among extras of the same type, sorted by duration. Tiebreaker only.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "optional": {
+          "description": "If true, a missing local match does not flag the menu as incomplete.",
+          "type": "boolean"
+        }
+      }
+    },
+
+    "menu": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "entries"],
+      "properties": {
+        "title": { "$ref": "#/$defs/label" },
+        "background": { "$ref": "#/$defs/background" },
+        "theme": { "$ref": "#/$defs/theme" },
+        "layout": { "$ref": "#/$defs/menuLayout" },
+        "audio": { "$ref": "#/$defs/audio" },
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": { "$ref": "#/$defs/entry" }
+        }
+      }
+    },
+
+    "entry": {
+      "type": "object",
+      "required": ["action", "label"],
+      "properties": {
+        "action": { "enum": ["playFeature", "playExtra", "playSequence", "submenu", "chapters", "back", "home"] },
+        "label": { "$ref": "#/$defs/label" }
+      },
+      "oneOf": [
+        {
+          "title": "Play the main feature, optionally from a chapter",
+          "additionalProperties": false,
+          "properties": {
+            "action": { "const": "playFeature" },
+            "label": true,
+            "position": { "$ref": "#/$defs/position" },
+            "style": { "$ref": "#/$defs/buttonStyle" },
+            "image": { "$ref": "#/$defs/imageRef" },
+            "imageFocus": { "$ref": "#/$defs/imageRef" },
+            "startChapter": { "type": "integer", "minimum": 1 }
+          }
+        },
+        {
+          "title": "Play one extra",
+          "additionalProperties": false,
+          "required": ["extra"],
+          "properties": {
+            "action": { "const": "playExtra" },
+            "label": true,
+            "position": { "$ref": "#/$defs/position" },
+            "style": { "$ref": "#/$defs/buttonStyle" },
+            "image": { "$ref": "#/$defs/imageRef" },
+            "imageFocus": { "$ref": "#/$defs/imageRef" },
+            "extra": { "$ref": "#/$defs/key" }
+          }
+        },
+        {
+          "title": "Play several extras in order (a 'Play All')",
+          "additionalProperties": false,
+          "required": ["extras"],
+          "properties": {
+            "action": { "const": "playSequence" },
+            "label": true,
+            "position": { "$ref": "#/$defs/position" },
+            "style": { "$ref": "#/$defs/buttonStyle" },
+            "image": { "$ref": "#/$defs/imageRef" },
+            "imageFocus": { "$ref": "#/$defs/imageRef" },
+            "extras": {
+              "type": "array",
+              "minItems": 2,
+              "items": { "$ref": "#/$defs/key" }
+            }
+          }
+        },
+        {
+          "title": "Open another menu",
+          "additionalProperties": false,
+          "required": ["menu"],
+          "properties": {
+            "action": { "const": "submenu" },
+            "label": true,
+            "position": { "$ref": "#/$defs/position" },
+            "style": { "$ref": "#/$defs/buttonStyle" },
+            "image": { "$ref": "#/$defs/imageRef" },
+            "imageFocus": { "$ref": "#/$defs/imageRef" },
+            "menu": { "$ref": "#/$defs/key" }
+          }
+        },
+        {
+          "title": "Scene selection generated from the feature's chapters",
+          "additionalProperties": false,
+          "properties": {
+            "action": { "const": "chapters" },
+            "label": true,
+            "position": { "$ref": "#/$defs/position" },
+            "style": { "$ref": "#/$defs/buttonStyle" },
+            "image": { "$ref": "#/$defs/imageRef" },
+            "imageFocus": { "$ref": "#/$defs/imageRef" },
+            "perPage": { "description": "Most chapter buttons per page (default 6).", "type": "integer", "minimum": 1, "maximum": 24 },
+            "menu": {
+              "description": "Optional key of a menu that styles the generated scene-selection screen: its title, background, theme and layout are used, the chapter buttons are placed first, and its own entries (typically just Back/Home) follow.",
+              "$ref": "#/$defs/key"
+            }
+          }
+        },
+        {
+          "title": "Jump straight to the root menu (a 'Home' / 'Main Menu' button)",
+          "additionalProperties": false,
+          "properties": {
+            "action": { "const": "home" },
+            "label": true,
+            "position": { "$ref": "#/$defs/position" },
+            "style": { "$ref": "#/$defs/buttonStyle" },
+            "image": { "$ref": "#/$defs/imageRef" },
+            "imageFocus": { "$ref": "#/$defs/imageRef" }
+          }
+        },
+        {
+          "title": "Return to the previous menu",
+          "additionalProperties": false,
+          "properties": {
+            "action": { "const": "back" },
+            "label": true,
+            "position": { "$ref": "#/$defs/position" },
+            "style": { "$ref": "#/$defs/buttonStyle" },
+            "image": { "$ref": "#/$defs/imageRef" },
+            "imageFocus": { "$ref": "#/$defs/imageRef" }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,2043 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <title>Menu Editor</title>
+</head>
+<body>
+    <div id="DiscMenusEditorPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-button,emby-select">
+        <div data-role="content">
+            <div class="content-primary" style="max-width:none">
+                <style>
+                    /* jellyfin-web styles its buttons with display:inline-flex, which beats the browser's own [hidden]; the editor relies on hidden */
+                    #DiscMenusEditorPage [hidden] { display: none !important; }
+                    .discEdBar { display: flex; flex-wrap: wrap; gap: 0.75em; align-items: center; margin: 1em 0; }
+                    .discEdBar .discEdFileWrap { flex: 1 1 18em; min-width: 12em; }
+                    .discEdStatus { opacity: 0.85; }
+                    .discEdStatus.error { color: #e55; opacity: 1; }
+                    .discEdStatus.ok { color: #5c5; opacity: 1; }
+                    .discEdBody { display: flex; flex-wrap: wrap; gap: 1.25em; align-items: flex-start; }
+                    .discEdSide { flex: 0 1 17em; min-width: 12em; }
+                    .discEdFormPane { flex: 1 1 22em; min-width: 16em; max-width: 34em; }
+                    .discEdOutline { max-height: 44em; }
+                    .discEdHint { font-size: 0.9em; opacity: 0.8; margin: 0.2em 0 0.6em; }
+                    .discEdBack { display: block; font-size: 0.85em; margin-bottom: 0.2em; }
+                    .discEdTitle { font-size: 1.15em; }
+                    .discEdMore { margin: 0.8em 0; }
+                    .discEdMore > summary { cursor: pointer; font-size: 0.9em; opacity: 0.85; padding: 0.3em 0; }
+                    .discEdInspector { border: 1px solid rgba(128, 128, 128, 0.45); border-radius: 4px; padding: 0.6em; max-height: 44em; overflow: auto; }
+                    .discEdInspector input[type=text], .discEdInspector input[type=number], .discEdInspector select {
+                        width: 100%; box-sizing: border-box; color: inherit; background: rgba(128, 128, 128, 0.15);
+                        border: 1px solid rgba(128, 128, 128, 0.45); border-radius: 3px; padding: 0.35em 0.5em; font: inherit;
+                    }
+                    .discEdInspector select option { color: #000; }
+                    .discEdField { margin: 0.55em 0; }
+                    .discEdFieldLabel { display: block; font-size: 0.85em; opacity: 0.85; margin-bottom: 0.15em; }
+                    .discEdFieldHelp { font-size: 0.8em; opacity: 0.7; margin-top: 0.15em; }
+                    .discEdFieldMsg, .discEdInspMsg { font-size: 0.85em; color: #e55; margin-top: 0.15em; }
+                    .discEdInspNone { opacity: 0.8; }
+                    .discEdInspHead { margin-bottom: 0.4em; }
+                    .discEdGroup { margin: 0.7em 0; border: 1px solid rgba(128, 128, 128, 0.35); border-radius: 4px; padding: 0.4em 0.6em; }
+                    .discEdGroup > legend, .discEdGroup > summary { font-size: 0.85em; padding: 0 0.3em; cursor: pointer; }
+                    .discEdAbsent { opacity: 0.85; }
+                    .discEdInline { display: flex; gap: 0.4em; align-items: center; }
+                    .discEdSwatch { width: 2.4em; height: 2em; padding: 0; border: none; background: none; }
+                    .discEdList { display: block; }
+                    .discEdListRow { display: flex; flex-wrap: wrap; gap: 0.35em; align-items: center; margin: 0.25em 0; }
+                    fieldset.discEdGroup { min-width: 0; }
+                    .discEdListRow > select, .discEdListRow > input[type=text] { flex: 1 1 8em; width: auto; min-width: 0; }
+                    .discEdGrow { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                    .discEdLink { background: none; border: none; color: inherit; font: inherit; text-align: left; text-decoration: underline; cursor: pointer; padding: 0.2em 0; }
+                    .discEdSmall, .discEdIcon { color: inherit; background: rgba(128, 128, 128, 0.2); border: 1px solid rgba(128, 128, 128, 0.5); border-radius: 3px; font: inherit; font-size: 0.85em; padding: 0.25em 0.6em; cursor: pointer; }
+                    .discEdSmall:disabled, .discEdIcon:disabled { opacity: 0.4; cursor: default; }
+                    .discEdThumb { max-width: 6em; max-height: 4em; vertical-align: middle; margin-right: 0.5em; border-radius: 3px; }
+                    .discEdEmbedded { display: flex; align-items: center; gap: 0.5em; flex-wrap: wrap; }
+                    .discEdSideHead { font-weight: 600; margin-bottom: 0.4em; }
+                    .discEdOutline { overflow: auto; border: 1px solid rgba(128, 128, 128, 0.45); border-radius: 4px; padding: 0.25em 0; }
+                    .discEdOutline .none { padding: 0.5em; opacity: 0.8; }
+                    .discEdOutline button {
+                        display: block; width: 100%; text-align: left; background: none; border: none; border-left: 3px solid transparent;
+                        color: inherit; font: inherit; font-size: 0.9em; padding: 0.25em 0.5em; cursor: pointer;
+                        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                    }
+                    .discEdOutline button.group { opacity: 0.7; font-weight: 600; cursor: default; }
+                    .discEdOutline button:hover:not(.group), .discEdOutline button:focus-visible { background: rgba(128, 128, 128, 0.2); }
+                    .discEdOutline button.current { border-left-color: #00a4dc; background: rgba(0, 164, 220, 0.18); }
+                    .discEdOutline button.bad { color: #e55; }
+                    .discEdOutline button.bad::after { content: ' \u25cf'; }
+                    .discEdArrangeNote { margin: 0.5em 0; padding: 0.5em 0.75em; border-left: 3px solid #00a4dc; background: rgba(0, 164, 220, 0.1); font-size: 0.9em; }
+                    .discEdArrangeActions { display: flex; flex-wrap: wrap; gap: 0.5em; margin-top: 0.5em; }
+                    @media (max-width: 900px) { #discEdArrange, #discEdArrangeNote { display: none !important; } }
+                    .discEdPane { flex: 1 1 28em; min-width: 0; }
+                    #discEdText {
+                        width: 100%; box-sizing: border-box; min-height: 34em; resize: vertical;
+                        font-family: ui-monospace, Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 0.85em; line-height: 1.45;
+                        tab-size: 2; white-space: pre; overflow: auto; color: inherit;
+                        background: rgba(128, 128, 128, 0.12); border: 1px solid rgba(128, 128, 128, 0.45); border-radius: 4px; padding: 0.6em;
+                    }
+                    .discEdErrors { margin: 0.5em 0; }
+                    .discEdErrors ul { margin: 0.3em 0 0 1.2em; padding: 0; }
+                    .discEdErrors li { margin: 0.2em 0; }
+                    .discEdErrors .title { color: #e55; font-weight: 600; }
+                    .discEdErrors button.line { background: none; border: none; color: inherit; text-decoration: underline; cursor: pointer; padding: 0; font: inherit; }
+                    .discEdPanel { margin: 0 0 1em; padding: 0.75em; border: 1px solid rgba(128, 128, 128, 0.45); border-radius: 4px; }
+                    .discEdPicsList { display: grid; grid-template-columns: repeat(auto-fill, minmax(11em, 1fr)); gap: 0.6em; margin-top: 0.5em; }
+                    .discEdPicsList .discEdPic { border: 1px solid rgba(128, 128, 128, 0.4); border-radius: 4px; padding: 0.4em; display: flex; flex-direction: column; gap: 0.3em; min-width: 0; }
+                    .discEdPicsList img { width: 100%; height: 6em; object-fit: cover; border-radius: 3px; background: rgba(128, 128, 128, 0.2); }
+                    .discEdPicsList audio { width: 100%; }
+                    .discEdPicsList .discEdPicName { font-size: 0.8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                    .discEdPicsList .discEdPicActions { display: flex; gap: 0.3em; }
+                    .discEdPicsUpload { margin: 0.4em 0; }
+                    .discEdRow { display: flex; flex-wrap: wrap; gap: 0.6em; align-items: center; padding: 0.35em 0; border-top: 1px solid rgba(128, 128, 128, 0.25); }
+                    .discEdRow .grow { flex: 1 1 14em; }
+                    .discEdConflict { margin: 0.5em 0; padding: 0.75em; border: 1px solid #e90; border-radius: 4px; }
+                    .discEdPreviewBar { display: flex; flex-wrap: wrap; gap: 0.75em; align-items: center; margin-bottom: 0.5em; }
+                    .discEdPreviewBar .grow { flex: 1 1 12em; min-width: 10em; }
+                    #discEdStage { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; overflow: hidden; border-radius: 4px; }
+                    #discEdFrame { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; background: #000; }
+                    #discEdNote { margin-top: 0.5em; }
+                    .discEdFanart { margin-top: 0.75em; padding: 0.75em; border: 1px solid rgba(128, 128, 128, 0.45); border-radius: 4px; }
+                    .discEdFanartHead { display: flex; flex-wrap: wrap; gap: 0.75em; align-items: flex-end; }
+                    .discEdFanartHead .grow { flex: 1 1 11em; min-width: 9em; }
+                    .discEdFanartGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(11em, 1fr)); gap: 0.6em; margin-top: 0.6em; }
+                    .discEdFanartCell { display: block; padding: 0; border: 2px solid transparent; border-radius: 4px; background: rgba(128, 128, 128, 0.15); color: inherit; cursor: pointer; text-align: left; font: inherit; }
+                    .discEdFanartCell:hover, .discEdFanartCell:focus-visible { border-color: #00a4dc; outline: none; }
+                    .discEdFanartCell.picked { border-color: #52b54b; }
+                    .discEdFanartCell img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 2px 2px 0 0; background: #000; }
+                    .discEdFanartCell span { display: block; padding: 0.25em 0.5em; font-size: 0.8em; opacity: 0.85; }
+                    #discEdFanartMsg { margin-top: 0.5em; }
+                    #discEdFanartMsg button { background: none; border: none; color: inherit; text-decoration: underline; cursor: pointer; padding: 0; font: inherit; }
+                </style>
+
+                <h2>Menu Editor</h2>
+                <p class="fieldDescription">
+                    Edit a menu file and watch it update in the live preview. The preview is the real viewer, so
+                    clicks, remote keys, sounds and transitions all work, but nothing it plays reaches your own
+                    session. Saving keeps a backup of the previous version and refuses menus that wouldn't load.
+                </p>
+
+                <div class="discEdBar">
+                    <div class="discEdFileWrap">
+                        <select id="discEdFile" is="emby-select" label="Menu file"></select>
+                    </div>
+                    <button id="discEdSave" is="emby-button" type="button" class="raised button-submit"><span>Save</span></button>
+                    <button id="discEdReload" is="emby-button" type="button" class="raised"><span>Reload</span></button>
+                    <button id="discEdNew" is="emby-button" type="button" class="raised"><span>New…</span></button>
+                    <button id="discEdDuplicate" is="emby-button" type="button" class="raised"><span>Duplicate</span></button>
+                    <button id="discEdBackups" is="emby-button" type="button" class="raised"><span>Backups…</span></button>
+                    <button id="discEdUndo" is="emby-button" type="button" class="raised" title="Undo the last change (Ctrl+Z)"><span>Undo</span></button>
+                    <button id="discEdRedo" is="emby-button" type="button" class="raised" title="Redo (Ctrl+Shift+Z)"><span>Redo</span></button>
+                    <button id="discEdToggleText" is="emby-button" type="button" class="raised" aria-pressed="false"><span>Show text</span></button>
+                    <button id="discEdOpenFull" is="emby-button" type="button" class="raised" title="Open the editor in its own full-size window"><span>Open full size</span></button>
+                    <button id="discEdDelete" is="emby-button" type="button" class="raised"><span>Delete</span></button>
+                    <span id="discEdStatus" class="discEdStatus" role="status"></span>
+                </div>
+
+                <div id="discEdNewPanel" class="discEdPanel" hidden>
+                    <div class="discEdPreviewBar">
+                        <div class="grow"><input id="discEdNewQuery" is="emby-input" type="text" maxlength="100" label="Find a movie or series in your library" /></div>
+                        <button id="discEdNewClose" is="emby-button" type="button" class="raised"><span>Close</span></button>
+                    </div>
+                    <div id="discEdNewMsg" class="fieldDescription" role="status"></div>
+                    <div id="discEdNewList"></div>
+                </div>
+
+                <div id="discEdPicsPanel" class="discEdPanel" hidden>
+                    <div class="discEdPreviewBar">
+                        <strong class="grow" id="discEdPicsTitle">Choose a picture</strong>
+                        <button id="discEdPicsClose" is="emby-button" type="button" class="raised"><span>Close</span></button>
+                    </div>
+                    <div id="discEdPicsUpload" class="discEdPicsUpload">
+                        <input id="discEdPicsFile" type="file" aria-label="Upload a file" />
+                        <div id="discEdPicsRules" class="fieldDescription"></div>
+                    </div>
+                    <div id="discEdPicsMsg" class="fieldDescription" role="status"></div>
+                    <div id="discEdPicsList" class="discEdPicsList"></div>
+                </div>
+
+                <div id="discEdBackupPanel" class="discEdPanel" hidden>
+                    <div class="discEdPreviewBar">
+                        <strong class="grow" id="discEdBackupTitle">Earlier versions</strong>
+                        <button id="discEdBackupClose" is="emby-button" type="button" class="raised"><span>Close</span></button>
+                    </div>
+                    <div id="discEdBackupMsg" class="fieldDescription" role="status"></div>
+                    <div id="discEdBackupList"></div>
+                </div>
+
+                <div id="discEdErrors" class="discEdErrors" role="alert"></div>
+                <div id="discEdConflict" class="discEdConflict" hidden>
+                    <div id="discEdConflictText"></div>
+                    <button id="discEdLoadTheirs" is="emby-button" type="button" class="raised"><span>Load the server's version</span></button>
+                    <button id="discEdOverwrite" is="emby-button" type="button" class="raised"><span>Overwrite with mine</span></button>
+                </div>
+
+                <div class="discEdBody">
+                    <div class="discEdSide">
+                        <div class="discEdSideHead">Pages and buttons</div>
+                        <div id="discEdOutline" class="discEdOutline" role="group" aria-label="Pages and buttons"></div>
+                    </div>
+                    <div class="discEdFormPane">
+                        <div id="discEdInspector" class="discEdInspector"></div>
+                    </div>
+                    <div class="discEdPane" id="discEdTextPane" hidden>
+                        <textarea id="discEdText" spellcheck="false" wrap="off" aria-label="Menu JSON" disabled></textarea>
+                    </div>
+                    <div class="discEdPane">
+                        <div class="discEdPreviewBar">
+                            <div class="grow"><select id="discEdMenu" is="emby-select" label="Show menu"></select></div>
+                            <button id="discEdFanartOpen" is="emby-button" type="button" class="raised"><span>Fanart…</span></button>
+                            <button id="discEdArrange" is="emby-button" type="button" class="raised" aria-pressed="false" title="Drag buttons, the title and decorations on the preview"><span>Arrange</span></button>
+                            <button id="discEdMute" is="emby-button" type="button" class="raised"><span>Sound off</span></button>
+                        </div>
+                        <div id="discEdStage"><iframe id="discEdFrame" title="Live preview of the menu"></iframe></div>
+                        <div id="discEdNote" class="fieldDescription"></div>
+                        <div id="discEdArrangeNote" class="discEdArrangeNote" hidden>
+                            <div id="discEdArrangeText"></div>
+                            <div class="discEdArrangeActions">
+                                <button id="discEdFreePlace" is="emby-button" type="button" class="raised" hidden><span>Let me place the buttons freely</span></button>
+                                <button id="discEdFitGrid" is="emby-button" type="button" class="raised" hidden><span>Make the grid big enough</span></button>
+                                <button id="discEdFitFree" is="emby-button" type="button" class="raised" hidden><span>Make it big enough and place freely</span></button>
+                                <button id="discEdGridSettings" is="emby-button" type="button" class="raised" hidden><span>Show this page's grid settings</span></button>
+                            </div>
+                        </div>
+                        <div id="discEdFanart" class="discEdFanart" hidden>
+                            <div class="discEdFanartHead">
+                                <div class="grow"><select id="discEdFanartCat" is="emby-select" label="Pictures"></select></div>
+                                <div class="grow"><select id="discEdFanartTarget" is="emby-select" label="Use as the background of"></select></div>
+                                <div class="grow"><input id="discEdFanartDim" is="emby-input" type="number" min="0" max="1" step="0.05" value="0.5" label="Darkening (0 to 1)" /></div>
+                                <button id="discEdFanartClose" is="emby-button" type="button" class="raised"><span>Close</span></button>
+                            </div>
+                            <div id="discEdFanartMsg" class="fieldDescription" role="status"></div>
+                            <div id="discEdFanartGrid" class="discEdFanartGrid"></div>
+                            <button id="discEdFanartMore" is="emby-button" type="button" class="raised" hidden><span>Show more</span></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script type="text/javascript">
+        (function () {
+            var page = document.querySelector('#DiscMenusEditorPage');
+            var DELAY = typeof window.__discMenusEditorDelay === 'number' ? window.__discMenusEditorDelay : 500;
+            var STATE_LABELS = {
+                bound: 'bound', pending: 'waiting for its title', ambiguous: 'needs review',
+                conflict: 'not used', invalid: "can't be loaded"
+            };
+
+            function $(id) {
+                return page.querySelector('#' + id);
+            }
+
+            var el = {
+                fanart: $('discEdFanart'), fanartOpen: $('discEdFanartOpen'), fanartCat: $('discEdFanartCat'), fanartTarget: $('discEdFanartTarget'),
+                fanartDim: $('discEdFanartDim'), fanartClose: $('discEdFanartClose'), fanartMsg: $('discEdFanartMsg'),
+                fanartGrid: $('discEdFanartGrid'), fanartMore: $('discEdFanartMore'),
+                newBtn: $('discEdNew'), dup: $('discEdDuplicate'), backupsBtn: $('discEdBackups'), del: $('discEdDelete'),
+                newPanel: $('discEdNewPanel'), newQuery: $('discEdNewQuery'), newClose: $('discEdNewClose'), newMsg: $('discEdNewMsg'), newList: $('discEdNewList'),
+                picsPanel: $('discEdPicsPanel'), picsTitle: $('discEdPicsTitle'), picsClose: $('discEdPicsClose'), picsUpload: $('discEdPicsUpload'),
+                picsFile: $('discEdPicsFile'), picsRules: $('discEdPicsRules'), picsMsg: $('discEdPicsMsg'), picsList: $('discEdPicsList'),
+                backupPanel: $('discEdBackupPanel'), backupClose: $('discEdBackupClose'), backupTitle: $('discEdBackupTitle'),
+                backupMsg: $('discEdBackupMsg'), backupList: $('discEdBackupList'),
+                outline: $('discEdOutline'), arrange: $('discEdArrange'), arrangeNote: $('discEdArrangeNote'), arrangeText: $('discEdArrangeText'), freePlace: $('discEdFreePlace'), fitGrid: $('discEdFitGrid'), fitFree: $('discEdFitFree'), gridSettings: $('discEdGridSettings'), toggleText: $('discEdToggleText'), openFull: $('discEdOpenFull'), undo: $('discEdUndo'), redo: $('discEdRedo'), textPane: $('discEdTextPane'), inspector: $('discEdInspector'),
+                file: $('discEdFile'), save: $('discEdSave'), reload: $('discEdReload'), status: $('discEdStatus'),
+                text: $('discEdText'), errors: $('discEdErrors'), conflict: $('discEdConflict'),
+                conflictText: $('discEdConflictText'), loadTheirs: $('discEdLoadTheirs'), overwrite: $('discEdOverwrite'),
+                menu: $('discEdMenu'), mute: $('discEdMute'), stage: $('discEdStage'), frame: $('discEdFrame'), note: $('discEdNote')
+            };
+
+            var state = {
+                fanart: null, fanartShown: 0, fanartPicked: null,
+                file: null, version: null, loadedText: '', loadedRevision: null, files: [],
+                lastGood: null, shownOnce: false, seq: 0, timer: null, muted: true, loadSeq: 0,
+                titleSeq: 0, pendingFree: null, arrangeOn: false, pagePlacement: null, pick: null, selected: [], errors: [], errorSource: null // who produced the errors on screen: 'preview' or 'save'
+            };
+
+            // ---- script modules ---------------------------------------------------------------
+            // json-text.js (in-place JSON edits by path) and text-adapter.js (one native undo step per edit) are served by the plugin.
+            // They are loaded here, inside the page element, because only the page's own fragment is reliably run by the dashboard.
+            var MODULES = ['json-text', 'text-adapter', 'outline', 'schema-hints', 'inspector', 'pictures'];
+            var adapter = null;
+
+            function modulesReady() {
+                return !!(window.DiscMenusJsonText && window.DiscMenusTextAdapter && window.DiscMenusOutline && window.DiscMenusSchemaHints && window.DiscMenusInspector && window.DiscMenusPictures);
+            }
+
+            function loadModules() {
+                if (window.__discMenusEditorModulesPreloaded && modulesReady()) {
+                    return Promise.resolve();
+                }
+
+                var stamp = Date.now(); // always the current build: the page and its modules must match
+                return Promise.all(MODULES.map(function (name) {
+                    return new Promise(function (resolve, reject) {
+                        var tag = document.createElement('script');
+                        tag.src = ApiClient.getUrl('DiscMenus/web/editor/' + name + '.js') + '?t=' + stamp;
+                        tag.onload = resolve;
+                        tag.onerror = function () { reject(new Error('The editor could not load its "' + name + '" module.')); };
+                        page.appendChild(tag);
+                    });
+                })).then(function () {
+                    if (!modulesReady()) {
+                        throw new Error('The editor modules loaded but are not usable.');
+                    }
+                });
+            }
+
+            // Every programmatic change to the text goes through here: one native undo step, and the same input event typing makes.
+            function applyText(newText, caret) {
+                if (adapter) {
+                    adapter.apply(newText, caret);
+                } else {
+                    el.text.value = newText;
+                    el.text.dispatchEvent(new Event('input'));
+                }
+            }
+
+            // ---- small helpers -------------------------------------------------------
+            function setStatus(text, kind) {
+                el.status.textContent = text || '';
+                el.status.className = 'discEdStatus' + (kind ? ' ' + kind : '');
+            }
+
+            function isDirty() {
+                return state.file !== null && el.text.value !== state.loadedText;
+            }
+
+            function refreshDirtyStatus() {
+                if (!state.file) {
+                    return;
+                }
+
+                setStatus(isDirty() ? 'Unsaved changes' : 'Saved', isDirty() ? '' : 'ok');
+            }
+
+            // One result shape for every call: {ok, status, data}. A failed call's body is read
+            // for its message (the apiclient rejects with the fetch Response).
+            function callApi(method, path, query, body) {
+                var request = { type: method, url: ApiClient.getUrl(path, query || {}), dataType: 'json' };
+                if (body !== undefined) {
+                    request.data = body;
+                    request.contentType = 'text/plain';
+                }
+
+                return ApiClient.ajax(request).then(function (data) {
+                    return { ok: true, status: 200, data: data };
+                }, function (res) {
+                    if (res && typeof res.json === 'function') {
+                        return res.json().then(function (data) {
+                            return { ok: false, status: res.status, data: data };
+                        }, function () {
+                            return { ok: false, status: res.status, data: null };
+                        });
+                    }
+
+                    return { ok: false, status: 0, data: null };
+                });
+            }
+
+            // ---- file management: new, duplicate, delete, backups ----------------------
+            function firstMessage(r, fallback) {
+                var d = r.data || {};
+                if (d.Errors && d.Errors.length) {
+                    return d.Errors[0].Message;
+                }
+
+                return d.Error || fallback;
+            }
+
+            function updateFileButtons() {
+                var has = state.file !== null;
+                el.dup.disabled = !has;
+                el.del.disabled = !has;
+                el.backupsBtn.disabled = !has;
+            }
+
+            function hidePanels() {
+                el.newPanel.hidden = true;
+                el.backupPanel.hidden = true;
+                el.picsPanel.hidden = true;
+                state.pick = null;
+            }
+
+            // ---- pictures, sounds and TMDB backdrops -------------------------------------------
+            // A "Choose…" button on a picture or sound field opens this panel. The menu's uploaded files live in assets/<menuId>/ on the server.
+            // Choosing writes the reference into the field (the same edit the form makes), so it is one undo step like any other.
+            function currentMenuId() {
+                try {
+                    var d = JSON.parse(el.text.value);
+                    return d && typeof d.menuId === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(d.menuId) ? d.menuId : null;
+                } catch (ignore) {
+                    return null;
+                }
+            }
+
+            function picsNote(text) {
+                el.picsMsg.textContent = text || '';
+            }
+
+            function usePick(value) {
+                if (state.pick && state.pick.write(value)) {
+                    hidePanels();
+                    setStatus('Changed. It shows in the preview now.', 'ok');
+                } else {
+                    picsNote('That could not be used here. Fix the problem shown in the form first.');
+                }
+            }
+
+            function picCard(thumbSrc, name, detail) {
+                var card = document.createElement('div');
+                card.className = 'discEdPic';
+                if (thumbSrc) {
+                    var img = document.createElement('img');
+                    img.loading = 'lazy';
+                    img.alt = '';
+                    img.src = thumbSrc;
+                    card.appendChild(img);
+                }
+
+                var label = document.createElement('div');
+                label.className = 'discEdPicName';
+                label.textContent = name;
+                label.title = name + (detail ? ' - ' + detail : '');
+                card.appendChild(label);
+                if (detail) {
+                    var d = document.createElement('div');
+                    d.className = 'fieldDescription';
+                    d.textContent = detail;
+                    card.appendChild(d);
+                }
+
+                return card;
+            }
+
+            function loadAssets() {
+                var id = currentMenuId();
+                if (!id) {
+                    picsNote('This menu needs a valid menuId before it can have files.');
+                    return;
+                }
+
+                picsNote('Loading…');
+                callApi('GET', 'DiscMenus/Editor/Assets', { menu: id }).then(function (r) {
+                    el.picsList.textContent = '';
+                    if (!r.ok) {
+                        picsNote('The files could not be listed. See the server log.');
+                        return;
+                    }
+
+                    var kind = state.pick && state.pick.type;
+                    var files = (Array.isArray(r.data) ? r.data : []).filter(function (a) { return a && a.Kind === kind && typeof a.Name === 'string'; });
+                    picsNote(files.length ? '' : 'Nothing uploaded for this menu yet. Choose a file above.');
+                    files.forEach(function (a) {
+                        var route = window.DiscMenusPictures.assetRoute(a.Ref);
+                        if (!route) {
+                            return;
+                        }
+
+                        var url = ApiClient.getUrl(route);
+                        var card = picCard(kind === 'image' ? url : null, a.Name, window.DiscMenusPictures.size(a.Size));
+                        if (kind === 'audio') {
+                            var audio = document.createElement('audio');
+                            audio.controls = true;
+                            audio.preload = 'none';
+                            audio.src = url;
+                            card.insertBefore(audio, card.firstChild);
+                        }
+
+                        var actions = document.createElement('div');
+                        actions.className = 'discEdPicActions';
+                        var use = document.createElement('button');
+                        use.type = 'button';
+                        use.className = 'raised';
+                        use.textContent = state.pick.current === a.Ref ? 'In use' : 'Use';
+                        use.addEventListener('click', function () { usePick(a.Ref); });
+                        var del = document.createElement('button');
+                        del.type = 'button';
+                        del.className = 'raised';
+                        del.textContent = 'Delete';
+                        del.addEventListener('click', function () {
+                            var inUse = el.text.value.indexOf(a.Ref) >= 0;
+                            if (!window.confirm('Delete ' + a.Name + '?' + (inUse ? ' This menu still uses it, so it will show nothing until you change it.' : ''))) {
+                                return;
+                            }
+
+                            callApi('DELETE', 'DiscMenus/Editor/Assets', { menu: id, name: a.Name }).then(function (res) {
+                                if (res.ok) {
+                                    loadAssets();
+                                } else {
+                                    picsNote(firstMessage(res, 'That file could not be deleted.'));
+                                }
+                            });
+                        });
+                        actions.appendChild(use);
+                        actions.appendChild(del);
+                        card.appendChild(actions);
+                        el.picsList.appendChild(card);
+                    });
+                });
+            }
+
+            function uploadAsset(file) {
+                var P = window.DiscMenusPictures;
+                var kind = state.pick && state.pick.type;
+                var id = currentMenuId();
+                var why = P.precheck(file, kind);
+                if (why || !id) {
+                    picsNote(why || 'This menu needs a valid menuId before it can have files.');
+                    return;
+                }
+
+                // ApiClient.ajax turns anything that is not text into a form, so the file goes straight through fetch with the server's token.
+                var headers = { 'Content-Type': 'application/octet-stream' };
+                var token = typeof ApiClient.accessToken === 'function' ? ApiClient.accessToken() : null;
+                if (token) {
+                    // Jellyfin 12 only reads the token from this header (X-Emby-Token and ?api_key= are refused).
+                    headers.Authorization = 'MediaBrowser Token="' + token + '"';
+                }
+
+                picsNote('Uploading ' + file.name + ' (' + P.size(file.size) + ')…');
+                Promise.resolve().then(function () {
+                    return window.fetch(ApiClient.getUrl('DiscMenus/Editor/Assets', { menu: id, name: file.name }), {
+                        method: 'POST', headers: headers, body: file, credentials: 'same-origin'
+                    });
+                }).then(function (res) {
+                    return res.json().then(function (data) { return { ok: res.ok, status: res.status, data: data }; }, function () { return { ok: res.ok, status: res.status, data: null }; });
+                }).then(function (r) {
+                    if (!r.ok || !r.data || !r.data.Ref) {
+                        picsNote(r.status === 413 ? 'That file is too large.' : firstMessage(r, 'The upload failed. See the server log.'));
+                        return;
+                    }
+
+                    usePick(r.data.Ref);
+                }, function () {
+                    picsNote('The upload could not reach the server.');
+                });
+            }
+
+            function loadTmdb() {
+                var item = state.lastGood && state.lastGood.ParentItemId;
+                if (!item) {
+                    picsNote('Link this menu to a library title first, so the picker knows whose backdrops to list.');
+                    return;
+                }
+
+                picsNote('Asking for the title\'s TMDB backdrops…');
+                callApi('GET', 'Items/' + encodeURIComponent(item) + '/RemoteImages', { type: 'Backdrop', providerName: 'TheMovieDb', limit: 60 }).then(function (r) {
+                    el.picsList.textContent = '';
+                    if (!r.ok) {
+                        picsNote('The list could not be fetched. Jellyfin needs its TheMovieDb provider enabled for this library.');
+                        return;
+                    }
+
+                    var P = window.DiscMenusPictures;
+                    var shown = 0;
+                    (r.data && Array.isArray(r.data.Images) ? r.data.Images : []).forEach(function (img) {
+                        var path = img && P.tmdbPath(img.Url);
+                        if (!path) {
+                            return;
+                        }
+
+                        shown++;
+                        var detail = [img.Width && img.Height ? img.Width + '\u00d7' + img.Height : null, typeof img.Language === 'string' ? img.Language : null].filter(Boolean).join(', ');
+                        var card = picCard(P.tmdbThumb(img.ThumbnailUrl) || P.tmdbThumb(img.Url), path, detail);
+                        var actions = document.createElement('div');
+                        actions.className = 'discEdPicActions';
+                        var use = document.createElement('button');
+                        use.type = 'button';
+                        use.className = 'raised';
+                        use.textContent = state.pick.current === path ? 'In use' : 'Use';
+                        use.addEventListener('click', function () { usePick(path); });
+                        actions.appendChild(use);
+                        card.appendChild(actions);
+                        el.picsList.appendChild(card);
+                    });
+                    picsNote(shown ? 'Viewers\' browsers load the chosen picture from TMDB\'s image server.' : 'TMDB lists no backdrops for this title.');
+                });
+            }
+
+            function openPicker(req) {
+                hidePanels();
+                state.pick = req;
+                el.picsPanel.hidden = false;
+                el.picsList.textContent = '';
+                var P = window.DiscMenusPictures;
+                if (req.type === 'tmdb') {
+                    el.picsTitle.textContent = 'Pick a TMDB backdrop';
+                    el.picsUpload.hidden = true;
+                    loadTmdb();
+                    return;
+                }
+
+                el.picsTitle.textContent = req.type === 'audio' ? 'Choose or upload a sound' : 'Choose or upload a picture';
+                el.picsUpload.hidden = false;
+                el.picsFile.value = '';
+                el.picsFile.accept = P.accept(req.type);
+                el.picsRules.textContent = (req.type === 'audio' ? 'Sounds: mp3, ogg, opus, m4a or wav, up to 25 MB. ' : 'Pictures: png, jpg or webp, up to 5 MB. ') +
+                    'Uploaded files are public: anyone who can reach your server and knows the address can fetch them, so upload only what you have the right to share. ' +
+                    'They are kept with this menu on this server.';
+                loadAssets();
+            }
+
+            function openCreated(file) {
+                hidePanels();
+                return loadFiles(false).then(function () { return openFile(file, true); });
+            }
+
+            function searchTitles() {
+                var q = el.newQuery.value.trim();
+                var mine = ++state.titleSeq;
+                el.newList.textContent = '';
+                if (q.length < 2) {
+                    el.newMsg.textContent = 'Type at least two letters.';
+                    return;
+                }
+
+                el.newMsg.textContent = 'Searching…';
+                callApi('GET', 'DiscMenus/Editor/Titles', { q: q }).then(function (r) {
+                    if (mine !== state.titleSeq) {
+                        return;
+                    }
+
+                    el.newList.textContent = '';
+                    if (!r.ok) {
+                        el.newMsg.textContent = 'The search failed. See the server log.';
+                        return;
+                    }
+
+                    var hits = r.data || [];
+                    el.newMsg.textContent = hits.length ? '' : 'No movie or series in your library matches.';
+                    hits.forEach(function (t) {
+                        var row = document.createElement('div');
+                        row.className = 'discEdRow';
+                        var label = document.createElement('span');
+                        label.className = 'grow';
+                        label.textContent = t.Name + (t.Year ? ' (' + t.Year + ')' : '') + ' - ' + t.Type + (t.HasIds ? '' : ' - no TMDB, IMDB or TVDB id, so it can\'t be matched');
+                        row.appendChild(label);
+                        [['blank', 'Empty menu'], ['draft', 'Starter from its extras']].forEach(function (k) {
+                            if (k[0] === 'draft' && t.Type !== 'Movie') {
+                                return;
+                            }
+
+                            var b = document.createElement('button');
+                            b.type = 'button';
+                            b.className = 'raised';
+                            b.textContent = k[1];
+                            b.disabled = !t.HasIds;
+                            b.addEventListener('click', function () { createMenu(t, k[0]); });
+                            row.appendChild(b);
+                        });
+                        el.newList.appendChild(row);
+                    });
+                });
+            }
+
+            function createMenu(t, kind) {
+                el.newMsg.textContent = 'Creating…';
+                callApi('POST', 'DiscMenus/Editor/New', { item: t.Id, kind: kind }).then(function (r) {
+                    if (!r.ok) {
+                        el.newMsg.textContent = firstMessage(r, 'The menu could not be created.');
+                        return;
+                    }
+
+                    openCreated(r.data.File).then(function () { setStatus('Created ' + r.data.File + '.', 'ok'); });
+                });
+            }
+
+            function openNewPanel() {
+                if (!discardOk()) {
+                    return;
+                }
+
+                hidePanels();
+                el.newPanel.hidden = false;
+                el.newList.textContent = '';
+                el.newMsg.textContent = '';
+                el.newQuery.focus();
+            }
+
+            function duplicateFile() {
+                if (!state.file || !discardOk()) {
+                    return;
+                }
+
+                callApi('POST', 'DiscMenus/Editor/Duplicate', { name: state.file }).then(function (r) {
+                    if (!r.ok) {
+                        setStatus(firstMessage(r, 'This menu could not be copied.'), 'error');
+                        return;
+                    }
+
+                    openCreated(r.data.File).then(function () { setStatus('Copied to ' + r.data.File + ' with a new id.', 'ok'); });
+                });
+            }
+
+            function deleteFile() {
+                var name = state.file;
+                if (!name || !window.confirm('Delete ' + name + '? A backup is kept, and you can put it back with Backups.')) {
+                    return;
+                }
+
+                callApi('DELETE', 'DiscMenus/Editor/File', { name: name }).then(function (r) {
+                    if (!r.ok) {
+                        setStatus(firstMessage(r, 'This menu could not be deleted.'), 'error');
+                        return;
+                    }
+
+                    hidePanels();
+                    state.file = null;
+                    state.loadedText = '';
+                    el.text.value = '';
+                    el.text.disabled = true;
+                    clearErrors();
+                    loadFiles(true).then(function () {
+                        updateFileButtons();
+                        setStatus('Deleted ' + name + '.', 'ok');
+                    });
+                });
+            }
+
+            function stampLabel(stamp) {
+                var m = /^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)/.exec(stamp);
+                if (!m) {
+                    return stamp;
+                }
+
+                var d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]));
+                return d.toLocaleString();
+            }
+
+            function openBackups() {
+                if (!state.file) {
+                    return;
+                }
+
+                hidePanels();
+                el.backupPanel.hidden = false;
+                el.backupTitle.textContent = 'Earlier versions of ' + state.file;
+                el.backupList.textContent = '';
+                el.backupMsg.textContent = 'Loading…';
+                callApi('GET', 'DiscMenus/Editor/Backups', { name: state.file }).then(function (r) {
+                    if (!r.ok) {
+                        el.backupMsg.textContent = 'Could not list the backups. See the server log.';
+                        return;
+                    }
+
+                    var list = r.data || [];
+                    el.backupMsg.textContent = list.length
+                        ? 'Restoring puts the old version back as a new revision, and keeps what it replaces as a backup.'
+                        : 'No earlier versions yet. One is kept each time you save.';
+                    list.forEach(function (b) {
+                        var row = document.createElement('div');
+                        row.className = 'discEdRow';
+                        var label = document.createElement('span');
+                        label.className = 'grow';
+                        label.textContent = stampLabel(b.Stamp) + (b.Revision != null ? ' - revision ' + b.Revision : '') + ' - ' + Math.max(1, Math.round(b.Size / 1024)) + ' KB';
+                        row.appendChild(label);
+                        var btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'raised';
+                        btn.textContent = 'Restore';
+                        btn.addEventListener('click', function () { restoreBackup(b); });
+                        row.appendChild(btn);
+                        el.backupList.appendChild(row);
+                    });
+                });
+            }
+
+            function restoreBackup(b) {
+                if (!discardOk()) {
+                    return;
+                }
+
+                callApi('POST', 'DiscMenus/Editor/Restore', { name: state.file, backup: b.Stamp, version: state.version }).then(function (r) {
+                    if (r.status === 409) {
+                        el.backupMsg.textContent = 'The file changed on the server since you opened it. Reload it, then try again.';
+                        return;
+                    }
+
+                    if (!r.ok) {
+                        el.backupMsg.textContent = firstMessage(r, 'That version could not be restored.');
+                        return;
+                    }
+
+                    hidePanels();
+                    openFile(state.file, true).then(function () { setStatus('Restored the version from ' + stampLabel(b.Stamp) + '.', 'ok'); });
+                });
+            }
+
+            function revisionOf(text) {
+                var m = /"revision"\s*:\s*(\d+)/.exec(text);
+                return m ? Number(m[1]) : null;
+            }
+
+            // ---- errors ----------------------------------------------------------------
+            function clearErrors() {
+                el.errors.textContent = '';
+                state.errorSource = null;
+                state.errors = [];
+                renderOutline();
+            }
+
+            // ---- outline: the parts of the menu, with problems marked --------------------
+            // Selecting a part selects its text. If the part is not in the text (a property a problem says is missing),
+            // the nearest part that is gets selected instead.
+            function selectPath(path, focus) {
+                var hit = window.DiscMenusOutline.resolve(el.text.value, path);
+                if (!hit) {
+                    return;
+                }
+
+                state.selected = path;
+                renderOutline();
+                renderForm();
+                el.text.setSelectionRange(hit.start, hit.end);
+                syncPreviewSelection(path);
+                var lineHeight = parseFloat(window.getComputedStyle(el.text).lineHeight) || 18;
+                el.text.scrollTop = Math.max(0, (hit.line - 3) * lineHeight);
+                if (focus) {
+                    showText(true, false);
+                    el.text.focus();
+                }
+
+                if (path[0] === 'menus' && path.length >= 2 && Array.prototype.some.call(el.menu.options, function (o) { return o.value === path[1]; }) && el.menu.value !== path[1]) {
+                    el.menu.value = path[1];
+                    el.menu.dispatchEvent(new Event('change'));
+                }
+            }
+
+            // ---- the raw text is optional ------------------------------------------------------
+            // Forms are the main way in; the text is there for anyone who wants it. The choice is remembered in this browser.
+            function showText(on, remember) {
+                el.textPane.hidden = !on;
+                el.toggleText.setAttribute('aria-pressed', on ? 'true' : 'false');
+                el.toggleText.querySelector('span').textContent = on ? 'Hide text' : 'Show text';
+                if (remember) {
+                    try { window.localStorage.setItem('discMenusEditorShowText', on ? '1' : '0'); } catch (ignore) { /* storage may be unavailable */ }
+                }
+            }
+
+            function textWanted() {
+                try { return window.localStorage.getItem('discMenusEditorShowText') === '1'; } catch (ignore) { return false; }
+            }
+
+            // The page a person most likely wants first: the menu's first page.
+            function firstSelection(text) {
+                try {
+                    var d = JSON.parse(text);
+                    if (d && d.menus && typeof d.root === 'string' && Object.prototype.hasOwnProperty.call(d.menus, d.root)) {
+                        return ['menus', d.root];
+                    }
+                } catch (ignore) { /* not valid JSON: the form says so */ }
+
+                return [];
+            }
+
+            // ---- forms (inspector.js) --------------------------------------------------------
+            var inspector = null;
+
+            function ensureInspector() {
+                if (inspector || !modulesReady() || !el.inspector) {
+                    return inspector;
+                }
+
+                inspector = window.DiscMenusInspector.create({
+                    container: el.inspector,
+                    hints: window.DiscMenusSchemaHints,
+                    JsonText: window.DiscMenusJsonText,
+                    getText: function () { return el.text.value; },
+                    commit: function (fn) {
+                        var before = el.text.value;
+                        var after = fn(before);
+                        if (after !== before) {
+                            applyText(after);
+                        }
+
+                        return true;
+                    },
+                    select: function (path) { selectPath(path, false); },
+                    actions: {
+                        pick: function (req) { openPicker(req); },
+                        fanart: function (path) {
+                            openFanart();
+                            var target = path[0] === 'menus' ? path[1] : '';
+                            if (Array.prototype.some.call(el.fanartTarget.options, function (o) { return o.value === target; })) {
+                                el.fanartTarget.value = target;
+                            }
+                        }
+                    }
+                });
+                return inspector;
+            }
+
+            function renderForm() {
+                var insp = ensureInspector();
+                if (!insp) {
+                    return;
+                }
+
+                if (!state.file) {
+                    el.inspector.textContent = '';
+                    return;
+                }
+
+                insp.show(state.selected);
+            }
+
+            function refreshForm() {
+                var insp = ensureInspector();
+                if (insp && state.file) {
+                    insp.refresh();
+                }
+            }
+
+            function renderOutline() {
+                if (!el.outline || !modulesReady()) {
+                    return;
+                }
+
+                el.outline.textContent = '';
+                var rows = state.file ? window.DiscMenusOutline.build(el.text.value, state.errors) : null;
+                if (!rows) {
+                    var none = document.createElement('div');
+                    none.className = 'none';
+                    none.textContent = state.file ? 'Fix the syntax problem to see the parts of this menu.' : '';
+                    el.outline.appendChild(none);
+                    return;
+                }
+
+                rows.forEach(function (r) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.style.paddingLeft = (0.5 + r.depth * 1.1) + 'em';
+                    b.textContent = r.label;
+                    b.title = r.label + (r.errors ? ' (' + r.errors + ' problem' + (r.errors === 1 ? '' : 's') + ')' : '');
+                    b.className = (r.kind === 'group' ? 'group ' : '') + (r.hasErrors ? 'bad ' : '') + (window.DiscMenusOutline.same(r.path, state.selected) ? 'current' : '');
+                    if (r.kind === 'group') {
+                        b.disabled = true;
+                    } else {
+                        b.setAttribute('aria-current', window.DiscMenusOutline.same(r.path, state.selected) ? 'true' : 'false');
+                        b.addEventListener('click', function () { selectPath(r.path, false); });
+                    }
+
+                    el.outline.appendChild(b);
+                });
+            }
+
+            function pathLabel(path) {
+                return path.map(function (p) { return typeof p === 'number' ? '[' + (p + 1) + ']' : '.' + p; }).join('').replace(/^\./, '') || 'whole menu';
+            }
+
+            function jumpToLine(line) {
+                showText(true, false);
+                var lines = el.text.value.split('\n');
+                var start = 0;
+                for (var i = 0; i < line - 1 && i < lines.length; i++) {
+                    start += lines[i].length + 1;
+                }
+
+                el.text.focus();
+                el.text.setSelectionRange(start, start + (lines[line - 1] || '').length);
+                var lineHeight = parseFloat(window.getComputedStyle(el.text).lineHeight) || 18;
+                el.text.scrollTop = Math.max(0, (line - 3) * lineHeight);
+            }
+
+            // source: 'preview' (the text doesn't load) or 'save' (the server refused to save it). A
+            // refused save's reason stays up until the author edits again, even though the preview of
+            // the same text may be fine.
+            function showErrors(errors, source) {
+                clearErrors();
+                state.errorSource = source;
+                state.errors = errors || [];
+                if (state.errors.some(function (e) { return e && e.Line; })) {
+                    showText(true, false);
+                }
+
+                renderOutline();
+                if (!errors || !errors.length) {
+                    return;
+                }
+
+                var title = document.createElement('div');
+                title.className = 'title';
+                title.textContent = errors.length === 1 ? 'One problem to fix:' : errors.length + ' problems to fix:';
+                var list = document.createElement('ul');
+                errors.forEach(function (e) {
+                    var li = document.createElement('li');
+                    if (e.Line) {
+                        var b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'line';
+                        b.textContent = 'Line ' + e.Line + (e.Column ? ', column ' + e.Column : '');
+                        b.addEventListener('click', function () { jumpToLine(e.Line); });
+                        li.appendChild(b);
+                        li.appendChild(document.createTextNode(': '));
+                    }
+
+                    var errPath = null;
+                    if (!e.Line && typeof e.Path === 'string' && modulesReady()) {
+                        try {
+                            errPath = window.DiscMenusOutline.pointerToPath(e.Path, JSON.parse(el.text.value));
+                        } catch (ignore) {
+                            errPath = null;
+                        }
+                    }
+
+                    if (errPath && errPath.length) {
+                        var pb = document.createElement('button');
+                        pb.type = 'button';
+                        pb.className = 'line';
+                        pb.textContent = pathLabel(errPath);
+                        pb.addEventListener('click', function () { selectPath(errPath, true); });
+                        li.appendChild(pb);
+                        li.appendChild(document.createTextNode(': '));
+                    }
+
+                    li.appendChild(document.createTextNode(e.Message || ''));
+                    list.appendChild(li);
+                });
+                el.errors.appendChild(title);
+                el.errors.appendChild(list);
+            }
+
+            // ---- the file list -----------------------------------------------------
+            function describe(f) {
+                return f.File + (f.State ? ' - ' + (STATE_LABELS[f.State] || f.State) : '');
+            }
+
+            function fillFileList(selected) {
+                el.file.textContent = '';
+                state.files.forEach(function (f) {
+                    var o = document.createElement('option');
+                    o.value = f.File;
+                    o.textContent = describe(f);
+                    if (f.File === selected) {
+                        o.selected = true;
+                    }
+
+                    el.file.appendChild(o);
+                });
+            }
+
+            function loadFiles(thenOpen) {
+                return callApi('GET', 'DiscMenus/Editor/Files').then(function (r) {
+                    if (!r.ok) {
+                        setStatus('Could not list the menu files. See the server log.', 'error');
+                        return;
+                    }
+
+                    state.files = r.data || [];
+                    fillFileList(state.file);
+                    if (state.files.length === 0) {
+                        el.text.disabled = true;
+                        updateFileButtons();
+                        setStatus('No menu files yet. Choose New… to make one for a title in your library.');
+                        return;
+                    }
+
+                    if (thenOpen && !state.file) {
+                        var wanted = window.__discMenusPreferredFile; // the full-size designer is opened with ?file=
+                        openFile(wanted && state.files.some(function (f) { return f.File === wanted; }) ? wanted : state.files[0].File, true);
+                    }
+                });
+            }
+
+            // ---- opening / reloading ---------------------------------------------------
+            function discardOk() {
+                return !isDirty() || window.confirm('You have unsaved changes. Discard them?');
+            }
+
+            function hideConflict() {
+                el.conflict.hidden = true;
+            }
+
+            function openFile(name, force) {
+                if (!force && !discardOk()) {
+                    fillFileList(state.file); // put the picker back
+                    return Promise.resolve();
+                }
+
+                var mine = ++state.loadSeq;
+                setStatus('Loading…');
+                return callApi('GET', 'DiscMenus/Editor/File', { name: name }).then(function (r) {
+                    if (mine !== state.loadSeq) {
+                        return;
+                    }
+
+                    if (!r.ok) {
+                        setStatus('Could not open that file.', 'error');
+                        fillFileList(state.file);
+                        return;
+                    }
+
+                    state.file = name;
+                    updateFileButtons();
+                    state.version = r.data.Version;
+                    state.loadedText = r.data.Json;
+                    state.loadedRevision = revisionOf(r.data.Json);
+                    el.text.value = r.data.Json;
+                    if (adapter) {
+                        adapter.reset();
+                    }
+
+                    el.text.disabled = false;
+                    state.lastGood = null;
+                    state.shownOnce = false;
+                    hideConflict();
+                    clearErrors();
+                    fillFileList(name);
+                    state.selected = firstSelection(r.data.Json);
+                    renderOutline();
+                    renderForm();
+                    setStatus('Saved', 'ok');
+                    schedulePreview(0);
+                });
+            }
+
+            // ---- live preview ---------------------------------------------------------
+            function fillMenuPicker(doc, current) {
+                var keys = Object.keys(doc.Menus || {});
+                el.menu.textContent = '';
+                keys.forEach(function (k) {
+                    var o = document.createElement('option');
+                    o.value = k;
+                    o.textContent = k + (doc.Menus[k].Title ? ' - ' + doc.Menus[k].Title : '');
+                    el.menu.appendChild(o);
+                });
+                if (current && keys.indexOf(current) >= 0) {
+                    el.menu.value = current;
+                }
+            }
+
+            function describeBinding(result) {
+                var file = state.files.filter(function (f) { return f.File === state.file; })[0];
+                if (result.Bound) {
+                    return 'Previewing with the real extras, chapters and trailers of "' + (result.ItemName || 'the bound title') + '".';
+                }
+
+                var why = file && file.State && file.State !== 'bound'
+                    ? ' (this menu is ' + (STATE_LABELS[file.State] || file.State) + ')'
+                    : '';
+                return "This menu isn't linked to a library title" + why + ', so extras can\'t play in the preview and chapters, trailers and theme songs are empty.';
+            }
+
+            function pushToFrame() {
+                var win = el.frame.contentWindow;
+                if (!win || !win.DiscMenusPreview || !state.lastGood) {
+                    return;
+                }
+
+                var doc = state.lastGood.Document;
+                var parent = state.lastGood.ParentItemId || null;
+                win.DiscMenusPreview.setMuted(state.muted);
+                if (!state.shownOnce) {
+                    win.DiscMenusPreview.show(doc, parent);
+                    state.shownOnce = true;
+                } else {
+                    win.DiscMenusPreview.update(doc, parent);
+                }
+
+                applyArrangeMode();
+            }
+
+            // ---- arranging on the preview (drag, nudge, resize) --------------------------------------
+            // The preview reports what the author did ("select", "move", "resize") in percentages; each becomes one edit of the text, so it is
+            // one undo step and the forms and outline follow.
+            function previewApi() {
+                var win = el.frame.contentWindow;
+                return win && win.DiscMenusPreview && typeof win.DiscMenusPreview.setEditMode === 'function' ? win.DiscMenusPreview : null;
+            }
+
+            // A page that a Scene Selection button names as its style: its grid is where the chapter pictures go, so it is not a page to rearrange.
+            function stylesSceneSelection(key) {
+                try {
+                    var d = JSON.parse(el.text.value);
+                    return Object.keys(d.menus || {}).some(function (k) {
+                        var entries = d.menus[k] && Array.isArray(d.menus[k].entries) ? d.menus[k].entries : [];
+                        return entries.some(function (e) { return e && e.action === 'chapters' && e.menu === key; });
+                    });
+                } catch (ignore) {
+                    return false;
+                }
+            }
+
+            // What the note under the preview says, in words about THIS page, and which of the buttons under it make sense.
+            function describeArrange() {
+                var p = state.pagePlacement;
+                var show = { free: false, fit: false, fitFree: false, settings: false };
+                var settingsLabel = 'Show this page\'s grid settings';
+                var text;
+                if (!state.arrangeOn) {
+                    el.arrangeNote.hidden = true;
+                } else {
+                    el.arrangeNote.hidden = false;
+                    var plural = function (n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); };
+                    if (p && p.virtual) {
+                        text = 'This screen is generated from the film\'s chapters (one picture per scene), so there is nothing to place by hand here.';
+                    } else if (p && stylesSceneSelection(p.menu)) {
+                        text = 'This page is the template for the Scene Selection screen. Its grid is where the scene pictures go (one for each chapter), so it has to stay a grid and its buttons can\'t be placed one by one. To change where the pictures go or how big they are, change this page\'s grid.';
+                        show.settings = true;
+                    } else if (p && !p.positioned && p.count > 0 && !p.flow) {
+                        text = 'This page arranges its buttons in a column by itself, so there is nothing to drag yet. Give every button a place of its own with the button below, then drag them where you like. You can still move the title and decorations now.';
+                        show.free = true;
+                    } else if (p && !p.positioned && p.count > 0 && p.flowFromDocument) {
+                        text = 'This page\'s buttons sit in an automatic grid that every page of this menu shares, so one page can\'t leave it. You can still move the title and decorations. To change the shared grid, open its settings.';
+                        show.settings = true;
+                        settingsLabel = 'Show the whole menu\'s grid settings';
+                    } else if (p && !p.positioned && p.count > 0 && p.pages > 1) {
+                        text = 'This page\'s buttons sit in an automatic grid. The grid has ' + p.columns + ' across by ' + p.rows + ' down (' + plural(p.columns * p.rows, 'spot') + '), but the page has ' + plural(p.count, 'button') +
+                            ', so they are split over pages, and a grid that pages can\'t be dragged. Make the grid big enough for all ' + p.count + ' and you can place them freely.';
+                        show.fit = true;
+                        show.fitFree = true;
+                        show.settings = true;
+                    } else if (p && !p.positioned && p.count > 0) {
+                        text = 'This page\'s buttons sit in an automatic grid: the grid decides where each one goes (neat rows), so they can\'t be dragged one by one. Placing them freely swaps the grid for a position per button, which you can then drag. Or keep the grid and change its size in its settings.';
+                        show.free = true;
+                        show.settings = true;
+                    } else {
+                        text = 'Drag buttons, the title and decorations; drag a round handle to resize. Arrow keys nudge (Shift for more); Alt turns snapping off.';
+                    }
+
+                    el.arrangeText.textContent = text;
+                }
+
+                el.freePlace.hidden = !show.free;
+                el.fitGrid.hidden = !show.fit;
+                el.fitFree.hidden = !show.fitFree;
+                el.gridSettings.hidden = !show.settings;
+                el.gridSettings.querySelector('span').textContent = settingsLabel;
+            }
+
+            // Make the page's own grid big enough for every button: keep its columns and add rows (or add columns when it would need more than 12 rows).
+            function fitGrid() {
+                var JT = window.DiscMenusJsonText;
+                var p = state.pagePlacement;
+                if (!p || !p.flow || p.flowFromDocument) {
+                    return false;
+                }
+
+                try {
+                    var d = JSON.parse(el.text.value);
+                    var flow = d.menus && d.menus[p.menu] && d.menus[p.menu].layout && d.menus[p.menu].layout.flow;
+                    if (!flow) {
+                        setStatus('This page has no grid of its own to enlarge.', 'error');
+                        return false;
+                    }
+
+                    var need = d.menus[p.menu].entries.length;
+                    var cols = Number(flow.columns) || 1;
+                    var rows = Number(flow.rows) || 1;
+                    if (cols * rows >= need) {
+                        if (p.pages > 1) {
+                            setStatus('The grid already has room for all ' + need + ' buttons, but this page still splits them over pages (it may limit how many show at once). Check its grid settings.', 'error');
+                            return false;
+                        }
+
+                        return true;
+                    }
+
+                    // Either add rows or add columns, whichever leaves each button closest to the shape it has now (a one-row strip should stay a
+                    // strip). Columns stop at 8 and rows at 12; where only one fits, that one.
+                    var region = flow.region || {};
+                    var shape = function (c, r) { return ((Number(region.w) || 80) * 16 / c) / ((Number(region.h) || 60) * 9 / r); }; // width / height of one cell
+                    var now = shape(cols, rows);
+                    var byRows = { cols: cols, rows: Math.ceil(need / cols) };
+                    var byCols = { cols: Math.ceil(need / rows), rows: rows };
+                    var okRows = byRows.rows <= 12;
+                    var okCols = byCols.cols <= 8;
+                    var pick;
+                    if (okRows && okCols) {
+                        var dRows = Math.abs(Math.log(shape(byRows.cols, byRows.rows) / now));
+                        var dCols = Math.abs(Math.log(shape(byCols.cols, byCols.rows) / now));
+                        pick = dCols < dRows - 1e-9 ? byCols : byRows;
+                    } else if (okRows) {
+                        pick = byRows;
+                    } else if (okCols) {
+                        pick = byCols;
+                    } else {
+                        var c2 = Math.min(8, Math.ceil(need / 12));
+                        pick = { cols: c2, rows: Math.ceil(need / c2) };
+                    }
+
+                    var newCols = pick.cols;
+                    var newRows = pick.rows;
+                    var base = ['menus', p.menu, 'layout', 'flow'];
+                    var out = el.text.value;
+                    if (newCols !== cols) {
+                        out = JT.set(out, base.concat(['columns']), String(newCols));
+                    }
+
+                    if (newRows !== rows) {
+                        out = JT.set(out, base.concat(['rows']), String(newRows), { after: ['columns', 'region'] });
+                    }
+
+                    applyText(out);
+                    schedulePreview(60);
+                    setStatus('The grid now has ' + newCols + ' across by ' + newRows + ' down, enough for all ' + need + ' buttons.', 'ok');
+                    return true;
+                } catch (err) {
+                    setStatus('The grid could not be enlarged: ' + (err && err.message), 'error');
+                    return false;
+                }
+            }
+
+            // Open this page's (or the whole menu's) grid settings in the form.
+            function showGridSettings() {
+                var p = state.pagePlacement;
+                if (!p || !ensureInspector()) {
+                    return;
+                }
+
+                if (p.flowFromDocument) {
+                    selectPath([], false);
+                    inspector.reveal(['#more-document', 'layout', 'layout#more-layout', 'layout/flow']);
+                } else {
+                    selectPath(['menus', p.menu], false);
+                    var k = 'menus/' + p.menu;
+                    inspector.reveal([k + '#more-menu', k + '/layout', k + '/layout#more-layout', k + '/layout/flow']);
+                }
+            }
+
+            function applyArrangeMode() {
+                var api = previewApi();
+                if (api) {
+                    api.setEditMode(state.arrangeOn);
+                }
+
+                el.arrange.setAttribute('aria-pressed', state.arrangeOn ? 'true' : 'false');
+                el.arrange.querySelector('span').textContent = state.arrangeOn ? 'Done arranging' : 'Arrange';
+                describeArrange();
+            }
+
+            // The path in the menu text of what the preview selected, and back.
+            function pathOfSelection(m) {
+                if (m.kind === 'entry') {
+                    return ['menus', m.menu, 'entries', m.index];
+                }
+
+                if (m.kind === 'layer') {
+                    return m.origin === 'document' ? ['layout', 'layers', m.index] : ['menus', m.menu, 'layout', 'layers', m.index];
+                }
+
+                if (m.kind === 'title') {
+                    return ['menus', m.menu];
+                }
+
+                return null;
+            }
+
+            function selectionOfPath(path, menuKey) {
+                if (path.length === 4 && path[0] === 'menus' && path[2] === 'entries') {
+                    return { kind: 'entry', menu: path[1], index: path[3] };
+                }
+
+                if (path.length === 5 && path[0] === 'menus' && path[2] === 'layout' && path[3] === 'layers') {
+                    return { kind: 'layer', menu: path[1], index: path[4], origin: 'menu' };
+                }
+
+                if (path.length === 3 && path[0] === 'layout' && path[1] === 'layers') {
+                    return { kind: 'layer', menu: menuKey, index: path[2], origin: 'document' };
+                }
+
+                return null;
+            }
+
+            function syncPreviewSelection(path) {
+                var api = previewApi();
+                if (!api || !state.arrangeOn) {
+                    return;
+                }
+
+                api.setSelection(selectionOfPath(path, el.menu.value));
+            }
+
+            function roundTo(v, step) {
+                return Math.round(v / step) * step;
+            }
+
+            function numberText(v) {
+                return String(Math.round(v * 10) / 10);
+            }
+
+            // Writes x and y (and, for something that had no position, its anchor) into the menu text as one edit.
+            function applyMove(m) {
+                var JT = window.DiscMenusJsonText;
+                var text = el.text.value;
+                var d;
+                try {
+                    d = JSON.parse(text);
+                } catch (ignore) {
+                    setStatus('Fix the syntax problem in the text before arranging.', 'error');
+                    return;
+                }
+
+                var at = function (path) {
+                    return path.reduce(function (n, k) { return n && typeof n === 'object' ? n[k] : undefined; }, d);
+                };
+                try {
+                    var out = text;
+                    var base;
+                    if (m.kind === 'entry') {
+                        base = ['menus', m.menu, 'entries', m.index, 'position'];
+                    } else if (m.kind === 'layer') {
+                        base = (m.origin === 'document' ? [] : ['menus', m.menu]).concat(['layout', 'layers', m.index, 'position']);
+                    } else {
+                        base = ['menus', m.menu, 'layout', 'titlePosition'];
+                    }
+
+                    var existing = at(base);
+                    if (existing && typeof existing === 'object') {
+                        out = JT.set(out, base.concat(['x']), numberText(m.x));
+                        out = JT.set(out, base.concat(['y']), numberText(m.y), { after: ['x'] });
+                    } else {
+                        // a title that just sat there, or one that took its position from the whole menu's layout: this page gets its own
+                        var inherited = m.kind === 'title' ? at(['layout', 'titlePosition']) : null;
+                        var created = { x: Math.round(m.x * 10) / 10, y: Math.round(m.y * 10) / 10 };
+                        if (inherited && typeof inherited === 'object') {
+                            ['w', 'h', 'anchor'].forEach(function (k) { if (inherited[k] !== undefined) { created[k] = inherited[k]; } });
+                        } else {
+                            created.anchor = m.anchor || 'top-left';
+                        }
+
+                        out = JT.set(out, base, JSON.stringify(created), { after: m.kind === 'title' ? ['flow', 'buttonStyle', 'hideTitle'] : ['label'] });
+                    }
+
+                    if (out !== text) {
+                        applyText(out);
+                        schedulePreview(60); // arranging is live: do not wait the usual half second
+                    }
+                } catch (err) {
+                    setStatus(err && err.code === 'duplicate' ? 'This menu repeats a key, so it can\'t be edited here.' : 'That move could not be written: ' + (err && err.message), 'error');
+                }
+            }
+
+            function applyResize(m) {
+                var JT = window.DiscMenusJsonText;
+                var text = el.text.value;
+                try {
+                    var base = m.kind === 'entry' ? ['menus', m.menu, 'entries', m.index, 'position']
+                        : (m.origin === 'document' ? [] : ['menus', m.menu]).concat(['layout', 'layers', m.index, 'position']);
+                    var out = text;
+                    if (typeof m.w === 'number') {
+                        out = JT.set(out, base.concat(['w']), numberText(m.w), { after: ['y', 'x'] });
+                    }
+
+                    if (typeof m.h === 'number') {
+                        out = JT.set(out, base.concat(['h']), numberText(m.h), { after: ['w', 'y', 'x'] });
+                    }
+
+                    if (out !== text) {
+                        applyText(out);
+                        schedulePreview(60);
+                    }
+                } catch (err) {
+                    setStatus('That resize could not be written: ' + (err && err.message), 'error');
+                }
+            }
+
+            // "Let me place the buttons freely": the page lays its buttons out itself, so give every button the position it has right now.
+            function placeFreely() {
+                var api = previewApi();
+                var p = state.pagePlacement;
+                var JT = window.DiscMenusJsonText;
+                if (!api || !p || p.virtual || p.positioned) {
+                    return;
+                }
+
+                if (stylesSceneSelection(p.menu)) {
+                    setStatus('This page styles the Scene Selection screen, so its grid has to stay.', 'error');
+                    return;
+                }
+
+                var text = el.text.value;
+                try {
+                    var d = JSON.parse(text);
+                    var menu = d.menus && d.menus[p.menu];
+                    if (p.flow && p.pages > 1) {
+                        setStatus('This grid pages (it has more buttons than fit at once), so it can\'t be turned into free placement. Make the grid big enough for all of them first.', 'error');
+                        return;
+                    }
+
+                    var snap = api.snapshot();
+                    if (!menu || !Array.isArray(menu.entries) || snap.length !== menu.entries.length) {
+                        setStatus('The buttons could not be measured on this page (' + snap.length + ' of ' + (menu && Array.isArray(menu.entries) ? menu.entries.length : '0') + ' found on screen, page "' + p.menu + '"). Switch to another page and back, then try again.', 'error');
+                        return;
+                    }
+
+                    var out = text;
+                    if (p.flow) {
+                        if (p.pages > 1) {
+                            setStatus('This grid pages (it has more buttons than fit at once), so it can\'t be turned into free placement.', 'error');
+                            return;
+                        }
+
+                        if (p.flowFromDocument || !(menu.layout && menu.layout.flow)) {
+                            setStatus('This page uses the whole menu\'s automatic grid, so it can\'t be changed from here.', 'error');
+                            return;
+                        }
+
+                        // taking the grid away leaves nothing in the page's layout: remove the empty layout too
+                        out = JT.remove(out, Object.keys(menu.layout).length === 1 ? ['menus', p.menu, 'layout'] : ['menus', p.menu, 'layout', 'flow']);
+                    }
+
+                    snap.forEach(function (s2) {
+                        // A button in a grid is centred in its cell, so keep it centred there; one in a column keeps its top-left corner.
+                        var pos = p.flow
+                            ? { x: Math.min(100, Math.max(0, roundTo(s2.cx, 0.5))), y: Math.min(100, Math.max(0, roundTo(s2.cy, 0.5))), anchor: 'center' }
+                            : { x: Math.min(100, Math.max(0, roundTo(s2.x, 0.5))), y: Math.min(100, Math.max(0, roundTo(s2.y, 0.5))) };
+                        if (p.flow && typeof s2.w === 'number' && s2.w > 0) {
+                            pos.w = Math.min(100, Math.max(1, roundTo(s2.w, 0.5))); // a grid cell's width: long labels keep wrapping as they did
+                        }
+
+                        out = JT.set(out, ['menus', p.menu, 'entries', s2.index, 'position'], JSON.stringify(pos),
+                            { after: ['imageFocus', 'image', 'style', 'perPage', 'startChapter', 'extras', 'extra', 'menu', 'label', 'action'] });
+                    });
+                    if (out !== text) {
+                        applyText(out);
+                        setStatus('Every button now has a place of its own. Drag them where you like.', 'ok');
+                    }
+                } catch (err) {
+                    setStatus('The buttons could not be placed: ' + (err && err.message), 'error');
+                }
+            }
+
+            function schedulePreview(delay) {
+                clearTimeout(state.timer);
+                state.timer = setTimeout(runPreview, delay == null ? DELAY : delay);
+            }
+
+            function runPreview() {
+                if (!state.file) {
+                    return;
+                }
+
+                var mine = ++state.seq;
+                callApi('POST', 'DiscMenus/Editor/Preview', { file: state.file }, el.text.value).then(function (r) {
+                    if (mine !== state.seq) {
+                        return; // a newer edit superseded this answer
+                    }
+
+                    if (r.ok) {
+                        if (state.errorSource === 'preview') {
+                            clearErrors();
+                        }
+
+                        renderOutline();
+
+                        state.lastGood = r.data;
+                        fillMenuPicker(r.data.Document, el.menu.value);
+                        el.note.textContent = describeBinding(r.data);
+                        pushToFrame();
+                    } else if (r.status === 422 && r.data && r.data.Errors) {
+                        showErrors(r.data.Errors, 'preview');
+                        el.note.textContent = 'The preview shows the last version that was valid.';
+                    } else {
+                        el.note.textContent = 'The preview could not be updated. See the server log.';
+                    }
+                });
+            }
+
+            function fitStage() {
+                var scale = el.stage.clientWidth / 1920;
+                if (scale > 0) {
+                    el.frame.style.transform = 'scale(' + scale + ')';
+                }
+            }
+
+            function onFrameMessage(e) {
+                if (e.origin !== window.location.origin || e.source !== el.frame.contentWindow) {
+                    return;
+                }
+
+                var m = e.data;
+                if (!m || m.source !== 'discmenus-preview') {
+                    return;
+                }
+
+                if (m.type === 'ready') {
+                    pushToFrame();
+                } else if (m.type === 'navigate') {
+                    if (m.menu && Array.prototype.some.call(el.menu.options, function (o) { return o.value === m.menu; })) {
+                        el.menu.value = m.menu;
+                    }
+
+                    var pending = state.pendingFree;
+                    if (pending && pending.menu !== m.menu) {
+                        state.pendingFree = pending = null; // the author moved to another page: never act on the wrong one
+                    }
+
+                    state.pagePlacement = { menu: m.menu, positioned: !!m.positioned, virtual: !!m.virtual, flow: !!m.flow, flowFromDocument: !!m.flowFromDocument, pages: m.pages || 1, columns: m.columns || 0, rows: m.rows || 0, count: m.count || 0 };
+                    describeArrange();
+                    if (pending && pending.menu === m.menu && Date.now() - pending.at < 8000 && m.flow && (m.pages || 1) <= 1) {
+                        state.pendingFree = null;
+                        setTimeout(placeFreely, 0); // the enlarged grid has just been drawn: now place the buttons
+                    }
+                } else if (m.type === 'select') {
+                    var picked = pathOfSelection(m);
+                    if (picked && state.arrangeOn) {
+                        selectPath(picked, false);
+                    }
+                } else if (m.type === 'move') {
+                    if (state.arrangeOn) {
+                        applyMove(m);
+                    }
+                } else if (m.type === 'resize') {
+                    if (state.arrangeOn) {
+                        applyResize(m);
+                    }
+                } else if (m.type === 'play') {
+                    el.note.textContent = 'In a real menu this would start playing' +
+                        (m.startTicks ? ' from ' + Math.floor(m.startTicks / 10000000) + 's in' : '') + '. (The preview never plays anything.)';
+                } else if (m.type === 'message') {
+                    el.note.textContent = String(m.text || '');
+                }
+            }
+
+            // ---- saving ----------------------------------------------------------------
+            function bumpRevision() {
+                // The schema asks for a higher revision whenever a menu changes; do it for the author.
+                var text = el.text.value;
+                var current = revisionOf(text);
+                if (text !== state.loadedText && current !== null && state.loadedRevision !== null && current <= state.loadedRevision) {
+                    var next = String(state.loadedRevision + 1);
+                    var bumped = null;
+                    if (modulesReady()) {
+                        try { bumped = window.DiscMenusJsonText.set(text, ['revision'], next); } catch (e) { bumped = null; }
+                    }
+
+                    applyText(bumped !== null ? bumped : text.replace(/("revision"\s*:\s*)\d+/, '$1' + next));
+                }
+            }
+
+            function showConflict() {
+                el.conflictText.textContent = 'This file changed on the server since you opened it, so nothing was saved.';
+                el.conflict.hidden = false;
+                setStatus('Not saved: the file changed on the server', 'error');
+            }
+
+            function doSave(version) {
+                setStatus('Saving…');
+                return callApi('PUT', 'DiscMenus/Editor/File', { name: state.file, version: version }, el.text.value).then(function (r) {
+                    if (r.ok) {
+                        state.version = r.data.Version;
+                        state.loadedText = el.text.value;
+                        state.loadedRevision = revisionOf(el.text.value);
+                        hideConflict();
+                        clearErrors();
+                        setStatus('Saved', 'ok');
+                        loadFiles(false);
+                    } else if (r.status === 409) {
+                        state.serverVersion = r.data && r.data.CurrentVersion;
+                        showConflict();
+                    } else if (r.status === 422 && r.data && r.data.Errors) {
+                        showErrors(r.data.Errors, 'save');
+                        setStatus('Not saved: fix the problems first', 'error');
+                    } else {
+                        setStatus('Save failed. See the server log.', 'error');
+                    }
+                });
+            }
+
+            function save() {
+                if (!state.file) {
+                    return Promise.resolve();
+                }
+
+                if (!isDirty()) {
+                    setStatus('Nothing to save', 'ok');
+                    return Promise.resolve();
+                }
+
+                bumpRevision();
+                return doSave(state.version);
+            }
+
+            // ---- fanart.tv picker ------------------------------------------------------------
+            // Sets a menu's (or every page's) background to a fanart.tv picture by patching ONLY that property in the text, so the
+            // author's formatting, comments-by-convention and key order are left exactly as they were.
+            // menuKey '' = the whole menu's default background; otherwise that page's own. Uses the shared in-place editor.
+            function setBackground(text, menuKey, bg) {
+                var J = window.DiscMenusJsonText;
+                var explain = function (e) {
+                    if (e && e.code === 'duplicate') { return e.message; }
+                    return 'The JSON has an error, so the picker cannot edit it. Fix the error shown above first.';
+                };
+
+                try {
+                    J.parse(text);
+                } catch (e) {
+                    throw new Error(explain(e));
+                }
+
+                var rootValue = J.getValue(text, []);
+                if (!rootValue || typeof rootValue !== 'object' || Array.isArray(rootValue)) {
+                    throw new Error('This file is not a menu (it should be a JSON object).');
+                }
+
+                if (menuKey) {
+                    var menus = J.getValue(text, ['menus']);
+                    if (!menus || typeof menus !== 'object' || Array.isArray(menus)) { throw new Error('This menu has no "menus" section.'); }
+                    var page = menus[menuKey];
+                    if (!page || typeof page !== 'object' || Array.isArray(page)) { throw new Error('There is no menu "' + menuKey + '" in this file.'); }
+                }
+
+                var fresh = '{ "source": "fanart", "fanartId": ' + JSON.stringify(String(bg.fanartId)) + ', "dim": ' + Number(bg.dim) + ' }';
+                try {
+                    return J.set(text, menuKey ? ['menus', menuKey, 'background'] : ['background'], fresh, { after: menuKey ? ['title'] : ['match'] });
+                } catch (e) {
+                    throw new Error(explain(e));
+                }
+            }
+
+            window.__discMenusEditorTools = { setBackground: setBackground };
+
+            var FANART_PAGE = 12;
+            var FANART_LABELS = {
+                moviebackground: 'Backgrounds', showbackground: 'Backgrounds', hdmovielogo: 'Logos', hdtvlogo: 'Logos', movielogo: 'Logos (SD)',
+                clearlogo: 'Logos (SD)', hdmovieclearart: 'Clear art', hdclearart: 'Clear art', movieart: 'Clear art (SD)', clearart: 'Clear art (SD)',
+                moviedisc: 'Discs', moviebanner: 'Banners', tvbanner: 'Banners', moviethumb: 'Thumbs', tvthumb: 'Thumbs', movieposter: 'Posters',
+                tvposter: 'Posters', characterart: 'Character art', seasonposter: 'Season posters', seasonthumb: 'Season thumbs', seasonbanner: 'Season banners'
+            };
+            var FANART_PROBLEMS = {
+                NoKey: 'No fanart.tv key is saved yet. Add one on the Disc Menus settings page.',
+                BadKey: 'fanart.tv rejected the saved key. Check it on the Disc Menus settings page.',
+                NotFound: 'fanart.tv has no pictures for this title.',
+                RateLimited: 'fanart.tv asked us to slow down. Try again in a minute.',
+                Unavailable: 'fanart.tv could not be reached just now.'
+            };
+
+            function fanartLabel(category) {
+                return FANART_LABELS[category] || category;
+            }
+
+            function fanartMessage(text, undo) {
+                el.fanartMsg.textContent = text || '';
+                if (undo) {
+                    el.fanartMsg.appendChild(document.createTextNode(' '));
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.textContent = 'Undo';
+                    b.addEventListener('click', undoFanart);
+                    el.fanartMsg.appendChild(b);
+                }
+            }
+
+            function fillFanartTargets() {
+                var keep = el.fanartTarget.value;
+                el.fanartTarget.textContent = '';
+                var all = document.createElement('option');
+                all.value = '';
+                all.textContent = "Every page (the menu's default)";
+                el.fanartTarget.appendChild(all);
+                var menus = state.lastGood && state.lastGood.Document && state.lastGood.Document.Menus || {};
+                Object.keys(menus).forEach(function (k) {
+                    var o = document.createElement('option');
+                    o.value = k;
+                    o.textContent = 'Only ' + k + (menus[k].Title ? ' - ' + menus[k].Title : '');
+                    el.fanartTarget.appendChild(o);
+                });
+                if (keep && menus[keep]) {
+                    el.fanartTarget.value = keep;
+                }
+            }
+
+            function openFanart() {
+                el.fanart.hidden = false;
+                el.fanartGrid.textContent = '';
+                el.fanartMore.hidden = true;
+                var item = state.lastGood && state.lastGood.ParentItemId;
+                if (!item) {
+                    fanartMessage("Link this menu to a library title first, so the picker knows whose pictures to show.");
+                    return;
+                }
+
+                fillFanartTargets();
+                if (state.fanart && state.fanart.itemId === item) {
+                    renderFanart();
+                    return;
+                }
+
+                fanartMessage('Asking fanart.tv…');
+                callApi('GET', 'DiscMenus/Fanart/List/' + encodeURIComponent(item)).then(function (r) {
+                    if (!r.ok) {
+                        fanartMessage((r.data && r.data.Error) || 'The pictures could not be listed. See the server log.');
+                        return;
+                    }
+
+                    if (r.data.Status !== 'Ok') {
+                        fanartMessage(FANART_PROBLEMS[r.data.Status] || 'fanart.tv gave an answer the editor does not understand.');
+                        return;
+                    }
+
+                    var groups = {};
+                    (r.data.Images || []).forEach(function (img) {
+                        if (!img || typeof img !== 'object' || typeof img.Id !== 'string' || !/^[0-9]{1,12}$/.test(img.Id) || typeof img.Category !== 'string') {
+                            return;
+                        }
+
+                        (groups[img.Category] = groups[img.Category] || []).push(img);
+                    });
+                    Object.keys(groups).forEach(function (c) {
+                        groups[c].sort(function (a, b) { return (b.Likes || 0) - (a.Likes || 0) || Number(a.Id) - Number(b.Id); });
+                    });
+                    state.fanart = { itemId: item, groups: groups };
+                    renderFanart();
+                });
+            }
+
+            function renderFanart() {
+                var data = state.fanart;
+                var cats = Object.keys(data.groups).sort(function (a, b) {
+                    var wa = /background$/.test(a) ? 0 : 1, wb = /background$/.test(b) ? 0 : 1;
+                    return wa - wb || fanartLabel(a).localeCompare(fanartLabel(b));
+                });
+                if (cats.length === 0) {
+                    fanartMessage('fanart.tv has no pictures for this title.');
+                    return;
+                }
+
+                var keep = el.fanartCat.value;
+                el.fanartCat.textContent = '';
+                cats.forEach(function (c) {
+                    var o = document.createElement('option');
+                    o.value = c;
+                    o.textContent = fanartLabel(c) + ' (' + data.groups[c].length + ')';
+                    el.fanartCat.appendChild(o);
+                });
+                el.fanartCat.value = keep && data.groups[keep] ? keep : cats[0];
+                state.fanartShown = FANART_PAGE;
+                fanartMessage('Pick a picture to use it. Backgrounds work best; your menu\'s darkening keeps the buttons readable.');
+                drawFanartGrid();
+            }
+
+            function drawFanartGrid() {
+                var data = state.fanart;
+                var list = data && data.groups[el.fanartCat.value] || [];
+                el.fanartGrid.textContent = '';
+                list.slice(0, state.fanartShown).forEach(function (img) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'discEdFanartCell' + (state.fanartPicked === img.Id ? ' picked' : '');
+                    b.title = 'Picture ' + img.Id;
+                    var pic = document.createElement('img');
+                    pic.alt = '';
+                    pic.loading = 'lazy';
+                    pic.src = ApiClient.getUrl('DiscMenus/Fanart/' + data.itemId + '/' + img.Id);
+                    var cap = document.createElement('span');
+                    cap.textContent = (img.Lang ? img.Lang + ' · ' : '') + '♥ ' + (img.Likes || 0);
+                    b.appendChild(pic);
+                    b.appendChild(cap);
+                    b.addEventListener('click', function () { applyFanart(img); });
+                    el.fanartGrid.appendChild(b);
+                });
+                el.fanartMore.hidden = list.length <= state.fanartShown;
+            }
+
+            function applyFanart(img) {
+                var dim = parseFloat(el.fanartDim.value);
+                dim = isFinite(dim) ? Math.round(Math.min(1, Math.max(0, dim)) * 100) / 100 : 0.5;
+                var before = el.text.value;
+                var after;
+                try {
+                    after = setBackground(before, el.fanartTarget.value, { fanartId: img.Id, dim: dim });
+                } catch (e) {
+                    fanartMessage(e.message);
+                    return;
+                }
+
+                state.fanartPicked = img.Id;
+                applyText(after);
+                var where = el.fanartTarget.value ? 'the "' + el.fanartTarget.value + '" page' : 'every page';
+                fanartMessage('Used picture ' + img.Id + ' for ' + where + '. Save to keep it.', true);
+                drawFanartGrid();
+            }
+
+            function undoFanart() {
+                if (!adapter || !adapter.undo()) {
+                    return;
+                }
+
+                state.fanartPicked = null;
+                fanartMessage('Undone.');
+                drawFanartGrid();
+            }
+
+            el.fanartOpen.addEventListener('click', openFanart);
+            el.fanartClose.addEventListener('click', function () { el.fanart.hidden = true; });
+            el.fanartCat.addEventListener('change', function () { state.fanartShown = FANART_PAGE; drawFanartGrid(); });
+            el.fanartMore.addEventListener('click', function () { state.fanartShown += FANART_PAGE; drawFanartGrid(); });
+
+            // ---- wiring (each visit builds a fresh page, so everything is attached here) ----
+            el.text.addEventListener('input', function () {
+                if (state.errorSource === 'save') {
+                    clearErrors();
+                }
+
+                refreshDirtyStatus();
+                renderOutline();
+                refreshForm();
+                schedulePreview();
+            });
+
+            el.text.addEventListener('keydown', function (e) {
+                if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
+                    e.preventDefault();
+                    var s = el.text.selectionStart;
+                    applyText(el.text.value.slice(0, s) + '  ' + el.text.value.slice(el.text.selectionEnd), s + 2);
+                } else if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                    e.preventDefault();
+                    save();
+                }
+            });
+
+            el.file.addEventListener('change', function () {
+                openFile(el.file.value, false);
+            });
+
+            el.save.addEventListener('click', function () { save(); });
+            el.openFull.addEventListener('click', function () {
+                if (isDirty() && !window.confirm('You have unsaved changes. The full-size window opens the saved version of this menu, so save first if you want them there. Open it anyway?')) {
+                    return;
+                }
+
+                window.open(ApiClient.getUrl('DiscMenus/web/designer.html', state.file ? { file: state.file } : {}), '_blank');
+            });
+            el.arrange.addEventListener('click', function () {
+                state.arrangeOn = !state.arrangeOn;
+                applyArrangeMode();
+            });
+            el.freePlace.addEventListener('click', placeFreely);
+            el.fitGrid.addEventListener('click', fitGrid);
+            el.fitFree.addEventListener('click', function () {
+                var p = state.pagePlacement;
+                if (!p) {
+                    return;
+                }
+
+                var before = el.text.value;
+                if (!fitGrid()) {
+                    return;
+                }
+
+                if (el.text.value === before) {
+                    placeFreely(); // already big enough
+                } else {
+                    state.pendingFree = { menu: p.menu, at: Date.now() }; // place the buttons once the preview shows the bigger grid
+                }
+            });
+            el.gridSettings.addEventListener('click', showGridSettings);
+            // With the text hidden there is no text box to press Ctrl+Z in, so undo is a button and a key on the page. Typing inside a field keeps the
+            // browser's own undo for that field.
+            el.undo.addEventListener('click', function () { if (adapter) { adapter.undo(); } });
+            el.redo.addEventListener('click', function () { if (adapter) { adapter.redo(); } });
+            page.addEventListener('keydown', function (e) {
+                var key = (e.key || '').toLowerCase();
+                if (!adapter || !(e.ctrlKey || e.metaKey) || e.altKey || (key !== 'z' && key !== 'y')) {
+                    return;
+                }
+
+                var t = e.target;
+                var typing = t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && /^(text|number|search|)$/.test(t.type || '')));
+                if (typing) {
+                    return;
+                }
+
+                e.preventDefault();
+                if (key === 'y' || e.shiftKey) {
+                    adapter.redo();
+                } else {
+                    adapter.undo();
+                }
+            });
+            el.toggleText.addEventListener('click', function () { showText(el.textPane.hidden, true); });
+            showText(textWanted(), false);
+            el.newBtn.addEventListener('click', openNewPanel);
+            el.newClose.addEventListener('click', function () { el.newPanel.hidden = true; });
+            el.newQuery.addEventListener('input', function () {
+                clearTimeout(state.titleTimer);
+                state.titleTimer = setTimeout(searchTitles, DELAY);
+            });
+            el.newQuery.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    clearTimeout(state.titleTimer);
+                    searchTitles();
+                }
+            });
+            el.picsClose.addEventListener('click', function () { hidePanels(); });
+            el.picsFile.addEventListener('change', function () {
+                if (el.picsFile.files && el.picsFile.files[0]) {
+                    uploadAsset(el.picsFile.files[0]);
+                }
+            });
+            el.dup.addEventListener('click', duplicateFile);
+            el.del.addEventListener('click', deleteFile);
+            el.backupsBtn.addEventListener('click', openBackups);
+            el.backupClose.addEventListener('click', function () { el.backupPanel.hidden = true; });
+            el.reload.addEventListener('click', function () {
+                if (state.file && discardOk()) {
+                    openFile(state.file, true);
+                }
+            });
+
+            el.loadTheirs.addEventListener('click', function () { openFile(state.file, true); });
+            el.overwrite.addEventListener('click', function () {
+                if (state.serverVersion) {
+                    doSave(state.serverVersion);
+                }
+            });
+
+            el.menu.addEventListener('change', function () {
+                var win = el.frame.contentWindow;
+                if (win && win.DiscMenusPreview) {
+                    win.DiscMenusPreview.goTo(el.menu.value);
+                }
+            });
+
+            el.mute.addEventListener('click', function () {
+                state.muted = !state.muted;
+                el.mute.querySelector('span').textContent = state.muted ? 'Sound off' : 'Sound on';
+                var win = el.frame.contentWindow;
+                if (win && win.DiscMenusPreview) {
+                    win.DiscMenusPreview.setMuted(state.muted);
+                }
+            });
+
+            el.frame.addEventListener('load', function () {
+                fitStage();
+                pushToFrame();
+            });
+
+            // These live on window, which outlives the page: replace the previous visit's handlers.
+            if (window.__discMenusEditorMsg) {
+                window.removeEventListener('message', window.__discMenusEditorMsg);
+            }
+
+            window.__discMenusEditorMsg = onFrameMessage;
+            window.addEventListener('message', onFrameMessage);
+            if (window.__discMenusEditorFit) {
+                window.removeEventListener('resize', window.__discMenusEditorFit);
+            }
+
+            window.__discMenusEditorFit = fitStage;
+            window.addEventListener('resize', fitStage);
+            if (typeof ResizeObserver === 'function') {
+                new ResizeObserver(fitStage).observe(el.stage);
+            }
+
+            updateFileButtons();
+            page.addEventListener('pageshow', function () {
+                if (!el.frame.getAttribute('src')) {
+                    el.frame.src = ApiClient.getUrl('DiscMenus/web/preview.html');
+                }
+
+                fitStage();
+                loadModules().then(function () {
+                    adapter = window.DiscMenusTextAdapter.create(el.text);
+                    loadFiles(true);
+                }, function (err) {
+                    setStatus(err.message, 'error');
+                });
+            });
+        })();
+        </script>
+    </div>
+</body>
+</html>

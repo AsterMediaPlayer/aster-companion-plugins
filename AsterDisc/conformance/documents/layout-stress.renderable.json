@@ -1,0 +1,201 @@
+{
+  "MenuId": "00000000000000000000000000000001",
+  "Root": "main",
+  "Layout": {
+    "ButtonStyle": "arrow",
+    "HideTitle": false,
+    "Layers": [
+      {
+        "Type": "panel",
+        "Position": {
+          "X": 50,
+          "Y": 92,
+          "W": 90,
+          "H": 12,
+          "Anchor": "center"
+        },
+        "Fill": "#000000",
+        "Opacity": 0.5
+      }
+    ]
+  },
+  "Menus": {
+    "main": {
+      "Title": "Main",
+      "Layout": {
+        "TitlePosition": {
+          "X": 50,
+          "Y": 10,
+          "Anchor": "top"
+        },
+        "HideTitle": null
+      },
+      "Entries": [
+        {
+          "Action": "playFeature",
+          "Label": "Play",
+          "Position": {
+            "X": 30,
+            "Y": 80,
+            "Anchor": "bottom"
+          }
+        },
+        {
+          "Action": "submenu",
+          "Label": "Extras",
+          "Menu": "extras",
+          "Position": {
+            "X": 70,
+            "Y": 80,
+            "Anchor": "bottom"
+          }
+        }
+      ]
+    },
+    "extras": {
+      "Title": "Extras",
+      "Layout": {
+        "ButtonStyle": "glow",
+        "Flow": {
+          "Region": {
+            "X": 50,
+            "Y": 60,
+            "W": 80,
+            "H": 40,
+            "Anchor": "center"
+          },
+          "Columns": 4,
+          "Rows": 2,
+          "MoreLabel": "More..."
+        }
+      },
+      "Entries": [
+        {
+          "Action": "playExtra",
+          "Label": "Extra 1"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Extra 2"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Extra 3"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Extra 4"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Extra 5"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Extra 6"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Extra 7"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Extra 8"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Extra 9"
+        },
+        {
+          "Action": "home",
+          "Label": "Home"
+        },
+        {
+          "Action": "back",
+          "Label": "Back"
+        }
+      ]
+    },
+    "short": {
+      "Title": "Short",
+      "Layout": {
+        "Flow": {
+          "Region": {
+            "X": 50,
+            "Y": 50,
+            "W": 60,
+            "H": 30,
+            "Anchor": "center"
+          },
+          "Columns": 5,
+          "Rows": 1,
+          "PreviousLabel": "Back a page"
+        }
+      },
+      "Entries": [
+        {
+          "Action": "playExtra",
+          "Label": "One"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Two"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Three"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Four"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "Five"
+        },
+        {
+          "Action": "back",
+          "Label": "Back"
+        }
+      ]
+    },
+    "picture": {
+      "Title": "Picture",
+      "Layout": {
+        "Flow": {
+          "Region": {
+            "X": 50,
+            "Y": 50,
+            "W": 90,
+            "H": 60,
+            "Anchor": "center"
+          },
+          "Columns": 3,
+          "Rows": 2
+        }
+      },
+      "MaxPerPage": 2,
+      "Entries": [
+        {
+          "Action": "playExtra",
+          "Label": "A",
+          "Image": "asset:x/a.webp"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "B"
+        },
+        {
+          "Action": "playExtra",
+          "Label": "C",
+          "Image": "asset:x/c.webp"
+        },
+        {
+          "Action": "back",
+          "Label": "Back",
+          "Image": "asset:x/back.webp"
+        }
+      ]
+    }
+  }
+}

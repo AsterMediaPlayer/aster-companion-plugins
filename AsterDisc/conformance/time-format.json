@@ -1,0 +1,20 @@
+{
+  "conformanceVersion": 1,
+  "description": "Chapter times shown on scene-selection thumbnails. \"ticks\" are Jellyfin 100-nanosecond ticks; the text is h:mm:ss from one hour, otherwise m:ss (minutes not padded).",
+  "cases": [
+    {"ticks":0,"text":"0:00"},
+    {"ticks":1,"text":"0:00"},
+    {"ticks":9999999,"text":"0:00"},
+    {"ticks":10000000,"text":"0:01"},
+    {"ticks":50000000,"text":"0:05"},
+    {"ticks":590000000,"text":"0:59"},
+    {"ticks":600000000,"text":"1:00"},
+    {"ticks":3000000000,"text":"5:00"},
+    {"ticks":36000000000,"text":"1:00:00"},
+    {"ticks":36010000000,"text":"1:00:01"},
+    {"ticks":37290000000,"text":"1:02:09"},
+    {"ticks":359999999999,"text":"9:59:59"},
+    {"ticks":360000000000,"text":"10:00:00"},
+    {"ticks":4500000000000,"text":"125:00:00"}
+  ]
+}

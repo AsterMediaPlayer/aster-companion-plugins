@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <title>Menu Catalogue</title>
+</head>
+<body>
+    <div id="DiscMenusCataloguePage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-button,emby-checkbox,emby-input">
+        <div data-role="content">
+            <div class="content-primary">
+                <style>
+                    .discCatBar { display: flex; flex-wrap: wrap; gap: 1em; align-items: center; margin: 1em 0; }
+                    .discCatBar .grow { flex: 1 1 14em; min-width: 10em; }
+                    .discCatStatus { opacity: 0.85; margin: 0.5em 0; }
+                    .discCatStatus.error { color: #e55; opacity: 1; }
+                    .discCatStatus.ok { color: #5c5; opacity: 1; }
+                    .discCatList { display: grid; gap: 0.9em; grid-template-columns: repeat(auto-fill, minmax(22em, 1fr)); margin-top: 1em; }
+                    .discCatCard { border: 1px solid rgba(128, 128, 128, 0.45); border-radius: 6px; padding: 0.9em 1em; background: rgba(128, 128, 128, 0.08); }
+                    .discCatCard h3 { margin: 0 0 0.25em; }
+                    .discCatCard .year { opacity: 0.7; font-weight: normal; }
+                    .discCatPill { display: inline-block; font-size: 0.8em; border: 1px solid rgba(128, 128, 128, 0.6); border-radius: 999px; padding: 0 0.7em; margin: 0 0.3em 0.3em 0; opacity: 0.9; }
+                    .discCatPill.art { border-color: #e90; }
+                    .discCatMatch { margin: 0.4em 0; }
+                    .discCatMatch.yes { color: #5c5; }
+                    .discCatWarn { margin: 0.4em 0; color: #e90; }
+                    .discCatActions { display: flex; flex-wrap: wrap; gap: 0.6em; align-items: center; margin-top: 0.6em; }
+                    .discCatMsg { font-size: 0.9em; margin-top: 0.4em; }
+                    .discCatMsg.error { color: #e55; }
+                    .discCatMsg.ok { color: #5c5; }
+                </style>
+                <div class="sectionTitleContainer flex align-items-center">
+                    <h2 class="sectionTitle">Menu Catalogue</h2>
+                </div>
+                <p class="fieldDescription">
+                    Menus shared by the community, as small public-domain JSON files. The catalogue's list is downloaded by your browser and
+                    matched against this server's library here: nothing about your library is sent anywhere. Each menu is checked against the
+                    fingerprint the catalogue published before it is installed. Installed menus live in the <code>catalogue</code> folder of your
+                    menus folder. <a id="discCatSite" href="https://peppy6582.github.io/jellydisc-menus/" target="_blank" rel="noopener noreferrer">Open the catalogue website</a>.
+                </p>
+                <div class="discCatBar">
+                    <div class="grow">
+                        <div class="inputContainer"><input id="discCatSearch" is="emby-input" type="search" label="Search" /></div>
+                    </div>
+                    <label class="emby-checkbox-label">
+                        <input id="discCatOnlyMine" is="emby-checkbox" type="checkbox" checked />
+                        <span>Only titles in my library</span>
+                    </label>
+                    <button id="discCatReload" is="emby-button" type="button" class="raised"><span>Reload</span></button>
+                </div>
+                <div id="discCatStatus" class="discCatStatus" aria-live="polite"></div>
+                <div id="discCatList" class="discCatList"></div>
+            </div>
+        </div>
+        <script type="text/javascript">
+        (function () {
+            var page = document.querySelector('#DiscMenusCataloguePage');
+            // The only place menus are ever downloaded from. The index's own baseUrl is deliberately ignored: a
+            // tampered index must not be able to point a download anywhere else.
+            var CATALOGUE = 'https://peppy6582.github.io/jellydisc-menus/';
+            var INDEX_URL = CATALOGUE + 'v1/index.json';
+            var MAX_MENU_BYTES = 128 * 1024;
+            var MENU_URL = /^v1\/menus\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[1-9][0-9]{0,5}\.menu\.json$/;
+            var ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+            var SHA = /^[0-9a-f]{64}$/;
+            var VERSION = /^\d+\.\d+\.\d+$/;
+
+            function $(id) {
+                return page.querySelector('#' + id);
+            }
+
+            var el = {
+                list: $('discCatList'), status: $('discCatStatus'), search: $('discCatSearch'),
+                onlyMine: $('discCatOnlyMine'), reload: $('discCatReload')
+            };
+
+            var state = { entries: [], withdrawn: [], matches: {}, installed: {}, pluginVersion: '0.0.0', loaded: false, seq: 0 };
+
+            function setStatus(text, kind) {
+                el.status.textContent = text || '';
+                el.status.className = 'discCatStatus' + (kind ? ' ' + kind : '');
+            }
+
+            // Same result shape for every call to this server: {ok, status, data}.
+            function callApi(method, path, query, body) {
+                var request = { type: method, url: ApiClient.getUrl(path, query || {}), dataType: 'json' };
+                if (body !== undefined) {
+                    request.data = body;
+                    request.contentType = 'text/plain';
+                }
+
+                return ApiClient.ajax(request).then(function (data) {
+                    return { ok: true, status: 200, data: data };
+                }, function (res) {
+                    if (res && typeof res.json === 'function') {
+                        return res.json().then(function (data) {
+                            return { ok: false, status: res.status, data: data };
+                        }, function () {
+                            return { ok: false, status: res.status, data: null };
+                        });
+                    }
+
+                    return { ok: false, status: 0, data: null };
+                });
+            }
+
+            function versionGreater(a, b) {
+                var x = a.split('.').map(Number), y = b.split('.').map(Number);
+                for (var i = 0; i < 3; i++) {
+                    if (x[i] !== y[i]) {
+                        return x[i] > y[i];
+                    }
+                }
+
+                return false;
+            }
+
+            // Keeps only what this page will use, and only if it has exactly the expected shape. The index is
+            // somebody else's data: nothing from it is trusted, and everything shown is set as text.
+            function cleanEntry(e) {
+                if (!e || typeof e !== 'object' || typeof e.menuId !== 'string' || !ID.test(e.menuId)
+                    || typeof e.url !== 'string' || !MENU_URL.test(e.url)
+                    || typeof e.sha256 !== 'string' || !SHA.test(e.sha256)
+                    || !Number.isInteger(e.revision) || e.revision < 1
+                    || !Number.isInteger(e.size) || e.size < 1 || e.size > MAX_MENU_BYTES
+                    || typeof e.title !== 'string' || !e.match || typeof e.match !== 'object'
+                    || (e.match.itemType !== 'Movie' && e.match.itemType !== 'Series' && e.match.itemType !== 'Season')
+                    || !e.match.providerIds || typeof e.match.providerIds !== 'object') {
+                    return null;
+                }
+
+                var ids = {};
+                Object.keys(e.match.providerIds).forEach(function (k) {
+                    if (typeof e.match.providerIds[k] === 'string') {
+                        ids[k] = e.match.providerIds[k];
+                    }
+                });
+                return {
+                    menuId: e.menuId, url: e.url, sha256: e.sha256, revision: e.revision, size: e.size,
+                    title: e.title.slice(0, 200),
+                    year: Number.isInteger(e.year) ? e.year : null,
+                    description: typeof e.description === 'string' ? e.description.slice(0, 400) : '',
+                    tags: Array.isArray(e.tags) ? e.tags.filter(function (t) { return typeof t === 'string'; }).slice(0, 8) : [],
+                    demo: e.demo === true,
+                    extras: Number.isInteger(e.extras) && e.extras >= 0 ? e.extras : null, // how many extras the menu lists, if the index says
+                    needsLocalArt: Array.isArray(e.needsLocalArt) ? e.needsLocalArt.filter(function (t) { return typeof t === 'string'; }) : [],
+                    minPluginVersion: typeof e.minPluginVersion === 'string' && VERSION.test(e.minPluginVersion) ? e.minPluginVersion : '0.0.0',
+                    match: { itemType: e.match.itemType, providerIds: ids }
+                };
+            }
+
+            function loadIndex() {
+                return fetch(INDEX_URL, { credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-cache' }).then(function (r) {
+                    if (!r.ok) {
+                        throw new Error('The catalogue answered ' + r.status + '.');
+                    }
+
+                    return r.json();
+                }).then(function (index) {
+                    if (!index || index.format !== 'jellydisc-catalogue' || index.formatVersion !== 1 || !Array.isArray(index.entries)) {
+                        throw new Error('The catalogue is in a format this plugin version does not understand.');
+                    }
+
+                    var withdrawn = Array.isArray(index.withdrawn) ? index.withdrawn.filter(function (w) {
+                        return w && typeof w.menuId === 'string' && ID.test(w.menuId) && typeof w.reason === 'string';
+                    }) : [];
+                    return { entries: index.entries.map(cleanEntry).filter(Boolean), withdrawn: withdrawn };
+                });
+            }
+
+            function loadInstalled() {
+                return callApi('GET', 'DiscMenus/Catalogue/Installed').then(function (r) {
+                    if (!r.ok) {
+                        throw new Error('Could not read what is installed.');
+                    }
+
+                    var map = {};
+                    (r.data.Installed || []).forEach(function (i) {
+                        map[String(i.MenuId).toLowerCase()] = i;
+                    });
+                    state.installed = map;
+                    state.pluginVersion = typeof r.data.PluginVersion === 'string' && VERSION.test(r.data.PluginVersion) ? r.data.PluginVersion : '0.0.0';
+                });
+            }
+
+            function loadMatches(entries) {
+                var body = JSON.stringify(entries.map(function (e) { return { menuId: e.menuId, match: e.match }; }));
+                return callApi('POST', 'DiscMenus/Catalogue/Match', null, body).then(function (r) {
+                    if (!r.ok) {
+                        throw new Error('Could not match the catalogue against the library.');
+                    }
+
+                    var map = {};
+                    (r.data || []).forEach(function (m) {
+                        map[String(m.MenuId).toLowerCase()] = m;
+                    });
+                    state.matches = map;
+                });
+            }
+
+            function load() {
+                var mine = ++state.seq;
+                setStatus('Loading the catalogue…');
+                return loadIndex().then(function (idx) {
+                    if (mine !== state.seq) {
+                        return;
+                    }
+
+                    state.entries = idx.entries;
+                    state.withdrawn = idx.withdrawn;
+                    return Promise.all([loadInstalled(), loadMatches(idx.entries)]).then(function () {
+                        if (mine !== state.seq) {
+                            return;
+                        }
+
+                        state.loaded = true;
+                        setStatus('');
+                        render();
+                    });
+                }).catch(function (err) {
+                    if (mine === state.seq) {
+                        setStatus((err && err.message) || 'The catalogue could not be loaded.', 'error');
+                    }
+                });
+            }
+
+            function text(tag, className, value) {
+                var node = document.createElement(tag);
+                if (className) {
+                    node.className = className;
+                }
+
+                node.textContent = value;
+                return node;
+            }
+
+            function describeMatch(match) {
+                if (!match || match.State === 'none') {
+                    return { yes: false, text: 'Not in your library.' };
+                }
+
+                var names = (match.Titles || []).map(function (t) {
+                    return String(t.Name) + (t.Year ? ' (' + t.Year + ')' : '');
+                });
+                return match.State === 'ambiguous'
+                    ? { yes: true, text: 'Several titles in your library fit: ' + names.join(', ') + '. You choose on the Disc Menus page.' }
+                    : { yes: true, text: 'In your library: ' + names.join(', ') + '.' };
+            }
+
+            // True when the menu is for a title in this library, the menu may list special features, and no matched title has any.
+            function lacksExtras(e) {
+                var match = state.matches[e.menuId];
+                if (!match || !match.Titles || match.Titles.length === 0 || e.extras === 0) {
+                    return false;
+                }
+
+                return match.Titles.every(function (t) { return t.Extras === 0; });
+            }
+
+            function render() {
+                var query = el.search.value.trim().toLowerCase();
+                var onlyMine = el.onlyMine.checked;
+                var shown = state.entries.filter(function (e) {
+                    var match = state.matches[e.menuId];
+                    var inLibrary = !!match && match.State !== 'none';
+                    var installed = !!state.installed[e.menuId];
+                    if (onlyMine && !inLibrary && !installed) {
+                        return false;
+                    }
+
+                    return !query || (e.title + ' ' + e.tags.join(' ')).toLowerCase().indexOf(query) >= 0;
+                }).sort(function (a, b) {
+                    var am = state.matches[a.menuId] && state.matches[a.menuId].State !== 'none' ? 0 : 1;
+                    var bm = state.matches[b.menuId] && state.matches[b.menuId].State !== 'none' ? 0 : 1;
+                    return am - bm || a.title.localeCompare(b.title);
+                });
+
+                el.list.textContent = '';
+                state.withdrawn.forEach(function (w) {
+                    var inst = state.installed[w.menuId];
+                    if (inst) {
+                        var card = text('div', 'discCatCard', '');
+                        card.appendChild(text('h3', '', 'A menu you installed was withdrawn'));
+                        card.appendChild(text('div', 'discCatMsg error', w.reason + ' You can keep it or uninstall it.'));
+                        card.appendChild(actions({ menuId: w.menuId, title: 'this menu' }, inst, null));
+                        el.list.appendChild(card);
+                    }
+                });
+                shown.forEach(function (e) {
+                    el.list.appendChild(card(e));
+                });
+                if (shown.length === 0 && state.loaded) {
+                    setStatus(onlyMine
+                        ? 'No catalogue menus match titles in your library yet. Untick "Only titles in my library" to see everything.'
+                        : 'Nothing matches that search.');
+                } else if (state.loaded) {
+                    setStatus('');
+                }
+            }
+
+            function card(e) {
+                var node = text('div', 'discCatCard', '');
+                node.dataset.menuId = e.menuId;
+                var h = text('h3', '', e.title);
+                if (e.year) {
+                    h.appendChild(text('span', 'year', ' (' + e.year + ')'));
+                }
+
+                node.appendChild(h);
+                if (e.description) {
+                    node.appendChild(text('div', 'fieldDescription', e.description));
+                }
+
+                var pills = text('div', '', '');
+                pills.appendChild(text('span', 'discCatPill', e.match.itemType === 'Movie' ? 'Movie' : 'Series'));
+                if (e.demo) {
+                    pills.appendChild(text('span', 'discCatPill', 'demonstration'));
+                }
+
+                if (e.needsLocalArt.length) {
+                    pills.appendChild(text('span', 'discCatPill art', 'bring your own art'));
+                }
+
+                e.tags.forEach(function (t) {
+                    pills.appendChild(text('span', 'discCatPill', t));
+                });
+                node.appendChild(pills);
+
+                var m = describeMatch(state.matches[e.menuId]);
+                node.appendChild(text('div', 'discCatMatch' + (m.yes ? ' yes' : ''), m.text));
+                if (lacksExtras(e)) {
+                    node.appendChild(text('div', 'discCatWarn', 'No special features were found for this title in your library, so the menu\'s extras would have nothing to play. Add them as Jellyfin extras (a "featurettes" or "extras" folder beside the movie) and rescan.'));
+                }
+
+                if (e.needsLocalArt.length) {
+                    node.appendChild(text('div', 'fieldDescription', 'Needs these art files in assets/' + e.menuId + '/ on this server (not hosted by the catalogue): ' + e.needsLocalArt.join(', ')));
+                }
+
+                node.appendChild(actions(e, state.installed[e.menuId], e));
+                return node;
+            }
+
+            function actions(e, inst, entry) {
+                var row = text('div', 'discCatActions', '');
+                var msg = text('div', 'discCatMsg', '');
+                function say(t, kind) {
+                    msg.textContent = t;
+                    msg.className = 'discCatMsg' + (kind ? ' ' + kind : '');
+                }
+
+                function button(label, handler) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'raised';
+                    b.setAttribute('is', 'emby-button');
+                    b.appendChild(text('span', '', label));
+                    b.addEventListener('click', function () {
+                        b.disabled = true;
+                        handler(function () { b.disabled = false; });
+                    });
+                    return b;
+                }
+
+                if (entry) {
+                    if (versionGreater(entry.minPluginVersion, state.pluginVersion)) {
+                        row.appendChild(text('span', 'fieldDescription', 'Needs Disc Menus ' + entry.minPluginVersion + ' or later (this is ' + state.pluginVersion + ').'));
+                    } else if (!inst) {
+                        row.appendChild(button('Install', function (done) { install(entry, say, done); }));
+                    } else if (inst.EditedLocally) {
+                        row.appendChild(text('span', 'fieldDescription', 'Installed (revision ' + inst.Revision + '), edited on this server: updates will not overwrite it.'));
+                    } else if (inst.Revision < entry.revision) {
+                        row.appendChild(button('Update to revision ' + entry.revision, function (done) { install(entry, say, done); }));
+                    } else {
+                        row.appendChild(text('span', 'fieldDescription', 'Installed (revision ' + inst.Revision + ').'));
+                    }
+                }
+
+                if (inst) {
+                    row.appendChild(button('Uninstall', function (done) {
+                        if (!window.confirm('Uninstall "' + e.title + '"? A backup of the file is kept.')) {
+                            done();
+                            return;
+                        }
+
+                        callApi('DELETE', 'DiscMenus/Catalogue/' + encodeURIComponent(e.menuId)).then(function (r) {
+                            if (r.ok) {
+                                return refreshAfter(e.menuId, 'Uninstalled.');
+                            }
+
+                            done();
+                            say((r.data && r.data.Error) || 'Could not uninstall.', 'error');
+                        });
+                    }));
+                }
+
+                var wrap = text('div', '', '');
+                wrap.appendChild(row);
+                wrap.appendChild(msg);
+                return wrap;
+            }
+
+            function refreshAfter(menuId, message) {
+                return loadInstalled().then(function () {
+                    render();
+                    var card = el.list.querySelector('[data-menu-id="' + menuId + '"] .discCatMsg');
+                    if (card) {
+                        card.textContent = message;
+                        card.className = 'discCatMsg ok';
+                    }
+                });
+            }
+
+            // The browser fetches the file; the server checks it against the index's fingerprint and the menu rules.
+            function install(entry, say, done) {
+                say('Downloading…');
+                fetch(CATALOGUE + entry.url, { credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-cache' }).then(function (r) {
+                    if (!r.ok) {
+                        throw new Error('The catalogue answered ' + r.status + ' for this menu.');
+                    }
+
+                    return r.text();
+                }).then(function (body) {
+                    if (new TextEncoder().encode(body).length !== entry.size) {
+                        throw new Error('The downloaded file is not the size the catalogue listed, so it was not installed.');
+                    }
+
+                    return callApi('POST', 'DiscMenus/Catalogue/Install', { sha256: entry.sha256 }, body);
+                }).then(function (r) {
+                    if (r.ok) {
+                        var action = r.data && r.data.Action;
+                        var note = action === 'upgraded' ? 'Updated.' : action === 'unchanged' ? 'Already up to date.'
+                            : 'Installed. It appears on the title\'s page now.';
+                        return refreshAfter(entry.menuId, note + (lacksExtras(entry) ? ' Note: this title has no special features in your library yet.' : ''));
+                    }
+
+                    done();
+                    var errors = r.data && r.data.Errors;
+                    say(errors && errors.length ? errors.map(function (x) { return x.Message; }).join(' ')
+                        : (r.data && r.data.Error) || 'The menu could not be installed.', 'error');
+                }).catch(function (err) {
+                    done();
+                    say((err && err.message) || 'The menu could not be downloaded.', 'error');
+                });
+            }
+
+            el.search.addEventListener('input', function () { if (state.loaded) { render(); } });
+            el.onlyMine.addEventListener('change', function () { if (state.loaded) { render(); } });
+            el.reload.addEventListener('click', load);
+            page.addEventListener('pageshow', load);
+        })();
+        </script>
+    </div>
+</body>
+</html>

@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Disc Menu preview</title>
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}</style>
+</head>
+<body>
+<script>
+// Preview mode: the renderer waits for the editor to hand it a menu instead of watching the page,
+// and never starts playback. It runs in the editor's own origin, so it shares the editor's ApiClient
+// (for asset and image URLs and the signed-in token).
+window.__discMenusPreview = true;
+try { window.ApiClient = window.parent.ApiClient; } catch (e) { /* not embedded */ }
+</script>
+<script src="/DiscMenus/web/discmenus.js?v=@@VERSION@@"></script>
+</body>
+</html>

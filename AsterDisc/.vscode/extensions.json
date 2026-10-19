@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "ms-dotnettools.csdevkit",
+    "ms-dotnettools.csharp",
+    "ms-python.python",
+    "ms-azuretools.vscode-docker",
+    "redhat.vscode-yaml"
+  ]
+}
