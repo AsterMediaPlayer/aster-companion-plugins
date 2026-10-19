@@ -1,6 +1,6 @@
-name: "Aster OP/ED"
+name: "Aster OP-ED"
 guid: "d459e0a2-e073-4e1e-b0ec-71883075cf4a"
-version: "0.3.0.0"
+version: "0.3.1.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -16,6 +16,7 @@ category: "Metadata"
 artifacts:
   - "Jellyfin.Plugin.AsterOpEd.dll"
 changelog: |
+  - 0.3.1.0: Named Aster OP-ED in the plugin catalogue: Jellyfin names a plugin's folder after it, and refused "Aster OP/ED" (a folder name can't hold a slash), so 0.3.0.0 couldn't be installed from the repository. Nothing else changes.
   - 0.3.0.0: OP/ED is now Aster OP/ED, one of the Aster companion plugins, installed from github.com/peppy6582/aster-companion-plugins. It updates in place: on first start it moves its settings and data (the theme index, playable copies, caches and published libraries' record) across from the old name. Nothing else changes; its API paths stay the same.
   - 0.2.0.0: Publishes your themes as two Jellyfin libraries, kept up to date after every scan: a Music Videos library of the theme videos (links to the playable copies, with song, artists, show, season and episodes, a picture from the video, and Spoiler/NSFW tags; NSFW gets an adult rating for parental controls) and a Music library of their songs, an album per show with the show's art. Playlists, favourites and watched state then work as for anything else in Jellyfin. Turn it on and create both libraries from the Setup tab. For clients: themes now give their library items' ids, GET /OpEd/Library gives the libraries' ids, and GET /OpEd/LibraryItems/{id}/Theme gives the theme behind a library item.
   - 0.1.4.0: A tidier settings page: Setup, Review and Library tabs. Clips are grouped by show, with Approve all and Reject all, keyboard shortcuts and previews on request. The library list can be searched and filtered, and a bar stays at the bottom while approved clips wait to be added to the library. New Rescan files button per show: replace a theme file, press it, and the plugin picks it up, makes it playable in the themes folder and moves the original to an _originals folder.

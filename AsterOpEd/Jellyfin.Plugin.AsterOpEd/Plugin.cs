@@ -17,7 +17,8 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
     public static Plugin? Instance { get; private set; }
 
-    public override string Name => "Aster OP/ED";
+    // Jellyfin names the plugin's install folder after this: no slash.
+    public override string Name => "Aster OP-ED";
 
     /// <summary>
     /// Must match build.yaml's guid. Jellyfin rewrites meta.json from the loaded assembly on every start, so without

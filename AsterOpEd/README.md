@@ -20,7 +20,7 @@ Requires Jellyfin 12.
    ```
    https://raw.githubusercontent.com/AsterMediaPlayer/aster-companion-plugins/main/manifest.json
    ```
-2. Catalog → Metadata → Aster OP/ED → Install.
+2. Catalog → Metadata → Aster OP-ED → Install.
 3. Restart Jellyfin.
 
 **By hand**

@@ -7,7 +7,7 @@ plugin repository:
 |---|---|
 | [**Aster Channels**](AsterChannels/README.md) | A Channels page in the dashboard for Aster's TV channels: make and edit them, drag to renumber. |
 | [**Aster Disc**](AsterDisc/README.md) | Shareable disc menus for special features, with a menu editor and a community catalogue. (Formerly Disc Menus.) |
-| [**Aster OP/ED**](AsterOpEd/README.md) | Anime openings and endings matched to your shows, with song details, playable copies for every client, and Jellyfin libraries of them. (Formerly OP/ED.) |
+| [**Aster OP-ED**](AsterOpEd/README.md) | Anime openings and endings matched to your shows, with song details, playable copies for every client, and Jellyfin libraries of them. (Formerly OP/ED.) |
 
 ## Install
 

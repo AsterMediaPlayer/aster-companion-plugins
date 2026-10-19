@@ -93,7 +93,7 @@
     },
     {
         "guid": "d459e0a2-e073-4e1e-b0ec-71883075cf4a",
-        "name": "Aster OP/ED",
+        "name": "Aster OP-ED",
         "description": "Put opening and ending theme files (video, audio or both) in a folder, one folder per show. The plugin matches them to your shows and seasons, adds song title, artists and episode ranges from AnimeThemes.moe, and serves them to clients through an authenticated API. Missing a theme? It can cut one out of your own episodes from their chapter markers, for you to review. Developed primarily with an AI coding assistant (Claude Code); see the README.\n",
         "overview": "Anime openings and endings for your shows, matched from a folder you fill.",
         "owner": "AsterMediaPlayer",
