@@ -3,7 +3,7 @@
 const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
 const fs=require('fs');
-let src=fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.DiscMenus/Web/discmenus.js'),'utf8');
+let src=fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.AsterDisc/Web/discmenus.js'),'utf8');
 const mk=(name,cx,cy,w=160,h=40)=>({name,focus(){active=this},getBoundingClientRect:()=>({left:cx-w/2,top:cy-h/2,width:w,height:h,right:cx+w/2,bottom:cy+h/2}),classList:{contains:()=>true}});
 let active=null,els;
 global.window={addEventListener(){},location:{hash:''}};

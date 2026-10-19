@@ -7,7 +7,7 @@ const { JSDOM } = require('jsdom');
 const ROOT = path.resolve(__dirname, '..', '..');
 const adapter = require(path.join(ROOT, 'tools/preview/menu-to-renderable.js'));
 const { toRenderable, fakeExtras } = adapter;
-const rendererSource = fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.DiscMenus/Web/discmenus.js'), 'utf8');
+const rendererSource = fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.AsterDisc/Web/discmenus.js'), 'utf8');
 
 let fail = 0;
 const check = (ok, msg, extra) => { if (!ok) fail++; console.log(ok ? 'PASS' : 'FAIL', msg, extra === undefined ? '' : extra); };

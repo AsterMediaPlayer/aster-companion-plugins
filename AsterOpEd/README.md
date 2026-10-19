@@ -26,7 +26,7 @@ Requires Jellyfin 12.
 **By hand**
 
 1. Download `jellyfin-oped_<version>.zip` from the [releases](https://github.com/peppy6582/jellyfin-oped/releases).
-2. Unzip `Jellyfin.Plugin.OpEd.dll` into a new `OpEd_<version>` folder under Jellyfin's `data/plugins/`.
+2. Unzip `Jellyfin.Plugin.AsterOpEd.dll` into a new `OpEd_<version>` folder under Jellyfin's `data/plugins/`.
 3. Restart Jellyfin.
 
 Either way, finish in Dashboard → OP/ED by choosing your themes folder.
@@ -281,7 +281,7 @@ The folder must be outside the themes folder and every other library; the plugin
 docker compose --profile tools run --rm build
 ```
 
-Output: `Jellyfin.Plugin.OpEd.dll`. Copy only that DLL into a plugin folder such as `plugins/OpEd_0.1.0.0/` and
+Output: `Jellyfin.Plugin.AsterOpEd.dll`. Copy only that DLL into a plugin folder such as `plugins/OpEd_0.1.0.0/` and
 restart Jellyfin.
 
 ## Development note
@@ -293,7 +293,7 @@ License: GPL-3.0.
 
 ## Releasing
 
-Bump `version` in `Jellyfin.Plugin.OpEd/build.yaml` and the csproj, commit, then push a matching tag (`git tag v0.1.0.0 && git push origin v0.1.0.0`).
+Bump `version` in `Jellyfin.Plugin.AsterOpEd/build.yaml` and the csproj, commit, then push a matching tag (`git tag v0.1.0.0 && git push origin v0.1.0.0`).
 `.github/workflows/release.yml` builds the plugin, creates the GitHub release with `jellyfin-oped_<version>.zip`, and
 records the version and the zip's MD5 in `manifest.json` on main.
 

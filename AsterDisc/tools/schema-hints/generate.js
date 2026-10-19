@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Builds Jellyfin.Plugin.DiscMenus/Web/editor/schema-hints.js: what the Menu Editor's forms need to know about each part of a menu (its
+// Builds Jellyfin.Plugin.AsterDisc/Web/editor/schema-hints.js: what the Menu Editor's forms need to know about each part of a menu (its
 // fields, their types, allowed values and limits), read from schema/menu.schema.json so a change to the schema reaches the forms, plus the
 // few things a schema can't say (labels, defaults, which field applies to which background source...) from tools/schema-hints/overrides.json.
 //
@@ -14,7 +14,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
 const SCHEMA = JSON.parse(fs.readFileSync(path.join(ROOT, 'schema/menu.schema.json'), 'utf8'));
 const OVERRIDES = JSON.parse(fs.readFileSync(path.join(__dirname, 'overrides.json'), 'utf8'));
-const OUT = path.join(ROOT, 'Jellyfin.Plugin.DiscMenus/Web/editor/schema-hints.js');
+const OUT = path.join(ROOT, 'Jellyfin.Plugin.AsterDisc/Web/editor/schema-hints.js');
 
 // $defs that are small value types, not parts of a menu: a field using one records it as `format`.
 const FORMATS = ['color', 'label', 'key', 'imageRef', 'audioRef', 'percent', 'volume'];

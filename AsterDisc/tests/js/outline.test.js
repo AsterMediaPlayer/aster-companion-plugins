@@ -1,6 +1,6 @@
 // The outline module: the parts list built from menu text, problems attached to parts, and finding the text of a part.
 const fs = require('fs'); const path = require('path');
-const O = require('../../Jellyfin.Plugin.DiscMenus/Web/editor/outline.js');
+const O = require('../../Jellyfin.Plugin.AsterDisc/Web/editor/outline.js');
 let fail = 0; const check = (ok, m, e) => { if (!ok) fail++; console.log(ok ? 'PASS' : 'FAIL', m, e === undefined ? '' : e); };
 const ROOT = path.resolve(__dirname, '..', '..');
 const TEXT = `{

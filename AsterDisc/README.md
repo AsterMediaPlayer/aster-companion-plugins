@@ -118,7 +118,7 @@ with that in mind:
   ids already filled in (404 if the title has none), plus the title's chapters, trailers and theme songs
   where the menu uses them. Playing an extra is playing an ordinary Jellyfin item. Assets are served by
   `GET /DiscMenus/Assets/...`. Any signed-in user can call the menu endpoint.
-- **A working reference.** [`Web/discmenus.js`](Jellyfin.Plugin.DiscMenus/Web/discmenus.js) is a complete
+- **A working reference.** [`Web/discmenus.js`](Jellyfin.Plugin.AsterDisc/Web/discmenus.js) is a complete
   implementation (layout, paging, navigation, scene selection, audio, transitions), and the suites in
   [`tests/js/`](tests/js) pin down the behaviour precisely, so they double as test vectors.
 - **A client implementer's guide and a conformance suite.** [`docs/CLIENT_GUIDE.md`](docs/CLIENT_GUIDE.md) describes the document, the

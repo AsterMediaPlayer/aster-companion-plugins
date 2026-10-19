@@ -10,7 +10,7 @@ sys.path.insert(0, HERE)
 import check_release as cr  # noqa: E402
 
 GUID = "913b9d44-cafe-4fe7-ae0b-f1362dc12cc7"
-BUILD = f'''name: "Disc Menus"
+BUILD = f'''name: "Aster Disc"
 guid: "{GUID}"
 version: "0.2.1.0"
 changelog: >

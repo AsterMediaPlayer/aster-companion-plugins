@@ -4,9 +4,9 @@
 const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
 const {JSDOM}=require('jsdom'); const fs=require('fs');
-const html=fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.DiscMenus/Configuration/editorPage.html'),'utf8');
+const html=fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.AsterDisc/Configuration/editorPage.html'),'utf8');
 const script=html.match(/<script type="text\/javascript">([\s\S]*?)<\/script>/)[1];
-const mod=n=>fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.DiscMenus/Web/editor/'+n+'.js'),'utf8');
+const mod=n=>fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.AsterDisc/Web/editor/'+n+'.js'),'utf8');
 let fail=0; const check=(ok,m,e)=>{ if(!ok) fail++; console.log(ok?'PASS':'FAIL',m,e===undefined?'':e); };
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const ITEM='4cf4efb9cb2c96b4ec157568bcccdf7f';

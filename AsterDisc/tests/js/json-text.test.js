@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const assert = require('assert');
 const ROOT = path.resolve(__dirname, '..', '..');
-const J = require(path.join(ROOT, 'Jellyfin.Plugin.DiscMenus/Web/editor/json-text.js'));
+const J = require(path.join(ROOT, 'Jellyfin.Plugin.AsterDisc/Web/editor/json-text.js'));
 let fail = 0; const check = (ok, m, e) => { if (!ok) fail++; console.log(ok ? 'PASS' : 'FAIL', m, e === undefined ? '' : e); };
 const code = (fn) => { try { fn(); return 'none'; } catch (e) { return e.code || 'other:' + e.message; } };
 

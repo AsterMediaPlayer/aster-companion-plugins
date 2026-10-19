@@ -3,7 +3,7 @@
 const path = require('path'); const fs = require('fs');
 const { JSDOM } = require('jsdom');
 const ROOT = path.resolve(__dirname, '..', '..');
-const ED = path.join(ROOT, 'Jellyfin.Plugin.DiscMenus/Web/editor/');
+const ED = path.join(ROOT, 'Jellyfin.Plugin.AsterDisc/Web/editor/');
 const dom = new JSDOM('<!doctype html><body></body>', { url: 'https://s.example/' });
 global.window = dom.window; global.document = dom.window.document; global.Option = dom.window.Option; global.Event = dom.window.Event;
 const JT = require(ED + 'json-text.js'); const H = require(ED + 'schema-hints.js'); const I = require(ED + 'inspector.js'); const O = require(ED + 'outline.js');

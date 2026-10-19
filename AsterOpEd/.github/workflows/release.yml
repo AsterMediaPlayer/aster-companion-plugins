@@ -21,11 +21,11 @@ jobs:
 
       - name: Tag must match build.yaml
         run: |
-          want="v$(sed -n 's/^version: *"\(.*\)" *$/\1/p' Jellyfin.Plugin.OpEd/build.yaml | head -1)"
+          want="v$(sed -n 's/^version: *"\(.*\)" *$/\1/p' Jellyfin.Plugin.AsterOpEd/build.yaml | head -1)"
           [ "$want" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME != build.yaml $want"; exit 1; }
 
       - name: Build
-        run: dotnet publish Jellyfin.Plugin.OpEd -c Release -o out
+        run: dotnet publish Jellyfin.Plugin.AsterOpEd -c Release -o out
 
       - name: Package
         run: OPED_SKIP_BUILD=1 OPED_OUT="$PWD/out" bash scripts/package.sh

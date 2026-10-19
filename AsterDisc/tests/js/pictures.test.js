@@ -1,5 +1,5 @@
 // The picture picker's pure helpers: TMDB listing addresses, asset addresses, pre-upload checks.
-const P = require('../../Jellyfin.Plugin.DiscMenus/Web/editor/pictures.js');
+const P = require('../../Jellyfin.Plugin.AsterDisc/Web/editor/pictures.js');
 let fail = 0; const check = (ok, m, e) => { if (!ok) fail++; console.log(ok ? 'PASS' : 'FAIL', m, e === undefined ? '' : e); };
 const MB = 1024 * 1024;
 

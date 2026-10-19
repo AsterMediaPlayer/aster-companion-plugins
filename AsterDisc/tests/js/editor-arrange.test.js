@@ -3,7 +3,7 @@
 const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
 const {JSDOM}=require('jsdom'); const fs=require('fs');
-const html=fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.DiscMenus/Configuration/editorPage.html'),'utf8');
+const html=fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.AsterDisc/Configuration/editorPage.html'),'utf8');
 const script=html.match(/<script type="text\/javascript">([\s\S]*?)<\/script>/)[1];
 let fail=0; const check=(ok,m,e)=>{ if(!ok) fail++; console.log(ok?'PASS':'FAIL',m,e===undefined?'':e); };
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -38,7 +38,7 @@ function boot(text){
   w.__preview={show(){},update(){},goTo(m){w.__calls.push(['goTo',m]);},setMuted(){},setEditMode(on){w.__calls.push(['edit',on]);},setSelection(s){w.__calls.push(['select',s]);},snapshot(){return w.__snapshot;}};
   $(w,'discEdFrame').contentWindow.DiscMenusPreview=w.__preview;
   w.__discMenusEditorModulesPreloaded=true;
-  require('./editor-modules.js').forEach(n=>w.eval(fs.readFileSync(path.join(ROOT,'Jellyfin.Plugin.DiscMenus/Web/editor/'+n+'.js'),'utf8')));
+  require('./editor-modules.js').forEach(n=>w.eval(fs.readFileSync(path.join(ROOT,'Jellyfin.Plugin.AsterDisc/Web/editor/'+n+'.js'),'utf8')));
   w.eval(script); return w;
 }
 const start=async(w)=>{ $(w,'DiscMenusEditorPage').dispatchEvent(new w.CustomEvent('pageshow')); await sleep(60); $(w,'discEdFrame').contentWindow.DiscMenusPreview=w.__preview; $(w,'discEdFrame').dispatchEvent(new w.Event('load')); await sleep(80); };

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generates the conformance vectors in this folder from the reference renderer (Jellyfin.Plugin.DiscMenus/Web/discmenus.js).
+// Generates the conformance vectors in this folder from the reference renderer (Jellyfin.Plugin.AsterDisc/Web/discmenus.js).
 //
 //   node conformance/generate.js          write the vectors
 //   node conformance/generate.js --check  fail if the files on disk differ from what the renderer produces now
@@ -15,7 +15,7 @@ const OUT = __dirname;
 const VERSION = 1;
 
 // ---- load the reference renderer with its internals exposed ----------------------------------------------------------
-let src = fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.DiscMenus/Web/discmenus.js'), 'utf8');
+let src = fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.AsterDisc/Web/discmenus.js'), 'utf8');
 let els = [];
 let active = null;
 global.window = { addEventListener() {}, location: { hash: '' } };

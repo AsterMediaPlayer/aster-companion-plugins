@@ -6,9 +6,9 @@ import { createRequire } from "node:module";
 import { chromium, firefox, webkit } from "playwright";
 const require = createRequire(import.meta.url);
 const ROOT = new URL("../../", import.meta.url).pathname;
-const ED = ROOT + "Jellyfin.Plugin.DiscMenus/Web/editor/";
-const WEB = ROOT + "Jellyfin.Plugin.DiscMenus/Web/";
-const editorHtml = fs.readFileSync(ROOT + "Jellyfin.Plugin.DiscMenus/Configuration/editorPage.html", "utf8");
+const ED = ROOT + "Jellyfin.Plugin.AsterDisc/Web/editor/";
+const WEB = ROOT + "Jellyfin.Plugin.AsterDisc/Web/";
+const editorHtml = fs.readFileSync(ROOT + "Jellyfin.Plugin.AsterDisc/Configuration/editorPage.html", "utf8");
 const template = fs.readFileSync(WEB + "designer.html", "utf8");
 // the same substitution DesignerPage.Build does
 const open = editorHtml.search(/<body>/i), close = editorHtml.toLowerCase().lastIndexOf("</body>");

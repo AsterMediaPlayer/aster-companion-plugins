@@ -3,7 +3,7 @@
 const path = require('path'); const fs = require('fs'); const { spawnSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..', '..');
 let fail = 0; const check = (ok, m, e) => { if (!ok) fail++; console.log(ok ? 'PASS' : 'FAIL', m, e === undefined ? '' : e); };
-const H = require(path.join(ROOT, 'Jellyfin.Plugin.DiscMenus/Web/editor/schema-hints.js'));
+const H = require(path.join(ROOT, 'Jellyfin.Plugin.AsterDisc/Web/editor/schema-hints.js'));
 const schema = JSON.parse(fs.readFileSync(path.join(ROOT, 'schema/menu.schema.json'), 'utf8'));
 
 const run = spawnSync(process.execPath, [path.join(ROOT, 'tools/schema-hints/generate.js'), '--check'], { encoding: 'utf8' });
@@ -63,7 +63,7 @@ console.log('--- the generator refuses stale overrides');
 const tmp = path.join(require('os').tmpdir(), 'hints-' + process.pid); fs.mkdirSync(tmp, { recursive: true });
 fs.cpSync(path.join(ROOT, 'tools/schema-hints'), path.join(tmp, 'tools/schema-hints'), { recursive: true });
 fs.cpSync(path.join(ROOT, 'schema'), path.join(tmp, 'schema'), { recursive: true });
-fs.mkdirSync(path.join(tmp, 'Jellyfin.Plugin.DiscMenus/Web/editor'), { recursive: true });
+fs.mkdirSync(path.join(tmp, 'Jellyfin.Plugin.AsterDisc/Web/editor'), { recursive: true });
 const ov = JSON.parse(fs.readFileSync(path.join(tmp, 'tools/schema-hints/overrides.json'), 'utf8'));
 ov.kinds.entry.fields.nonexistentField = { label: 'x' };
 fs.writeFileSync(path.join(tmp, 'tools/schema-hints/overrides.json'), JSON.stringify(ov));

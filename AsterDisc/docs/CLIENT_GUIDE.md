@@ -2,7 +2,7 @@
 
 How to show Disc Menus in a Jellyfin client other than the web client: a native app for phones, TVs, consoles or desktops.
 
-> **Read this first.** The web renderer ([`Web/discmenus.js`](../Jellyfin.Plugin.DiscMenus/Web/discmenus.js)) is the reference. This guide was
+> **Read this first.** The web renderer ([`Web/discmenus.js`](../Jellyfin.Plugin.AsterDisc/Web/discmenus.js)) is the reference. This guide was
 > written from it and checked against it, and the project is [vibe coded](../README.md): expect mistakes. **Where this guide and the
 > reference disagree, the reference wins, and please open an issue.** The rules that need no screen (paging, grid cells, which button
 > takes focus, time formatting, what to accept from untrusted data) are pinned down by a [conformance suite](#7-the-conformance-suite)

@@ -33,14 +33,14 @@ jobs:
 
       - name: Test before releasing
         run: |
-          dotnet test Jellyfin.Plugin.DiscMenus.Tests
+          dotnet test Jellyfin.Plugin.AsterDisc.Tests
           python3 tools/validate.py
           python3 -m unittest discover -s tools -p "test_*.py"
 
       - name: Build the plugin package
         run: |
           mkdir -p dist
-          jprm plugin build Jellyfin.Plugin.DiscMenus --output "$PWD/dist"
+          jprm plugin build Jellyfin.Plugin.AsterDisc --output "$PWD/dist"
           ls -l dist
           test "$(ls dist/*.zip | wc -l)" = 1
 

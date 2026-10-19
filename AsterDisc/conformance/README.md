@@ -1,7 +1,7 @@
 # Conformance suite
 
 Language-neutral test vectors for the parts of the Disc Menus renderer that need no screen, for people building a client. They are
-**generated from the reference renderer** ([`Web/discmenus.js`](../Jellyfin.Plugin.DiscMenus/Web/discmenus.js)): each case is an input and the
+**generated from the reference renderer** ([`Web/discmenus.js`](../Jellyfin.Plugin.AsterDisc/Web/discmenus.js)): each case is an input and the
 exact output the reference produces. Run your implementation over the inputs and compare. The rules themselves are explained in the
 [Client implementer's guide](../docs/CLIENT_GUIDE.md).
 

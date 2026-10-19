@@ -12,7 +12,7 @@
     {
       "label": "dotnet build",
       "type": "shell",
-      "command": "docker compose exec dev dotnet build Jellyfin.Plugin.DiscMenus",
+      "command": "docker compose exec dev dotnet build Jellyfin.Plugin.AsterDisc",
       "options": { "cwd": "${workspaceFolder}" },
       "group": { "kind": "build", "isDefault": true },
       "problemMatcher": "$msCompile"
@@ -20,7 +20,7 @@
     {
       "label": "dotnet test",
       "type": "shell",
-      "command": "docker compose exec dev dotnet test Jellyfin.Plugin.DiscMenus.Tests",
+      "command": "docker compose exec dev dotnet test Jellyfin.Plugin.AsterDisc.Tests",
       "options": { "cwd": "${workspaceFolder}" },
       "group": "test",
       "problemMatcher": "$msCompile"

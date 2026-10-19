@@ -10,7 +10,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-meta=Jellyfin.Plugin.OpEd/build.yaml
+meta=Jellyfin.Plugin.AsterOpEd/build.yaml
 field() { sed -n "s/^$1: *\"\(.*\)\" *$/\1/p" "$meta" | head -1; }
 version=$(field version)
 guid=$(field guid)
@@ -27,12 +27,12 @@ changelog=$(block changelog | sed -n "s/^- ${version//./\\.}: *//p")   # only th
 
 out=${OPED_OUT:-/mnt/cache/appdata/jellyfin-oped-build}   # where the build leaves the DLL (`docker compose run --rm build` -> here)
 if [ -z "${OPED_SKIP_BUILD:-}" ]; then docker compose run --rm build; fi   # CI builds with dotnet itself
-dll="$out/Jellyfin.Plugin.OpEd.dll"
+dll="$out/Jellyfin.Plugin.AsterOpEd.dll"
 
 mkdir -p dist
 zip_name="jellyfin-oped_${version}.zip"
 rm -f "dist/$zip_name"
-(cd "$out" && zip -q -X "$OLDPWD/dist/$zip_name" Jellyfin.Plugin.OpEd.dll)
+(cd "$out" && zip -q -X "$OLDPWD/dist/$zip_name" Jellyfin.Plugin.AsterOpEd.dll)
 checksum=$(md5sum "dist/$zip_name" | cut -d' ' -f1)
 url="https://github.com/$repo/releases/download/v${version}/${zip_name}"
 now=$(date -u +%Y-%m-%dT%H:%M:%SZ)

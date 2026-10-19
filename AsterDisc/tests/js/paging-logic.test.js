@@ -3,7 +3,7 @@
 const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
 const fs=require('fs');
-let src=fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.DiscMenus/Web/discmenus.js'),'utf8');
+let src=fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.AsterDisc/Web/discmenus.js'),'utf8');
 global.window={addEventListener(){},location:{hash:''}};
 global.document={getElementById:()=>null,addEventListener(){},removeEventListener(){}};
 global.setTimeout=()=>{};

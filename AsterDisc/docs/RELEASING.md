@@ -14,9 +14,9 @@ a server can still choose an older one.
 ## Cutting a release
 
 1. **Bump the version** in three places, which must agree (`tools/check_release.py` and CI check this):
-   - `Jellyfin.Plugin.DiscMenus/build.yaml`: `version` (four numbers, such as `0.2.0.0`) and a new `changelog` entry
+   - `Jellyfin.Plugin.AsterDisc/build.yaml`: `version` (four numbers, such as `0.2.0.0`) and a new `changelog` entry
      starting `- 0.2.0.0:` (that entry becomes the release notes);
-   - `Jellyfin.Plugin.DiscMenus/Jellyfin.Plugin.DiscMenus.csproj`: `AssemblyVersion` and `FileVersion`.
+   - `Jellyfin.Plugin.AsterDisc/Jellyfin.Plugin.AsterDisc.csproj`: `AssemblyVersion` and `FileVersion`.
 2. **Merge to `main`** and let CI pass. Its *Plugin package* job builds the same zip a release would.
 3. **Tag the commit and push the tag.** A tag `vX.Y.Z` releases version `X.Y.Z.0`:
 
@@ -37,5 +37,5 @@ and `git tag -d v0.2.0`) before trying again.
 - **Releases are not marked pre-release**, even while the project is alpha, because GitHub's `latest` address (which the manifest
   URL uses) skips pre-releases. The release notes and the README say what stage it is.
 - **No checksum is typed by hand.** jprm computes it from the zip, and Jellyfin verifies it when installing.
-- To try the packaging without publishing: `jprm plugin build Jellyfin.Plugin.DiscMenus --output "$PWD/dist"` (the output path
+- To try the packaging without publishing: `jprm plugin build Jellyfin.Plugin.AsterDisc --output "$PWD/dist"` (the output path
   must be absolute), or download the *disc-menus-package* artifact from any CI run.

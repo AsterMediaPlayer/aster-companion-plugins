@@ -1,6 +1,6 @@
 using System.Text;
 using System.Text.Json;
-using Jellyfin.Plugin.DiscMenus;
+using Jellyfin.Plugin.AsterDisc;
 
 // Checks menu files with the plugin's own loader: the same parsing and the same rules the server applies
 // when it loads a menu. Exit status: 0 every file loads, 1 at least one doesn't, 2 bad usage.

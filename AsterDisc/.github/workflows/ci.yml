@@ -18,9 +18,9 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - name: Build
-        run: dotnet build Jellyfin.Plugin.DiscMenus -c Release
+        run: dotnet build Jellyfin.Plugin.AsterDisc -c Release
       - name: Test
-        run: dotnet test Jellyfin.Plugin.DiscMenus.Tests
+        run: dotnet test Jellyfin.Plugin.AsterDisc.Tests
       - name: Check the examples with the plugin's own loader
         run: dotnet run --project tools/MenuCheck -c Release -- examples/*.menu.json
 
@@ -75,16 +75,16 @@ jobs:
       - name: Build the package
         run: |
           mkdir -p dist
-          jprm plugin build Jellyfin.Plugin.DiscMenus --output "$PWD/dist"
+          jprm plugin build Jellyfin.Plugin.AsterDisc --output "$PWD/dist"
       - name: The package is what Jellyfin expects
         run: |
           python3 - <<'PY'
           import glob, json, re, zipfile
           [path] = glob.glob("dist/*.zip")
           z = zipfile.ZipFile(path)
-          assert sorted(z.namelist()) == ["Jellyfin.Plugin.DiscMenus.dll", "meta.json"], z.namelist()
+          assert sorted(z.namelist()) == ["Jellyfin.Plugin.AsterDisc.dll", "meta.json"], z.namelist()
           meta = json.loads(z.read("meta.json"))
-          plugin = open("Jellyfin.Plugin.DiscMenus/Plugin.cs", encoding="utf-8").read()
+          plugin = open("Jellyfin.Plugin.AsterDisc/Plugin.cs", encoding="utf-8").read()
           assert meta["guid"] == re.search(r'Guid\.Parse\("([^"]+)"\)', plugin).group(1), "meta.json guid differs from Plugin.cs"
           assert re.fullmatch(r"\d+\.\d+\.\d+\.\d+", meta["version"]) and meta["targetAbi"] == "12.0.0.0", meta
           print("package ok:", path, meta["version"])

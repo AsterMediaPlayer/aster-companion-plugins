@@ -1,0 +1,42 @@
+name: "Aster Disc"
+guid: "913b9d44-cafe-4fe7-ae0b-f1362dc12cc7"
+version: "0.6.0.0"
+targetAbi: "12.0.0.0"
+framework: "net10.0"
+owner: "peppy6582"
+overview: "User-authored, shareable disc menus for Jellyfin special features."
+description: >
+  Loads user-authored disc menu definitions (schema/menu.schema.json),
+  resolves them against a local, never-shared binding file
+  (schema/binding.schema.json), and exposes the matched entries as the
+  parent item's Special Features.
+  Developed primarily with an AI coding assistant (Claude Code) and not
+  independently reviewed by a human: see the README before relying on it.
+category: "General"
+artifacts:
+  - "Jellyfin.Plugin.AsterDisc.dll"
+changelog: >
+  - 0.6.0.0: Disc Menus is now Aster Disc, one of the Aster companion plugins, installed from github.com/peppy6582/aster-companion-plugins. It updates in place: on first start it moves its settings and data (menus, bindings, catalogue, assets) across from the old name. Nothing else changes; its API paths stay the same.
+  - 0.5.0.0: Arrange on the preview: click a button, the title or a decoration in the Menu Editor's preview, drag it
+    into place (snapping to a grid and the centre lines), resize layers with a handle, nudge with the arrow keys,
+    and undo it in one step; pages that lay their buttons out themselves can be switched to free placement. The
+    plugin no longer needs the File Transformation plugin: it adds its own button to the web client (right after
+    Play) and works with a configured base URL. Fixes: the preview no longer pulls the cursor out of a form field
+    while you type.
+  - 0.4.1.0: Menu Editor: upload pictures and sounds for a menu and choose them from a panel (checked for type,
+    contents and size; uploaded files are public like all menu assets), and pick a title's TMDB backdrops from
+    a list. The Disc Menu button now sits in the item page's own button row, right after Play.
+  - 0.4.0.0: A new Menu Editor: choose a page or button from a list and change it in a form (the raw text is
+    optional, behind Show text), with only the essentials shown and the rest under More options. Problems say
+    which part they are about and clicking one selects it. Add, move and remove buttons, pages, extras and
+    decorative layers, with Undo and Redo. Backups made in the same moment no longer overwrite each other.
+  - 0.3.0.0: Menu Editor: create a menu for a title in your library, duplicate or delete a menu, and list and
+    restore earlier saved versions. Editing from the editor now changes the text in place, so formatting is
+    kept and undo works step by step. A key repeated within one menu is now an error instead of silently
+    using the last one.
+  - 0.2.0.0: A Menu Catalogue page in the dashboard to browse, install, update and remove menus from the
+    community catalogue (your library is never sent anywhere; every menu is checked against a published
+    fingerprint). fanart.tv backgrounds, looked up and served by your own server with your own API key, and a
+    fanart.tv picker in the Menu Editor. The settings page gains a write-only fanart.tv key with a test button.
+  - 0.1.0.0: Early alpha. Shareable disc menus with layouts, backgrounds, music, transitions and scene
+    selection; automatic matching to library titles; a dashboard menu editor with live preview.

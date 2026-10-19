@@ -3,7 +3,7 @@
 const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
 const {JSDOM}=require('jsdom'); const fs=require('fs');
-const src=fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.DiscMenus/Web/discmenus.js'),'utf8');
+const src=fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.AsterDisc/Web/discmenus.js'),'utf8');
 const dom=new JSDOM('<body></body>',{url:'http://x/web/#/details?id=4cf4efb9cb2c96b4ec157568bcccdf7f',runScripts:'outside-only',pretendToBeVisual:true});
 const w=dom.window;
 const banner={Type:'image',Image:'asset:thor/banner.webp',Position:{X:50,Y:97,W:86,H:19,Anchor:'bottom'},Fit:'contain'};

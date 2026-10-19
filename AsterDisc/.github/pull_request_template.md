@@ -4,7 +4,7 @@
 
 ## How it was tested
 
-- [ ] `dotnet test Jellyfin.Plugin.DiscMenus.Tests`
+- [ ] `dotnet test Jellyfin.Plugin.AsterDisc.Tests`
 - [ ] `python3 tools/validate.py`
 - [ ] `cd tests/js && npm test`
 - [ ] Tried it in a browser (for anything that changes how a menu looks or behaves)

@@ -48,7 +48,7 @@ This project is itself written with an AI coding assistant (see the [README](REA
 2. Set up as described in the [development guide](docs/DEVELOPMENT.md#setting-up), then make your change.
 3. Run the whole test suite:
    ```bash
-   dotnet test Jellyfin.Plugin.DiscMenus.Tests
+   dotnet test Jellyfin.Plugin.AsterDisc.Tests
    python3 tools/validate.py && python3 -m unittest discover -s tools -p "test_*.py"
    (cd tests/js && npm test)
    ```

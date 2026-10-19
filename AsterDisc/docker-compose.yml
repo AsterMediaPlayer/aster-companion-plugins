@@ -2,8 +2,8 @@
 # a DLL that Jellyfin loads, so these containers only provide build and test tools.
 #
 #   docker compose up -d dev                                  # .NET 10 SDK container (idles)
-#   docker compose exec dev dotnet build Jellyfin.Plugin.DiscMenus -c Release
-#   docker compose exec dev dotnet test Jellyfin.Plugin.DiscMenus.Tests
+#   docker compose exec dev dotnet build Jellyfin.Plugin.AsterDisc -c Release
+#   docker compose exec dev dotnet test Jellyfin.Plugin.AsterDisc.Tests
 #   docker compose run --rm validate                          # JSON Schema + example checks + the menu checker's tests
 #   docker compose run --rm jstest                            # browser-code tests (Node + jsdom)
 #

@@ -5,13 +5,13 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import { chromium, firefox, webkit } from "playwright";
 const ROOT = new URL("../../", import.meta.url).pathname;
-const ED = ROOT + "Jellyfin.Plugin.DiscMenus/Web/editor/";
+const ED = ROOT + "Jellyfin.Plugin.AsterDisc/Web/editor/";
 const MODULES = ["json-text", "text-adapter", "outline", "schema-hints", "inspector", "pictures"];
-const html = fs.readFileSync(ROOT + "Jellyfin.Plugin.DiscMenus/Configuration/editorPage.html", "utf8");
+const html = fs.readFileSync(ROOT + "Jellyfin.Plugin.AsterDisc/Configuration/editorPage.html", "utf8");
 const body = /<body>([\s\S]*)<\/body>/.exec(html)[1].replace(/<script type="text\/javascript">[\s\S]*?<\/script>/, "");
 const editorScript = /<script type="text\/javascript">([\s\S]*?)<\/script>/.exec(html)[1];
-const previewHtml = fs.readFileSync(ROOT + "Jellyfin.Plugin.DiscMenus/Web/preview.html", "utf8").replace("@@VERSION@@", "test");
-const rendererJs = fs.readFileSync(ROOT + "Jellyfin.Plugin.DiscMenus/Web/discmenus.js", "utf8");
+const previewHtml = fs.readFileSync(ROOT + "Jellyfin.Plugin.AsterDisc/Web/preview.html", "utf8").replace("@@VERSION@@", "test");
+const rendererJs = fs.readFileSync(ROOT + "Jellyfin.Plugin.AsterDisc/Web/discmenus.js", "utf8");
 const converterJs = fs.readFileSync(ROOT + "tools/preview/menu-to-renderable.js", "utf8");
 fs.mkdirSync(new URL("./shots/", import.meta.url).pathname, { recursive: true });
 

@@ -3,7 +3,7 @@
 const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
 const {JSDOM}=require('jsdom'); const fs=require('fs');
-const src=fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.DiscMenus/Web/discmenus.js'),'utf8');
+const src=fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.AsterDisc/Web/discmenus.js'),'utf8');
 let fail=0; const check=(ok,msg,extra)=>{ if(!ok) fail++; console.log(ok?'PASS':'FAIL',msg,extra||''); };
 function boot(doc){
   const dom=new JSDOM('<body></body>',{url:'https://streaming.example/web/#/details?id=4cf4efb9cb2c96b4ec157568bcccdf7f',runScripts:'outside-only',pretendToBeVisual:true});

@@ -4,7 +4,7 @@
 const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
 const {JSDOM}=require('jsdom'); const fs=require('fs');
-const html=fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.DiscMenus/Configuration/editorPage.html'),'utf8');
+const html=fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.AsterDisc/Configuration/editorPage.html'),'utf8');
 const script=html.match(/<script type="text\/javascript">([\s\S]*?)<\/script>/)[1];
 let fail=0; const check=(ok,m,e)=>{ if(!ok) fail++; console.log(ok?'PASS':'FAIL',m,e===undefined?'':e); };
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -45,7 +45,7 @@ function boot(server){
   w.document.getElementById('discEdFrame').contentWindow.DiscMenusPreview=w.__preview;
   // the page loads these modules through script tags; the test supplies them directly
   w.__discMenusEditorModulesPreloaded = true;
-  require('./editor-modules.js').forEach(n => w.eval(fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.DiscMenus/Web/editor/' + n + '.js'), 'utf8')));
+  require('./editor-modules.js').forEach(n => w.eval(fs.readFileSync(path.join(ROOT, 'Jellyfin.Plugin.AsterDisc/Web/editor/' + n + '.js'), 'utf8')));
   w.eval(script); return w;
 }
 const ok=(body)=>({status:200,body}); const err=(status,body)=>({status,body});

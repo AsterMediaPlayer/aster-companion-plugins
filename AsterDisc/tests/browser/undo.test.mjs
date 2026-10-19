@@ -3,7 +3,7 @@
 // Run: docker compose run --rm browser     (or: cd tests/browser && npm ci && npx playwright install --with-deps && npm test)
 import fs from "node:fs";
 import { chromium, firefox, webkit } from "playwright";
-const W = new URL("../../Jellyfin.Plugin.DiscMenus/Web/editor/", import.meta.url).pathname;
+const W = new URL("../../Jellyfin.Plugin.AsterDisc/Web/editor/", import.meta.url).pathname;
 const jsonText = fs.readFileSync(W + "json-text.js", "utf8"), adapterSrc = fs.readFileSync(W + "text-adapter.js", "utf8");
 const menu = fs.readFileSync(new URL("../../examples/static-backdrop.menu.json", import.meta.url), "utf8");
 let failures = 0;

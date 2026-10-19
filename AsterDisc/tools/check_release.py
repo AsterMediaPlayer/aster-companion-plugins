@@ -13,7 +13,7 @@ import re
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-PROJECT = "Jellyfin.Plugin.DiscMenus"
+PROJECT = "Jellyfin.Plugin.AsterDisc"
 
 
 def read(root, rel):
