@@ -78,6 +78,21 @@ public sealed class Theme
 
     public bool HasFullVersion => FullVideoPath is not null || FullAudioPath is not null;
 
+    /// <summary>The song's music video ("OP1-MV"), with playable copies; its sound makes a song of its own.</summary>
+    public string? MvVideoPath { get; set; }
+
+    public string? MvAudioPath { get; set; }
+
+    public string? MvMp4Path { get; set; }
+
+    public string? MvMp4Status { get; set; }
+
+    public string? MvM4aPath { get; set; }
+
+    public string? MvM4aStatus { get; set; }
+
+    public bool HasMusicVideo => MvVideoPath is not null || MvAudioPath is not null;
+
     public string? SongTitle { get; set; }
 
     public List<string> Artists { get; set; } = [];

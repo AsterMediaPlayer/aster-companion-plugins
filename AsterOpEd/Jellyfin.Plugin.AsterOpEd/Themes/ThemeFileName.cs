@@ -12,6 +12,8 @@ namespace Jellyfin.Plugin.AsterOpEd.Themes;
 ///                             music video) for the theme of the same name, not a theme of its own. Written other
 ///                             ways too: "OP1 Full", "OP1 (Full)", "OP1 [Full Version]", "OP1 - Full - Eve",
 ///                             "OP1 - Yuusha (Full) - YOASOBI"
+///   music videos              "OP1-MV.mp4", "OP1 (Music Video)", "OP1 - MV - YOASOBI", "OP1 - Yuusha (MV) - YOASOBI":
+///                             the artist's own video of the song, kept with the theme like a full version
 /// </summary>
 public static partial class ThemeFileName
 {
@@ -27,12 +29,44 @@ public static partial class ThemeFileName
         "NC", "BD", "DVD", "WEB", "LR", "TRANS", "OVER", "SUBBED", "LYRICS", "NCBD", "NCDVD", "NCWEB", "RAW",
     };
 
+    /// <summary>Another version of a theme, kept with it rather than being a theme of its own.</summary>
+    public enum Extra
+    {
+        /// <summary>The theme itself.</summary>
+        None,
+
+        /// <summary>The full-length song ("OP1-Full").</summary>
+        Full,
+
+        /// <summary>The song's music video ("OP1-MV").</summary>
+        MusicVideo,
+    }
+
     /// <summary>What a file name says about its theme.</summary>
-    /// <param name="IsFull">A full-length version of the theme (the "-Full" tag), not the theme itself.</param>
-    public sealed record Parsed(string Type, int Sequence, int Version, string Variant, string? Title, List<string> Artists, string? Episodes, bool IsFull = false);
+    /// <param name="Kind">Whether the file is the theme itself or another version of it.</param>
+    public sealed record Parsed(string Type, int Sequence, int Version, string Variant, string? Title, List<string> Artists, string? Episodes, Extra Kind = Extra.None)
+    {
+        public bool IsFull => Kind == Extra.Full;
+
+        public bool IsMusicVideo => Kind == Extra.MusicVideo;
+    }
 
     /// <summary>The tag that marks a full-length version: "OP1-Full".</summary>
     public const string FullTag = "FULL";
+
+    /// <summary>The tag that marks a music video: "OP1-MV".</summary>
+    public const string MusicVideoTag = "MV";
+
+    private static Extra TagKind(string tag) => tag.ToUpperInvariant() switch
+    {
+        FullTag => Extra.Full,
+        MusicVideoTag => Extra.MusicVideo,
+        _ => Extra.None,
+    };
+
+    /// <summary>Which version a marker names: "Full", "(Full Version)", "MV", "[Music Video]".</summary>
+    private static Extra MarkerKind(Match m) =>
+        !m.Success ? Extra.None : m.Groups["mv"].Success ? Extra.MusicVideo : Extra.Full;
 
     public static bool IsVideo(string path) => VideoExtensions.Contains(Path.GetExtension(path));
 
@@ -55,7 +89,7 @@ public static partial class ThemeFileName
 
         // A variant is glued on with a hyphen and no spaces ("ED1-TV"); "OP1 - Title" is song details instead.
         var variant = string.Empty;
-        var isFull = false;
+        var kind = Extra.None;
         var vm = VariantRegex().Match(rest);
         if (vm.Success && !SourceTags.Contains(vm.Groups[1].Value))
         {
@@ -63,23 +97,24 @@ public static partial class ThemeFileName
             rest = rest[vm.Length..];
         }
 
-        // "-Full" isn't a variant: it's the same theme's full-length version ("OP1-TV-Full" for a variant's).
-        if (variant == FullTag)
+        // "-Full" and "-MV" aren't variants: they're other versions of the same theme ("OP1-TV-Full" for a
+        // variant's).
+        if (TagKind(variant) is not Extra.None and var tagged)
         {
-            isFull = true;
+            kind = tagged;
             variant = string.Empty;
         }
-        else if (VariantRegex().Match(rest) is { Success: true } fm && string.Equals(fm.Groups[1].Value, FullTag, StringComparison.OrdinalIgnoreCase))
+        else if (VariantRegex().Match(rest) is { Success: true } fm && TagKind(fm.Groups[1].Value) is not Extra.None and var second)
         {
-            isFull = true;
+            kind = second;
             rest = rest[fm.Length..];
         }
 
-        // "OP1 Full", "OP1 (Full)", "OP1 [Full Version]": the same, written as a word rather than a tag.
-        if (FullWordRegex().Match(rest) is { Success: true } wm)
+        // "OP1 Full", "OP1 (Full)", "OP1 [Music Video]": the same, written as a word rather than a tag.
+        if (MarkerKind(ExtraWordRegex().Match(rest)) is not Extra.None and var worded)
         {
-            isFull = true;
-            rest = rest[wm.Length..];
+            kind = worded;
+            rest = rest[ExtraWordRegex().Match(rest).Length..];
         }
 
         // Song details: " - Title - Artist, Artist [episodes]".
@@ -91,11 +126,11 @@ public static partial class ThemeFileName
         {
             var parts = dm.Groups["details"].Value.Split(" - ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
-            // "OP1 - Full - Eve": "Full" where the title goes marks the full version; what follows is the artists
-            // when it's all there is, else the title and artists as usual.
-            if (parts.Length > 0 && IsFullMarker(parts[0]))
+            // "OP1 - Full - Eve": "Full" (or "MV") where the title goes marks that version; what follows is the
+            // artists when it's all there is, else the title and artists as usual.
+            if (parts.Length > 0 && MarkerKind(ExtraMarkerRegex().Match(parts[0])) is not Extra.None and var marked)
             {
-                isFull = true;
+                kind = marked;
                 parts = parts[1..];
                 if (parts.Length == 1)
                 {
@@ -104,10 +139,10 @@ public static partial class ThemeFileName
                 }
             }
 
-            // "OP1 - Yuusha (Full) - YOASOBI": a "(Full)" after the title.
-            if (parts.Length > 0 && FullSuffixRegex().Match(parts[0]) is { Success: true } sm)
+            // "OP1 - Yuusha (Full) - YOASOBI": a "(Full)" or "(MV)" after the title.
+            if (parts.Length > 0 && ExtraSuffixRegex().Match(parts[0]) is { Success: true } sm)
             {
-                isFull = true;
+                kind = MarkerKind(sm);
                 parts[0] = parts[0][..sm.Index].TrimEnd();
             }
 
@@ -128,11 +163,8 @@ public static partial class ThemeFileName
             }
         }
 
-        return new Parsed(type, sequence, version, variant, title, artists, episodes, isFull);
+        return new Parsed(type, sequence, version, variant, title, artists, episodes, kind);
     }
-
-    /// <summary>"Full", "Full Version", "(Full)", "[Full Size]".</summary>
-    private static bool IsFullMarker(string value) => FullMarkerRegex().IsMatch(value);
 
     public static List<string> SplitArtists(string value) =>
         [.. value.Split([", ", " & ", "; "], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)];
@@ -144,16 +176,19 @@ public static partial class ThemeFileName
     [GeneratedRegex(@"^-([A-Za-z]+)(?=$|[-_. ])")]
     private static partial Regex VariantRegex();
 
-    // " Full", " (Full)", " [Full Version]", "_Full" straight after the code (but not " - Full", which is song details).
-    [GeneratedRegex(@"^(?:[\s_]*[\(\[]\s*full(?:[\s_-]*(?:version|ver\.?|size|length|song))?\s*[\)\]]|[\s_]+full(?:[\s_-]*(?:version|ver\.?|size|length|song))?(?=$|[\s_.]))", RegexOptions.IgnoreCase)]
-    private static partial Regex FullWordRegex();
+    // The words for each version: "Full", "Full Version", "Full Size"; "MV", "Music Video".
+    private const string ExtraWords = @"(?:(?<full>full(?:[\s_-]*(?:version|ver\.?|size|length|song))?)|(?<mv>mv|music[\s_-]*video))";
 
-    [GeneratedRegex(@"^[\(\[]?\s*full(?:[\s_-]*(?:version|ver\.?|size|length|song))?\s*[\)\]]?$", RegexOptions.IgnoreCase)]
-    private static partial Regex FullMarkerRegex();
+    // " Full", " (Full)", " [Music Video]", "_MV" straight after the code (but not " - Full", which is song details).
+    [GeneratedRegex(@"^(?:[\s_]*[\(\[]\s*" + ExtraWords + @"\s*[\)\]]|[\s_]+" + ExtraWords + @"(?=$|[\s_.]))", RegexOptions.IgnoreCase)]
+    private static partial Regex ExtraWordRegex();
 
-    // "Yuusha (Full)", "Yuusha [Full Version]" at the end of a title.
-    [GeneratedRegex(@"\s*[\(\[]\s*full(?:[\s_-]*(?:version|ver\.?|size|length|song))?\s*[\)\]]$", RegexOptions.IgnoreCase)]
-    private static partial Regex FullSuffixRegex();
+    [GeneratedRegex(@"^[\(\[]?\s*" + ExtraWords + @"\s*[\)\]]?$", RegexOptions.IgnoreCase)]
+    private static partial Regex ExtraMarkerRegex();
+
+    // "Yuusha (Full)", "Yuusha [Music Video]" at the end of a title.
+    [GeneratedRegex(@"\s*[\(\[]\s*" + ExtraWords + @"\s*[\)\]]$", RegexOptions.IgnoreCase)]
+    private static partial Regex ExtraSuffixRegex();
 
     // " - details [eps]" — the episodes bracket is optional, as is "eps"/"ep" inside it.
     [GeneratedRegex(@"^\s+-\s+(?<details>.*?)\s*(?:\[(?:eps?\.?\s*)?(?<eps>[\d][\d ,\-]*)\])?\s*$", RegexOptions.IgnoreCase)]

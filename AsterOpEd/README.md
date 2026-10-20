@@ -60,6 +60,11 @@ anime_themes/
 `OP1 Full`, `OP1 (Full)`, `OP1 [Full Version]`, `OP1 - Full - YOASOBI` and `OP1 - Yuusha (Full) - YOASOBI` work too. It
 belongs to OP1 rather than being a theme of its own: it shares OP1's song details, and the published libraries get it
 as its own item, "Yuusha (Full)". Clients can offer either version.
+
+**Music videos.** The song's own music video goes beside it the same way, with `-MV`: `OP1-MV.mp4`, or
+`OP1 (Music Video)`, `OP1 [MV]`, `OP1 - MV - YOASOBI`, `OP1 - Yuusha (MV) - YOASOBI`. It's published as
+"Yuusha (Music Video)" in the Music Videos library, and its sound as another song in the Music library. A theme can
+have a TV-size version, a full version and a music video all at once.
 Video: webm, mp4, mkv, m4v, mov. Audio: ogg, opus, mp3, flac, m4a, aac, wav.
 
 **Matching.** Folders are matched against episodes Jellyfin already knows. With

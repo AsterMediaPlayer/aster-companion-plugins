@@ -103,6 +103,7 @@ Returns a single `Theme` (without `PlaysInEpisode`). Status: 200, 401, 404 (unkn
 | Endpoint | Content | Content-Type |
 |---|---|---|
 | `GET /OpEd/Themes/{themeId}/VideoMp4` | **Use this for video.** MP4, H.264 High profile, yuv420p, ≤1080p wide, AAC-LC stereo 192 kbps, `moov` atom at the front (fast start) | `video/mp4` |
+| `GET /OpEd/Themes/{themeId}/MvVideoMp4`, `/MvAudioM4a` (0.5.0) | The music video (`OP1-MV`), as playable MP4, and its sound as AAC. `/MvVideo` and `/MvAudio` give the original files | as above |
 | `GET /OpEd/Themes/{themeId}/FullVideoMp4`, `/FullAudioM4a` (0.4.0) | The full-length version (`OP1-Full`), as playable MP4 and AAC. `/FullVideo` and `/FullAudio` give the original files | as above |
 | `GET /OpEd/Themes/{themeId}/AudioM4a` | **Use this for audio.** AAC-LC 256 kbps stereo in M4A, or the original file when it's already MP3/AAC | `audio/mp4` (or `audio/mpeg` for an original MP3) |
 | `GET /OpEd/Themes/{themeId}/Audio` | The owner's audio file, unchanged (often Ogg/Opus, which tvOS can't play) | per file: `audio/ogg`, `audio/mpeg`, `audio/mp4`, `audio/flac`, `audio/wav` |
@@ -180,6 +181,11 @@ NSFW videos the owner's chosen rating (default `NC-17`), so Jellyfin's parental 
 | `FullAudioM4aUrl` / `FullAudioM4aStatus` | string | no | As `AudioM4aUrl` / `AudioM4aStatus`, for the full version (0.4.0) |
 | `FullLibraryItemId` / `FullSongItemId` | string | no | The full version's own published items, titled "Song (Full)" (0.4.0) |
 | `IsFullVersionItem` | bool | no | Only from `LibraryItems/{itemId}/Theme`: whether that item is the full version (0.4.0) |
+| `HasMusicVideo` | bool | yes | Whether the owner added the song's music video (`OP1-MV`) (0.5.0) |
+| `MvVideoMp4Url` / `MvVideoMp4Status` | string | no | As `VideoMp4Url` / `VideoMp4Status`, for the music video (0.5.0) |
+| `MvAudioM4aUrl` / `MvAudioM4aStatus` | string | no | As `AudioM4aUrl` / `AudioM4aStatus`, for a music video audio file (0.5.0) |
+| `MvLibraryItemId` / `MvSongItemId` | string | no | The music video's own published items, titled "Song (Music Video)" (0.5.0) |
+| `IsMusicVideoItem` | bool | no | Only from `LibraryItems/{itemId}/Theme`: whether that item is the music video (0.5.0) |
 
 `VideoMp4Status` / `AudioM4aStatus` lifecycle: a new file is `pending`, becomes `converting` and then `ready`, usually
 within seconds (a 90-second 720p OP video converts in about 15–25 s, its audio in about 1.5 s; files already in an

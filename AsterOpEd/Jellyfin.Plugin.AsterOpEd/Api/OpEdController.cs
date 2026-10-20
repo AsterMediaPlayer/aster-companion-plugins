@@ -23,6 +23,7 @@ namespace Jellyfin.Plugin.AsterOpEd.Api;
 ///   GET  /OpEd/Themes/{themeId}/Audio   the original audio file
 ///   GET  /OpEd/Themes/{themeId}/AudioM4a  the same audio as AAC (or MP3) that every client can play
 ///   GET  /OpEd/Themes/{themeId}/FullVideoMp4, /FullAudioM4a, /FullVideo, /FullAudio  its full-length version ("OP1-Full")
+///   GET  /OpEd/Themes/{themeId}/MvVideoMp4, /MvAudioM4a, /MvVideo, /MvAudio  its music video ("OP1-MV")
 ///   POST /OpEd/Scan                     rescan the themes folder (admins)
 ///   GET  /OpEd/Admin/Libraries             TV libraries the clip search can be limited to (admins)
 ///   POST /OpEd/Admin/Clips/Extract         cut missing OPs/EDs out of episodes by chapter marker, into the review queue (admins)
@@ -145,7 +146,8 @@ public sealed class OpEdController : ControllerBase
         }
 
         var dto = ToDto(theme, null);
-        dto.IsFullVersionItem = found.Full;
+        dto.IsFullVersionItem = found.Version == ThemeFileName.Extra.Full;
+        dto.IsMusicVideoItem = found.Version == ThemeFileName.Extra.MusicVideo;
         return dto;
     }
 
@@ -241,6 +243,38 @@ public sealed class OpEdController : ControllerBase
     {
         var theme = VisibleTheme(themeId);
         return theme?.FullM4aStatus == "ready" ? Stream(theme.FullM4aPath) : NotFound();
+    }
+
+    [HttpGet("Themes/{themeId}/MvVideo")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status206PartialContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult GetMvVideo([FromRoute] string themeId) => Stream(VisibleTheme(themeId)?.MvVideoPath);
+
+    [HttpGet("Themes/{themeId}/MvVideoMp4")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status206PartialContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult GetMvVideoMp4([FromRoute] string themeId)
+    {
+        var theme = VisibleTheme(themeId);
+        return theme?.MvMp4Status == "ready" ? Stream(theme.MvMp4Path) : NotFound();
+    }
+
+    [HttpGet("Themes/{themeId}/MvAudio")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status206PartialContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult GetMvAudio([FromRoute] string themeId) => Stream(VisibleTheme(themeId)?.MvAudioPath);
+
+    [HttpGet("Themes/{themeId}/MvAudioM4a")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status206PartialContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult GetMvAudioM4a([FromRoute] string themeId)
+    {
+        var theme = VisibleTheme(themeId);
+        return theme?.MvM4aStatus == "ready" ? Stream(theme.MvM4aPath) : NotFound();
     }
 
     [HttpPost("Scan")]
@@ -536,6 +570,13 @@ public sealed class OpEdController : ControllerBase
         FullVideoMp4Status = t.FullMp4Status,
         FullAudioM4aUrl = t.FullM4aStatus == "ready" ? $"/OpEd/Themes/{t.Id}/FullAudioM4a" : null,
         FullAudioM4aStatus = t.FullM4aStatus,
+        MvLibraryItemId = items.MvVideo,
+        MvSongItemId = items.MvSong,
+        HasMusicVideo = t.HasMusicVideo,
+        MvVideoMp4Url = t.MvMp4Status == "ready" ? $"/OpEd/Themes/{t.Id}/MvVideoMp4" : null,
+        MvVideoMp4Status = t.MvMp4Status,
+        MvAudioM4aUrl = t.MvM4aStatus == "ready" ? $"/OpEd/Themes/{t.Id}/MvAudioM4a" : null,
+        MvAudioM4aStatus = t.MvM4aStatus,
         Id = t.Id,
         Type = t.Type,
         Sequence = t.Sequence,
@@ -675,6 +716,27 @@ public sealed class ThemeDto
 
     /// <summary>Only from LibraryItems/{id}/Theme: whether that item is the full-length version.</summary>
     public bool? IsFullVersionItem { get; set; }
+
+    /// <summary>Whether there's a music video of the song ("OP1-MV").</summary>
+    public bool HasMusicVideo { get; set; }
+
+    /// <summary>The music video as MP4, once ready.</summary>
+    public string? MvVideoMp4Url { get; set; }
+
+    public string? MvVideoMp4Status { get; set; }
+
+    /// <summary>The music video's sound as AAC (from its own audio file, when there is one), once ready.</summary>
+    public string? MvAudioM4aUrl { get; set; }
+
+    public string? MvAudioM4aStatus { get; set; }
+
+    /// <summary>The music video's own items in the published libraries ("Yuusha (Music Video)").</summary>
+    public Guid? MvLibraryItemId { get; set; }
+
+    public Guid? MvSongItemId { get; set; }
+
+    /// <summary>Only from LibraryItems/{id}/Theme: whether that item is the music video.</summary>
+    public bool? IsMusicVideoItem { get; set; }
 }
 
 public sealed class EditorThemeDto

@@ -248,7 +248,7 @@ public sealed partial class ThemeIndex
             // 1. Files -> themes, grouped by (show folder, subfolder, OP/ED identity).
             var groups = new Dictionary<string, Theme>(StringComparer.OrdinalIgnoreCase);
             var fromFileNames = new Dictionary<Theme, ThemeFileName.Parsed>();
-            // A full version's song details, used only when there's no TV-size file to take them from.
+            // A full version's or music video's song details, used only when there's no TV-size file to take them from.
             var fromFullFileNames = new Dictionary<Theme, ThemeFileName.Parsed>();
             var fromDetailsFiles = new Dictionary<string, Dictionary<string, ThemeDetailsFile.Details>>(StringComparer.OrdinalIgnoreCase);
             foreach (var showDir in Directory.EnumerateDirectories(root).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
@@ -326,7 +326,7 @@ public sealed partial class ThemeIndex
                         theme.DetailsKey = ThemeDetailsFile.KeyFor(theme);
                     }
 
-                    var details = parsed.IsFull ? fromFullFileNames : fromFileNames;
+                    var details = parsed.Kind != ThemeFileName.Extra.None ? fromFullFileNames : fromFileNames;
                     if ((parsed.Title is not null || parsed.Artists.Count > 0 || parsed.Episodes is not null) && !details.ContainsKey(theme))
                     {
                         details[theme] = parsed;
@@ -334,30 +334,45 @@ public sealed partial class ThemeIndex
 
                     // Two files for one place: the first is kept, and the scan says so rather than dropping the other quietly.
                     var isVideo = ThemeFileName.IsVideo(file);
-                    var taken = (parsed.IsFull, isVideo) switch
+                    var taken = (parsed.Kind, isVideo) switch
                     {
-                        (true, true) => theme.FullVideoPath ??= file,
-                        (true, false) => theme.FullAudioPath ??= file,
-                        (false, true) => theme.VideoPath ??= file,
-                        (false, false) => theme.AudioPath ??= file,
+                        (ThemeFileName.Extra.Full, true) => theme.FullVideoPath ??= file,
+                        (ThemeFileName.Extra.Full, false) => theme.FullAudioPath ??= file,
+                        (ThemeFileName.Extra.MusicVideo, true) => theme.MvVideoPath ??= file,
+                        (ThemeFileName.Extra.MusicVideo, false) => theme.MvAudioPath ??= file,
+                        (_, true) => theme.VideoPath ??= file,
+                        (_, false) => theme.AudioPath ??= file,
                     };
                     if (!string.Equals(taken, file, StringComparison.Ordinal))
                     {
                         var slug = theme.Type + theme.Sequence;
-                        report.UnparsedFiles.Add(parsed.IsFull
-                            ? $"{rel}  (there's already a full {(isVideo ? "video" : "audio")} file for {slug}: {Path.GetFileName(taken)})"
-                            : $"{rel}  (there's already a {(isVideo ? "video" : "audio")} file for {slug}: {Path.GetFileName(taken)}. For a full version, name it {slug}-Full)");
+                        var media = isVideo ? "video" : "audio";
+                        report.UnparsedFiles.Add(parsed.Kind switch
+                        {
+                            ThemeFileName.Extra.Full => $"{rel}  (there's already a full {media} file for {slug}: {Path.GetFileName(taken)})",
+                            ThemeFileName.Extra.MusicVideo => $"{rel}  (there's already a music video {media} file for {slug}: {Path.GetFileName(taken)})",
+                            _ => $"{rel}  (there's already a {media} file for {slug}: {Path.GetFileName(taken)}. For a full version, name it {slug}-Full; for a music video, {slug}-MV)",
+                        });
                     }
                 }
             }
 
-            // A full version with no TV-size file beside it is the only version there is, so it's the theme itself.
+            // A full version (or, failing that, a music video) with no TV-size file beside it is the only version
+            // there is, so it's the theme itself.
             foreach (var theme in groups.Values)
             {
                 if (theme.VideoPath is null && theme.AudioPath is null)
                 {
-                    (theme.VideoPath, theme.AudioPath) = (theme.FullVideoPath, theme.FullAudioPath);
-                    (theme.FullVideoPath, theme.FullAudioPath) = (null, null);
+                    if (theme.HasFullVersion)
+                    {
+                        (theme.VideoPath, theme.AudioPath) = (theme.FullVideoPath, theme.FullAudioPath);
+                        (theme.FullVideoPath, theme.FullAudioPath) = (null, null);
+                    }
+                    else
+                    {
+                        (theme.VideoPath, theme.AudioPath) = (theme.MvVideoPath, theme.MvAudioPath);
+                        (theme.MvVideoPath, theme.MvAudioPath) = (null, null);
+                    }
                 }
 
                 if (!fromFileNames.ContainsKey(theme) && fromFullFileNames.TryGetValue(theme, out var fullDetails))

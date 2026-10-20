@@ -52,11 +52,13 @@ public sealed class VideoConverter
         Audio,
         FullVideo,
         FullAudio,
+        MvVideo,
+        MvAudio,
     }
 
-    private static bool IsVideoKind(Kind kind) => kind is Kind.Video or Kind.FullVideo;
+    private static bool IsVideoKind(Kind kind) => kind is Kind.Video or Kind.FullVideo or Kind.MvVideo;
 
-    private static readonly Kind[] AllKinds = [Kind.Video, Kind.Audio, Kind.FullVideo, Kind.FullAudio];
+    private static readonly Kind[] AllKinds = [Kind.Video, Kind.Audio, Kind.FullVideo, Kind.FullAudio, Kind.MvVideo, Kind.MvAudio];
 
     public static string CacheDir => Path.Combine(Plugin.Instance?.DataFolderPath ?? Path.GetTempPath(), "mp4-cache");
 
@@ -137,7 +139,9 @@ public sealed class VideoConverter
         Kind.Video => theme.VideoPath,
         Kind.Audio => theme.AudioPath,
         Kind.FullVideo => theme.FullVideoPath,
-        _ => theme.FullAudioPath,
+        Kind.FullAudio => theme.FullAudioPath,
+        Kind.MvVideo => theme.MvVideoPath,
+        _ => theme.MvAudioPath,
     };
 
     private static string? Status(Theme theme, Kind kind) => kind switch
@@ -145,7 +149,9 @@ public sealed class VideoConverter
         Kind.Video => theme.Mp4Status,
         Kind.Audio => theme.M4aStatus,
         Kind.FullVideo => theme.FullMp4Status,
-        _ => theme.FullM4aStatus,
+        Kind.FullAudio => theme.FullM4aStatus,
+        Kind.MvVideo => theme.MvMp4Status,
+        _ => theme.MvM4aStatus,
     };
 
     private static void SetResult(Theme theme, Kind kind, string? path, string? status)
@@ -161,8 +167,14 @@ public sealed class VideoConverter
             case Kind.FullVideo:
                 (theme.FullMp4Path, theme.FullMp4Status) = (path, status);
                 break;
-            default:
+            case Kind.FullAudio:
                 (theme.FullM4aPath, theme.FullM4aStatus) = (path, status);
+                break;
+            case Kind.MvVideo:
+                (theme.MvMp4Path, theme.MvMp4Status) = (path, status);
+                break;
+            default:
+                (theme.MvM4aPath, theme.MvM4aStatus) = (path, status);
                 break;
         }
     }
@@ -194,7 +206,9 @@ public sealed class VideoConverter
             Kind.Video => Path.Combine(CacheDir, $"{theme.Id}-{stamp}.mp4"),
             Kind.Audio => Path.Combine(CacheDir, $"{theme.Id}-a-{stamp}.m4a"),
             Kind.FullVideo => Path.Combine(CacheDir, $"{theme.Id}-f-{stamp}.mp4"),
-            _ => Path.Combine(CacheDir, $"{theme.Id}-fa-{stamp}.m4a"),
+            Kind.FullAudio => Path.Combine(CacheDir, $"{theme.Id}-fa-{stamp}.m4a"),
+            Kind.MvVideo => Path.Combine(CacheDir, $"{theme.Id}-mv-{stamp}.mp4"),
+            _ => Path.Combine(CacheDir, $"{theme.Id}-mva-{stamp}.m4a"),
         };
     }
 
