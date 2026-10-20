@@ -1,6 +1,6 @@
 name: "Aster OP-ED"
 guid: "d459e0a2-e073-4e1e-b0ec-71883075cf4a"
-version: "0.4.0.0"
+version: "0.4.1.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -16,6 +16,7 @@ category: "Metadata"
 artifacts:
   - "Jellyfin.Plugin.AsterOpEd.dll"
 changelog: |
+  - 0.4.1.0: Full versions can be named the way people write them: OP1 Full, OP1 (Full), OP1 [Full Version], OP1 - Full - Eve, or OP1 - Kaikai Kitan (Full) - Eve, as well as OP1-Full. Before, "OP1 - Full - Eve" was read as a song called "Full", and the file taken for a second copy of OP1. Two files for the same place are now listed in the scan report rather than one being dropped quietly, and a full version's name no longer overrides the TV-size one's song details.
   - 0.4.0.0: Full versions. Put the full-length song beside a theme as OP1-Full (video, audio or both; song details in the name work too) and it's kept with OP1: made playable like any theme, published as its own items ("Yuusha (Full)") in both libraries, and offered to clients (HasFullVersion, FullVideoMp4Url, FullAudioM4aUrl, and the full items' ids). Both libraries are republished once by themselves.
   - 0.3.2.0: Fixes the Music Videos library showing one item per show: Jellyfin took videos named after their show's folder ("Show - OP1 - Song") for versions of one video. They're now named like the songs ("01 OP1 - Song"), and republished once by themselves.
   - 0.3.1.0: Named Aster OP-ED in the plugin catalogue: Jellyfin names a plugin's folder after it, and refused "Aster OP/ED" (a folder name can't hold a slash), so 0.3.0.0 couldn't be installed from the repository. Nothing else changes.

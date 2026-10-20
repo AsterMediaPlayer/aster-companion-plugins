@@ -9,7 +9,9 @@ namespace Jellyfin.Plugin.AsterOpEd.Themes;
 ///   names with song details   "OP1 - Yuusha - YOASOBI.webm", "ED1-TV - bliss - milet [1].ogg",
 ///                             "OP2 - Haru - Yorushika [17-28].webm"  (title - artists [episodes])
 ///   full-length versions      "OP1-Full.mp4", "OP1-Full - Yuusha - YOASOBI.m4a": the whole song (the single, or its
-///                             music video) for the theme of the same name, not a theme of its own
+///                             music video) for the theme of the same name, not a theme of its own. Written other
+///                             ways too: "OP1 Full", "OP1 (Full)", "OP1 [Full Version]", "OP1 - Full - Eve",
+///                             "OP1 - Yuusha (Full) - YOASOBI"
 /// </summary>
 public static partial class ThemeFileName
 {
@@ -73,6 +75,13 @@ public static partial class ThemeFileName
             rest = rest[fm.Length..];
         }
 
+        // "OP1 Full", "OP1 (Full)", "OP1 [Full Version]": the same, written as a word rather than a tag.
+        if (FullWordRegex().Match(rest) is { Success: true } wm)
+        {
+            isFull = true;
+            rest = rest[wm.Length..];
+        }
+
         // Song details: " - Title - Artist, Artist [episodes]".
         string? title = null;
         string? episodes = null;
@@ -81,6 +90,27 @@ public static partial class ThemeFileName
         if (dm.Success)
         {
             var parts = dm.Groups["details"].Value.Split(" - ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+            // "OP1 - Full - Eve": "Full" where the title goes marks the full version; what follows is the artists
+            // when it's all there is, else the title and artists as usual.
+            if (parts.Length > 0 && IsFullMarker(parts[0]))
+            {
+                isFull = true;
+                parts = parts[1..];
+                if (parts.Length == 1)
+                {
+                    artists = SplitArtists(parts[0]);
+                    parts = [];
+                }
+            }
+
+            // "OP1 - Yuusha (Full) - YOASOBI": a "(Full)" after the title.
+            if (parts.Length > 0 && FullSuffixRegex().Match(parts[0]) is { Success: true } sm)
+            {
+                isFull = true;
+                parts[0] = parts[0][..sm.Index].TrimEnd();
+            }
+
             if (parts.Length == 1)
             {
                 title = parts[0];
@@ -101,6 +131,9 @@ public static partial class ThemeFileName
         return new Parsed(type, sequence, version, variant, title, artists, episodes, isFull);
     }
 
+    /// <summary>"Full", "Full Version", "(Full)", "[Full Size]".</summary>
+    private static bool IsFullMarker(string value) => FullMarkerRegex().IsMatch(value);
+
     public static List<string> SplitArtists(string value) =>
         [.. value.Split([", ", " & ", "; "], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)];
 
@@ -110,6 +143,17 @@ public static partial class ThemeFileName
 
     [GeneratedRegex(@"^-([A-Za-z]+)(?=$|[-_. ])")]
     private static partial Regex VariantRegex();
+
+    // " Full", " (Full)", " [Full Version]", "_Full" straight after the code (but not " - Full", which is song details).
+    [GeneratedRegex(@"^(?:[\s_]*[\(\[]\s*full(?:[\s_-]*(?:version|ver\.?|size|length|song))?\s*[\)\]]|[\s_]+full(?:[\s_-]*(?:version|ver\.?|size|length|song))?(?=$|[\s_.]))", RegexOptions.IgnoreCase)]
+    private static partial Regex FullWordRegex();
+
+    [GeneratedRegex(@"^[\(\[]?\s*full(?:[\s_-]*(?:version|ver\.?|size|length|song))?\s*[\)\]]?$", RegexOptions.IgnoreCase)]
+    private static partial Regex FullMarkerRegex();
+
+    // "Yuusha (Full)", "Yuusha [Full Version]" at the end of a title.
+    [GeneratedRegex(@"\s*[\(\[]\s*full(?:[\s_-]*(?:version|ver\.?|size|length|song))?\s*[\)\]]$", RegexOptions.IgnoreCase)]
+    private static partial Regex FullSuffixRegex();
 
     // " - details [eps]" — the episodes bracket is optional, as is "eps"/"ep" inside it.
     [GeneratedRegex(@"^\s+-\s+(?<details>.*?)\s*(?:\[(?:eps?\.?\s*)?(?<eps>[\d][\d ,\-]*)\])?\s*$", RegexOptions.IgnoreCase)]

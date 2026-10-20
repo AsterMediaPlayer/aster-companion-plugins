@@ -56,7 +56,8 @@ anime_themes/
 (`ED1-TV`). Tags like `NCBD1080` are ignored.
 
 **Full versions.** Have the full-length song too? Put it beside the TV-size theme with `-Full` after the code:
-`OP1-Full.mp4`, `OP1-Full.m4a`, or `OP1-Full - Yuusha - YOASOBI.flac` (video, audio or both, like any theme). It
+`OP1-Full.mp4`, `OP1-Full.m4a`, or `OP1-Full - Yuusha - YOASOBI.flac` (video, audio or both, like any theme).
+`OP1 Full`, `OP1 (Full)`, `OP1 [Full Version]`, `OP1 - Full - YOASOBI` and `OP1 - Yuusha (Full) - YOASOBI` work too. It
 belongs to OP1 rather than being a theme of its own: it shares OP1's song details, and the published libraries get it
 as its own item, "Yuusha (Full)". Clients can offer either version.
 Video: webm, mp4, mkv, m4v, mov. Audio: ogg, opus, mp3, flac, m4a, aac, wav.

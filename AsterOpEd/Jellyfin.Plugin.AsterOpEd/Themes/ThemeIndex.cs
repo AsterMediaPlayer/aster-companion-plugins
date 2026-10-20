@@ -248,6 +248,8 @@ public sealed partial class ThemeIndex
             // 1. Files -> themes, grouped by (show folder, subfolder, OP/ED identity).
             var groups = new Dictionary<string, Theme>(StringComparer.OrdinalIgnoreCase);
             var fromFileNames = new Dictionary<Theme, ThemeFileName.Parsed>();
+            // A full version's song details, used only when there's no TV-size file to take them from.
+            var fromFullFileNames = new Dictionary<Theme, ThemeFileName.Parsed>();
             var fromDetailsFiles = new Dictionary<string, Dictionary<string, ThemeDetailsFile.Details>>(StringComparer.OrdinalIgnoreCase);
             foreach (var showDir in Directory.EnumerateDirectories(root).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
             {
@@ -324,29 +326,27 @@ public sealed partial class ThemeIndex
                         theme.DetailsKey = ThemeDetailsFile.KeyFor(theme);
                     }
 
-                    if ((parsed.Title is not null || parsed.Artists.Count > 0 || parsed.Episodes is not null) && !fromFileNames.ContainsKey(theme))
+                    var details = parsed.IsFull ? fromFullFileNames : fromFileNames;
+                    if ((parsed.Title is not null || parsed.Artists.Count > 0 || parsed.Episodes is not null) && !details.ContainsKey(theme))
                     {
-                        fromFileNames[theme] = parsed;
+                        details[theme] = parsed;
                     }
 
-                    if (parsed.IsFull)
+                    // Two files for one place: the first is kept, and the scan says so rather than dropping the other quietly.
+                    var isVideo = ThemeFileName.IsVideo(file);
+                    var taken = (parsed.IsFull, isVideo) switch
                     {
-                        if (ThemeFileName.IsVideo(file))
-                        {
-                            theme.FullVideoPath ??= file;
-                        }
-                        else
-                        {
-                            theme.FullAudioPath ??= file;
-                        }
-                    }
-                    else if (ThemeFileName.IsVideo(file))
+                        (true, true) => theme.FullVideoPath ??= file,
+                        (true, false) => theme.FullAudioPath ??= file,
+                        (false, true) => theme.VideoPath ??= file,
+                        (false, false) => theme.AudioPath ??= file,
+                    };
+                    if (!string.Equals(taken, file, StringComparison.Ordinal))
                     {
-                        theme.VideoPath ??= file;
-                    }
-                    else
-                    {
-                        theme.AudioPath ??= file;
+                        var slug = theme.Type + theme.Sequence;
+                        report.UnparsedFiles.Add(parsed.IsFull
+                            ? $"{rel}  (there's already a full {(isVideo ? "video" : "audio")} file for {slug}: {Path.GetFileName(taken)})"
+                            : $"{rel}  (there's already a {(isVideo ? "video" : "audio")} file for {slug}: {Path.GetFileName(taken)}. For a full version, name it {slug}-Full)");
                     }
                 }
             }
@@ -358,6 +358,11 @@ public sealed partial class ThemeIndex
                 {
                     (theme.VideoPath, theme.AudioPath) = (theme.FullVideoPath, theme.FullAudioPath);
                     (theme.FullVideoPath, theme.FullAudioPath) = (null, null);
+                }
+
+                if (!fromFileNames.ContainsKey(theme) && fromFullFileNames.TryGetValue(theme, out var fullDetails))
+                {
+                    fromFileNames[theme] = fullDetails;
                 }
             }
 
