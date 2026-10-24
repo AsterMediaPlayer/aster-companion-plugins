@@ -1401,7 +1401,7 @@
     /* ------------------------------------------------------------------ */
 
     /* Pages that don't get one: Home (nowhere to go back to), the player (has its own), login, the dashboard. */
-    var NO_BACK = /^#\/(home(\.html)?|video|login(\.html)?|selectserver|dashboard|configurationpage|startupwizard)?(\?|$)/i;
+    var NO_BACK = /^#\/(home(\.html)?|video|login(\.html)?|selectserver|dashboard|configurationpage|startupwizard)?(\?|\/|$)/i;
     /*
      * A record of the pages visited inside the app (not a counter: Back itself fires a navigation, which made a
      * counter drift). A navigation to the page before the current one is a "back" and pops; anything else pushes.
@@ -1440,7 +1440,9 @@
     var placeBack = safe('back place', function () {
         var btn = back.node;
         var toolbar = document.querySelector('header.MuiAppBar-root .MuiToolbar-root');
-        var show = config.EnableBackButton && toolbar && toolbar.offsetParent !== null && !NO_BACK.test(location.hash || '#/home.html');
+        /* Jellyfin draws its own Back in some headers (the dashboard's, for one); never add a second. */
+        var own = toolbar && toolbar.querySelector('[data-testid="ArrowBackIcon"], .headerBackButton:not(.hide)');
+        var show = config.EnableBackButton && toolbar && !own && toolbar.offsetParent !== null && !NO_BACK.test(location.hash || '#/home.html');
         if (!show) {
             if (btn) {
                 btn.classList.remove('is-visible');
