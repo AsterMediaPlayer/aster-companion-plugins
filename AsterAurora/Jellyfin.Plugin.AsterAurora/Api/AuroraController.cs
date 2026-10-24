@@ -91,6 +91,7 @@ public sealed partial class AuroraController : ControllerBase
             c.EnableEpisodeShelf,
             c.EnableBackButton,
             c.EnableAsterDetails,
+            c.EnableOpeningBackgrounds,
         };
     }
 

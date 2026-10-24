@@ -256,6 +256,17 @@ video.au-trailer-media {
     object-fit: cover;
 }
 
+/* the same left + bottom shade the Aster skin puts on a backdrop, so the title and buttons stay readable over motion */
+.au-trailer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(to right, rgba(20, 20, 20, 0.85) 0%, rgba(20, 20, 20, 0.35) 45%, rgba(20, 20, 20, 0) 70%),
+        linear-gradient(to top, var(--aster-bg, #141414) 0%, rgba(20, 20, 20, 0.6) 35%, rgba(20, 20, 20, 0) 65%);
+}
+
 /* cover the viewport with a 16:9 frame, whatever the window shape */
 .au-trailer-yt {
     position: absolute;
@@ -272,7 +283,7 @@ video.au-trailer-media {
 
 .au-trailer-mute {
     position: absolute;
-    top: calc(100vh - 92px);
+    top: 76px;
     right: 4.2vw;
     z-index: 5;
     width: 48px;
@@ -304,6 +315,36 @@ video.au-trailer-media {
 
 .au-trailer-mute:hover {
     background: rgba(255, 255, 255, 0.3);
+}
+
+/* an anime opening's name ("OP1 · Super Big Love!"), left of its sound button */
+.au-trailer-caption {
+    position: absolute;
+    top: 76px;
+    right: calc(4.2vw + 60px);
+    z-index: 5;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    max-width: 40vw;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.95em;
+    font-weight: 600;
+    color: var(--aster-text-secondary, var(--au-text-2, rgba(235, 235, 245, 0.75)));
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+}
+
+.au-trailer-caption.is-visible {
+    opacity: 1;
+}
+
+.au-trailer-caption.is-scrolled {
+    opacity: 0;
 }
 
 /* while a trailer plays, quiet the static title logo a touch so motion leads */

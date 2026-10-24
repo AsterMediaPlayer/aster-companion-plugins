@@ -52,4 +52,10 @@ public class PluginConfiguration : BasePluginConfiguration
     /// beside the buttons of a title that's been started, and Resume on the banner for one.
     /// </summary>
     public bool EnableAsterDetails { get; set; } = true;
+
+    /// <summary>
+    /// On an anime show's page, loop its opening (from the Aster OP/ED plugin) behind the page instead of a trailer,
+    /// as the Aster app does. Uses <see cref="EnableTrailers"/>' delay and sound button; needs the OP/ED plugin.
+    /// </summary>
+    public bool EnableOpeningBackgrounds { get; set; } = true;
 }

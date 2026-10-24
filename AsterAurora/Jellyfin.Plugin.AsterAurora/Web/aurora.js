@@ -30,7 +30,7 @@
         EnableTrailers: true, AllowYouTubeTrailers: true, TrailerDelaySeconds: 4,
         EnableTilt: true, EnableGenreChips: true,
         EnableUpNext: true, EnableBadges: true, EnableEpisodeShelf: true, EnableBackButton: true,
-        EnableAsterDetails: true
+        EnableAsterDetails: true, EnableOpeningBackgrounds: true
     };
     var config = DEFAULTS;
 
@@ -410,7 +410,7 @@
     /* ------------------------------------------------------------------ */
 
     /* doneFor: the item whose trailer already ran (or was tried) on this visit, so an ended or failed trailer never loops. */
-    var trailer = { itemId: null, doneFor: null, timer: null, node: null, mute: null, media: null, kind: null, muted: true };
+    var trailer = { itemId: null, doneFor: null, timer: null, node: null, mute: null, caption: null, media: null, kind: null, muted: true };
 
     function youTubeId(url) {
         var m = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/.exec(url || '');
@@ -427,6 +427,10 @@
             trailer.mute.parentNode.removeChild(trailer.mute);
         }
         trailer.mute = null;
+        if (trailer.caption && trailer.caption.parentNode) {
+            trailer.caption.parentNode.removeChild(trailer.caption);
+        }
+        trailer.caption = null;
         trailer.node = null;
         trailer.media = null;
         trailer.itemId = null;
@@ -486,18 +490,23 @@
         if (trailer.mute) {
             trailer.mute.classList.add('is-visible');
         }
+        if (trailer.caption) {
+            trailer.caption.classList.add('is-visible');
+        }
         document.documentElement.classList.add('au-trailer-on');
     }
 
-    function playLocal(client, itemId, trailerItemId, fallback) {
+    /* A video behind the page: a local trailer (plays once), or an anime opening (loops, as in the Aster app). */
+    function playLocal(client, itemId, src, fallback, loops) {
         var shell = trailerShell();
         var video = el('video', 'au-trailer-media');
         video.muted = true;
         video.autoplay = true;
+        video.loop = !!loops;
         video.playsInline = true;
         video.setAttribute('playsinline', '');
         video.preload = 'auto';
-        video.src = client.getUrl('Videos/' + trailerItemId + '/stream', { static: true, api_key: client.accessToken() });
+        video.src = src;
         video.addEventListener('playing', function () { reveal(itemId); }, { once: true });
         video.addEventListener('ended', stopTrailer);
         video.addEventListener('error', function () {
@@ -570,27 +579,86 @@
                 if (trailer.itemId !== itemId || !item || (item.Type !== 'Movie' && item.Type !== 'Series')) {
                     return;
                 }
-                var yt = null;
-                (item.RemoteTrailers || []).some(function (t) { yt = youTubeId(t.Url); return !!yt; });
-                var youtube = config.AllowYouTubeTrailers && yt ? function () { playYouTube(itemId, yt); } : null;
-
-                if (item.LocalTrailerCount > 0 && typeof client.getLocalTrailers === 'function') {
-                    client.getLocalTrailers(userId, itemId).then(safe('local trailer', function (list) {
+                /* an anime series loops its opening instead, when the OP/ED plugin has one; anything else gets its trailer */
+                if (item.Type === 'Series' && config.EnableOpeningBackgrounds) {
+                    openingFor(client, itemId).then(safe('opening pick', function (theme) {
                         if (trailer.itemId !== itemId) {
                             return;
                         }
-                        if (list && list.length) {
-                            playLocal(client, itemId, list[0].Id, youtube);
-                        } else if (youtube) {
-                            youtube();
+                        if (theme) {
+                            playOpening(client, itemId, theme, function () { trailerFor(client, userId, itemId, item); });
+                        } else {
+                            trailerFor(client, userId, itemId, item);
                         }
-                    }), function () { if (youtube && trailer.itemId === itemId) { youtube(); } });
-                } else if (youtube) {
-                    youtube();
+                    }), function () {
+                        if (trailer.itemId === itemId) {
+                            trailerFor(client, userId, itemId, item);
+                        }
+                    });
+                    return;
                 }
+                trailerFor(client, userId, itemId, item);
             }), function () { /* no item, no trailer */ });
         }), config.TrailerDelaySeconds * 1000);
     });
+
+    /* The title's own trailer: a local one first, then YouTube when allowed. */
+    function trailerFor(client, userId, itemId, item) {
+        var yt = null;
+        (item.RemoteTrailers || []).some(function (t) { yt = youTubeId(t.Url); return !!yt; });
+        var youtube = config.AllowYouTubeTrailers && yt ? function () { playYouTube(itemId, yt); } : null;
+
+        if (item.LocalTrailerCount > 0 && typeof client.getLocalTrailers === 'function') {
+            client.getLocalTrailers(userId, itemId).then(safe('local trailer', function (list) {
+                if (trailer.itemId !== itemId) {
+                    return;
+                }
+                if (list && list.length) {
+                    playLocal(client, itemId, client.getUrl('Videos/' + list[0].Id + '/stream', { static: true, ApiKey: client.accessToken(), api_key: client.accessToken() }), youtube);
+                } else if (youtube) {
+                    youtube();
+                }
+            }), function () { if (youtube && trailer.itemId === itemId) { youtube(); } });
+        } else if (youtube) {
+            youtube();
+        }
+    }
+
+    /*
+     * Openings from the Aster OP/ED plugin (GET /OpEd/Items/{id}/Themes). Like the app: an opening (Type "OP") with a
+     * video, never one marked as a spoiler or NSFW, preferring the season you'd watch next, then the show's first.
+     * Resolves null when there is none, and rejects when the plugin isn't installed (the request 404s).
+     */
+    function openingFor(client, seriesId) {
+        var themes = client.getJSON(client.getUrl('OpEd/Items/' + seriesId + '/Themes')).then(function (r) {
+            return ((r && r.Themes) || []).filter(function (t) {
+                return t.Type === 'OP' && t.VideoMp4Url && !t.Spoiler && !t.Nsfw;
+            }).sort(function (a, b) { return (a.Sequence || 0) - (b.Sequence || 0); });
+        });
+        var next = nextEpisode(client, seriesId).then(function (ep) { return ep && ep.SeasonId; }, function () { return null; });
+        return Promise.all([themes, next]).then(function (both) {
+            var list = both[0];
+            var season = both[1];
+            var inSeason = season ? list.filter(function (t) { return t.SeasonId === season; }) : [];
+            return inSeason[0] || list[0] || null;
+        });
+    }
+
+    function playOpening(client, itemId, theme, fallback) {
+        var src = client.getUrl(theme.VideoMp4Url.replace(/^\//, ''), { api_key: client.accessToken(), ApiKey: client.accessToken() });
+        playLocal(client, itemId, src, fallback, true);
+        if (trailer.mute) {
+            trailer.mute.setAttribute('aria-label', 'Opening sound');
+        }
+        /* what's playing, beside the sound button, as the app's song card says it */
+        var song = [theme.Slug || 'OP', theme.SongTitle].filter(Boolean).join(' · ');
+        if (song && trailer.mute) {
+            var caption = el('div', 'au-trailer-caption', song);
+            caption.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(caption);
+            trailer.caption = caption;
+        }
+    }
 
     /* Fade the trailer out once the viewer scrolls down into the page; YouTube is paused, not just hidden. */
     window.addEventListener('scroll', safe('trailer scroll', function () {
@@ -601,6 +669,9 @@
         trailer.node.classList.toggle('is-scrolled', away);
         if (trailer.mute) {
             trailer.mute.classList.toggle('is-scrolled', away);
+        }
+        if (trailer.caption) {
+            trailer.caption.classList.toggle('is-scrolled', away);
         }
         if (trailer.kind === 'local' && trailer.media) {
             if (away) { trailer.media.pause(); } else if (trailer.media.paused) { trailer.media.play().catch(function () {}); }
