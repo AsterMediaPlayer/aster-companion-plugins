@@ -74,5 +74,43 @@ const kids = w => [...w.document.querySelector('.mainDetailButtons').children].m
   check(w.document.querySelectorAll('#discMenusButton').length === 1, 'exactly one button');
   w.location.hash = '#/details?id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'; await sleep(1200);
   check(w.document.querySelectorAll('#discMenusButton').length <= 1, 'moving to another item never leaves two buttons', w.document.querySelectorAll('#discMenusButton').length);
+  // A series page showing its only season's menu (the server says so with ItemId): the button is on the series page, but the menu is the
+  // season's, so Play plays the season and the pictures are the season's.
+  const SEASON = '7007b3c2f676d0bb83890782deaa2915';
+  const SERIES = '021844f91733786d6b7922d846a5eca2';
+  const seasonDoc = { ItemId: SEASON, Root: 'main', Background: { Source: 'jellyfin', ImageType: 'Backdrop', Index: 0 },
+    Menus: { main: { Title: 'Main', Entries: [{ Action: 'playFeature', Label: 'Play' }] } } };
+  {
+    const dom = new JSDOM('<body><div id="itemDetailPage" class="page">' + ROW() + '</div></body>', { url: 'http://x/web/#/details?id=' + SERIES, runScripts: 'outside-only', pretendToBeVisual: true });
+    const sw = dom.window; sw.console.warn = () => {}; sw.console.log = () => {};
+    const asked = [], images = [], played = [];
+    sw.ApiClient = {
+      getJSON: u => { asked.push(u); return Promise.resolve(/^Sessions/.test(u) ? [{ Id: 's1' }] : seasonDoc); },
+      getUrl: (u, q) => u + (q ? '?' + new URLSearchParams(Object.entries(q).filter(e => e[1] !== undefined)).toString() : ''),
+      getImageUrl: (id) => { images.push(id); return 'img/' + id; }, deviceId: () => 'd',
+      ajax: (r) => { played.push(r.url); return Promise.resolve(); },
+    };
+    sw.eval(src); await sleep(200);
+    check(asked[0] === 'DiscMenus/' + SERIES + '/Menu', 'the series page asks for its own menu', asked[0]);
+    const sb = sw.document.getElementById('discMenusButton');
+    check(sb && sb.parentNode.classList.contains('mainDetailButtons'), 'a series page showing its season\'s menu gets the button in its own row');
+    sb.click(); await sleep(50);
+    check(!!sw.document.getElementById('discMenusOverlay'), 'and it opens the menu');
+    check(images.length > 0 && images.every(id => id === SEASON), 'the menu\'s Jellyfin pictures are the season\'s, not the series\'', images.join());
+    sw.document.querySelector('.discMenuEntry').click(); await sleep(50);
+    check(played.length === 1 && /ItemIds=7007b3c2f676d0bb83890782deaa2915/.test(played[0]), 'Play plays the season the menu is for', played[0]);
+  }
+
+  // A document without ItemId (an older server) keeps using the page's item.
+  {
+    const dom = new JSDOM('<body><div id="itemDetailPage" class="page">' + ROW() + '</div></body>', { url: 'http://x/web/#/details?id=' + ID, runScripts: 'outside-only', pretendToBeVisual: true });
+    const ow = dom.window; ow.console.warn = () => {}; ow.console.log = () => {};
+    const images = [];
+    const plain = Object.assign({}, seasonDoc); delete plain.ItemId;
+    ow.ApiClient = { getJSON: () => Promise.resolve(plain), getUrl: u => u, getImageUrl: (id) => { images.push(id); return 'img/' + id; }, deviceId: () => 'd' };
+    ow.eval(src); await sleep(200);
+    ow.document.getElementById('discMenusButton').click(); await sleep(50);
+    check(images.length > 0 && images.every(id => id === ID), 'without ItemId the page\'s own item is used, as before', images.join());
+  }
   console.log('failures: ' + fail); process.exit(fail ? 1 : 0);
 })();

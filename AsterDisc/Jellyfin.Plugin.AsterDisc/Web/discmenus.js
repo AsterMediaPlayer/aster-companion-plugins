@@ -79,7 +79,10 @@
                 }
 
                 menuDoc = doc;
-                addButton(itemId);
+                // The menu may belong to another item than the page: a series with no menu of its own shows its only season's
+                // menu, and that season is what Play plays and whose pictures and chapters are used. The button stays on this page.
+                var menuItemId = doc && typeof doc.ItemId === 'string' && ITEM_ID.test(doc.ItemId) ? doc.ItemId : itemId;
+                addButton(itemId, menuItemId);
             },
             function () {
                 // No disc menu bound to this item (404), or not authenticated
@@ -155,7 +158,8 @@
             !!document.querySelector('#reactRoot, .skinBody, .mainAnimatedPages, .itemDetailPage, #itemDetailPage, .mainDetailButtons');
     }
 
-    function addButton(itemId) {
+    function addButton(itemId, menuItemId) {
+        menuItemId = menuItemId || itemId;
         var tries = 0;
         var floating = null;
         (function place() {
@@ -175,7 +179,7 @@
                     floating = null;
                 }
 
-                insertInRow(row, makeRowButton(itemId));
+                insertInRow(row, makeRowButton(menuItemId));
                 return;
             }
 
@@ -189,7 +193,7 @@
                     return;
                 }
 
-                floating = makeFloatingButton(itemId);
+                floating = makeFloatingButton(menuItemId);
                 document.body.appendChild(floating);
                 tries = 0;
             }
@@ -1799,6 +1803,7 @@
 
         var deviceId = ApiClient.deviceId();
         var savedStack = menuStack.slice();
+        var pageItemId = currentParentItemId || parentItemId; // the page the menu was opened on, which playback returns to
 
         ApiClient.getJSON(ApiClient.getUrl('Sessions', { DeviceId: deviceId })).then(function (sessions) {
             var session = sessions && sessions[0];
@@ -1815,7 +1820,7 @@
                 }),
             }).then(function () {
                 closeOverlay();
-                watchForPlaybackEnd(session.Id, parentItemId, savedStack);
+                watchForPlaybackEnd(session.Id, parentItemId, savedStack, pageItemId);
             });
         }).catch(function (err) {
             console.warn('[Disc Menus] Sessions API playback failed, falling back to details page', err);
@@ -1826,7 +1831,7 @@
     // Reopen the menu where the user left it once playback stops, like a disc
     // returning to its menu. Waits for playback to actually start first so the
     // brief gap before NowPlayingItem appears isn't mistaken for "ended".
-    function watchForPlaybackEnd(sessionId, parentItemId, savedStack) {
+    function watchForPlaybackEnd(sessionId, parentItemId, savedStack, pageItemId) {
         stopReturnPoll();
         var started = false;
         var ticks = 0;
@@ -1841,7 +1846,7 @@
                 } else if (started || ticks > 15) {
                     stopReturnPoll();
                     if (started) {
-                        window.location.hash = '#/details?id=' + parentItemId;
+                        window.location.hash = '#/details?id=' + (pageItemId || parentItemId);
                         setTimeout(function () {
                             menuStack = savedStack;
                             renderOverlay(parentItemId, 'intro');

@@ -214,6 +214,45 @@ public class MenuDiscoveryTests
         Assert.Equal(new[] { "Tvdb" }, MenuDiscovery.WithoutAniDb(Wanted(("anidb", "1"), ("Tvdb", "2"))).Keys);
     }
 
+    // ---- Which menu a page shows (a series falling back to its only season's menu)
+    [Fact]
+    public void AnItemWithItsOwnMenuShowsIt()
+    {
+        var series = Guid.Parse(A);
+        Assert.Equal(series, MenuDiscovery.MenuItemFor(series, true, true, new[] { (Guid.Parse(B), series) }));
+    }
+
+    [Fact]
+    public void ASeriesWithoutAMenuShowsItsOnlySeasonsMenu()
+    {
+        // Bad Girl under Shokofin: the menu is matched to Season 1 by AniDB id, and people stay on the series page.
+        var series = Guid.Parse(A);
+        Assert.Equal(Guid.Parse(B), MenuDiscovery.MenuItemFor(series, false, true, new[] { (Guid.Parse(B), series), (Guid.Parse(C), Guid.NewGuid()) }));
+    }
+
+    [Fact]
+    public void ASeriesWithMenusForSeveralSeasonsShowsNoneRatherThanGuess()
+    {
+        var series = Guid.Parse(A);
+        Assert.Null(MenuDiscovery.MenuItemFor(series, false, true, new[] { (Guid.Parse(B), series), (Guid.Parse(C), series) }));
+    }
+
+    [Fact]
+    public void TheSameSeasonListedTwiceStillCountsAsOne()
+    {
+        var series = Guid.Parse(A);
+        Assert.Equal(Guid.Parse(B), MenuDiscovery.MenuItemFor(series, false, true, new[] { (Guid.Parse(B), series), (Guid.Parse(B), series) }));
+    }
+
+    [Fact]
+    public void OnlySeriesFallBack()
+    {
+        // A movie, or a season of a series whose other season has the menu, never borrows one.
+        var item = Guid.Parse(A);
+        Assert.Null(MenuDiscovery.MenuItemFor(item, false, false, new[] { (Guid.Parse(B), item) }));
+        Assert.Null(MenuDiscovery.MenuItemFor(item, false, true, Array.Empty<(Guid, Guid)>()));
+    }
+
     [Fact]
     public void MenusForDifferentItemsDoNotConflict()
     {
