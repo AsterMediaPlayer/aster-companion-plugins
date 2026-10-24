@@ -1,6 +1,6 @@
 name: "Aster Aurora"
 guid: "22f5ff1c-c1cd-47b2-839f-25e6cd9c8afc"
-version: "0.4.0.0"
+version: "0.5.0.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -14,6 +14,7 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterAurora.dll"
 changelog: >
+  - 0.5.0.0: Matches the Aster skin and app: its colours carry into Aurora's elements, episode pages are titled with the episode's own name and an "S2, E2" line, a started title shows how much is left and resumes from the banner, and Home's header gets its backing back once the page scrolls.
   - 0.4.0.0: Now Aster Aurora, installed from the Aster companion plugins repository. Same plugin id, so it updates in place, and your Aurora settings move across on first start.
   - 0.3.1.0: Back button in the top-left corner.
   - 0.3.0.0: No flashes: custom CSS applied from the first frame, banner placeholder, pre-paint genre chips, art-less layout keyed off the page, reserved badge space.

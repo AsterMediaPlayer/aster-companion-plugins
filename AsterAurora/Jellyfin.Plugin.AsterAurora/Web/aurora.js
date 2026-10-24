@@ -29,7 +29,8 @@
         EnableHero: true, HeroSource: 'latest', HeroCount: 8, HeroIntervalSeconds: 9,
         EnableTrailers: true, AllowYouTubeTrailers: true, TrailerDelaySeconds: 4,
         EnableTilt: true, EnableGenreChips: true,
-        EnableUpNext: true, EnableBadges: true, EnableEpisodeShelf: true, EnableBackButton: true
+        EnableUpNext: true, EnableBadges: true, EnableEpisodeShelf: true, EnableBackButton: true,
+        EnableAsterDetails: true
     };
     var config = DEFAULTS;
 
@@ -93,6 +94,22 @@
         return h ? h + 'h ' + m + 'm' : m + 'm';
     }
 
+    /*
+     * What's left to watch, as the Aster app words it: "21 min left", "1 hr, 5 min left". Null when the title hasn't
+     * been started, has been finished, or has no runtime.
+     */
+    function timeLeft(item) {
+        var data = item && item.UserData;
+        var pos = data && data.PlaybackPositionTicks;
+        if (!pos || data.Played || !item.RunTimeTicks || pos >= item.RunTimeTicks) {
+            return null;
+        }
+        var mins = Math.max(1, Math.ceil((item.RunTimeTicks - pos) / 600000000));
+        var h = Math.floor(mins / 60);
+        var m = mins % 60;
+        return (h ? h + ' hr' + (m ? ', ' + m + ' min' : '') : m + ' min') + ' left';
+    }
+
     /* One fetch per title per minute, shared by trailers, badges and the Episodes row. */
     var itemCache = {};
 
@@ -121,6 +138,7 @@
             Fields: 'Overview,Genres,ProductionYear,OfficialRating,RunTimeTicks,CommunityRating,ChildCount',
             EnableImageTypes: 'Backdrop,Logo',
             ImageTypeLimit: 1,
+            EnableUserData: true,
             Limit: Math.max(config.HeroCount * 2, 12)
         };
         if (config.HeroSource === 'random') {
@@ -212,7 +230,12 @@
         var play = el('button', 'au-btn au-btn-primary');
         play.type = 'button';
         play.appendChild(el('span', 'material-icons au-btn-icon', 'play_arrow'));
-        play.appendChild(el('span', null, 'Play'));
+        /* a film started and not finished resumes, and says how long is left, as the Aster app does */
+        var left = config.EnableAsterDetails && item.Type !== 'Series' ? timeLeft(item) : null;
+        play.appendChild(el('span', null, left ? 'Resume' : 'Play'));
+        if (left) {
+            play.appendChild(el('span', 'au-btn-sub', '· ' + left));
+        }
         play.addEventListener('click', function () { openDetails(item.Id, true); });
         var more = el('button', 'au-btn au-btn-glass');
         more.type = 'button';
@@ -1191,6 +1214,118 @@
     });
 
     /* ------------------------------------------------------------------ */
+    /* Aster details: an episode's own title and code, and time left        */
+    /* ------------------------------------------------------------------ */
+
+    /*
+     * The Aster app titles an episode page with the episode's name, then "S2, E2" on a line of its own, under the
+     * show's logo. jellyfin-web writes one heading, "Show - 2. Name" (h3.itemName in .nameContainer). This adds the
+     * app's two lines before it; the stylesheet hides the stock heading only while they are there (:has), so if
+     * jellyfin-web redraws the container and drops them, its own heading shows until the next refresh puts them back.
+     */
+    function episodeCode(item) {
+        if (item.ParentIndexNumber === 0) {
+            return 'Special';
+        }
+        var parts = [];
+        if (item.ParentIndexNumber != null) {
+            parts.push('S' + item.ParentIndexNumber);
+        }
+        if (item.IndexNumber != null) {
+            parts.push('E' + item.IndexNumber + (item.IndexNumberEnd != null && item.IndexNumberEnd !== item.IndexNumber ? '–' + item.IndexNumberEnd : ''));
+        }
+        return parts.join(', ');
+    }
+
+    function episodeTitle(page, item) {
+        var names = page.querySelector('.nameContainer');
+        if (!names) {
+            return;
+        }
+        var have = names.querySelector('.au-title');
+        if (item.Type !== 'Episode' || !item.Name) {
+            if (have) {
+                have.remove();
+                var oldCode = names.querySelector('.au-ep-code');
+                if (oldCode) {
+                    oldCode.remove();
+                }
+            }
+            return;
+        }
+        if (have && have.getAttribute('data-for') === item.Id) {
+            return;
+        }
+        if (have) {
+            have.remove();
+        }
+        var stale = names.querySelector('.au-ep-code');
+        if (stale) {
+            stale.remove();
+        }
+        var stock = names.querySelector('h3.itemName');
+        var title = el('h2', 'au-title', item.Name);
+        title.setAttribute('data-for', item.Id);
+        var code = episodeCode(item);
+        names.insertBefore(title, stock);
+        if (code) {
+            var line = el('div', 'au-ep-code', code);
+            names.insertBefore(line, stock);
+        }
+    }
+
+    /* "4 min left" beside the buttons of a title you've started, as in the app. */
+    function timeLeftNote(page, item) {
+        var buttons = page.querySelector('.mainDetailButtons');
+        if (!buttons) {
+            return;
+        }
+        var note = buttons.querySelector('.au-time-left');
+        var left = timeLeft(item);
+        if (!left) {
+            if (note) {
+                note.remove();
+            }
+            return;
+        }
+        if (!note) {
+            note = el('span', 'au-time-left');
+            buttons.appendChild(note);
+        }
+        if (note.textContent !== left) {
+            note.textContent = left;
+        }
+    }
+
+    var asterDetails = safe('aster details', function () {
+        if (!config.EnableAsterDetails) {
+            return;
+        }
+        var client = api();
+        var page = visiblePage('.itemDetailPage');
+        var id = page ? hashParam('id') : null;
+        if (!client || !page || !id) {
+            return;
+        }
+        getItemCached(client, id).then(safe('aster details item', function (item) {
+            if (!item || hashParam('id') !== id) {
+                return;
+            }
+            episodeTitle(page, item);
+            timeLeftNote(page, item);
+        }), function () {});
+    });
+
+    /*
+     * On Home the banner runs up under a see-through header; once the page scrolls, rows pass under the header's links,
+     * so it is marked scrolled and the stylesheet (Aurora's, or the Aster skin's) gives it a backing again.
+     */
+    var markScrolled = safe('scrolled', function () {
+        var y = window.scrollY || (document.scrollingElement && document.scrollingElement.scrollTop) || 0;
+        document.documentElement.classList.toggle('au-scrolled', y > 8);
+    });
+
+    /* ------------------------------------------------------------------ */
     /* Back button (top-left)                                               */
     /* ------------------------------------------------------------------ */
 
@@ -1282,6 +1417,7 @@
         genreChips();
         upNext();
         detailsFeatures();
+        asterDetails();
         scheduleTrailer();
         autoplayFromHero();
     });
@@ -1301,8 +1437,10 @@
             stopTrailer();
             trailer.doneFor = null;
             placeBack();
+            markScrolled();
             queueRefresh();
         });
+        window.addEventListener('scroll', markScrolled, { passive: true });
         window.addEventListener('resize', safe('resize', function () { placeHero(); placeBack(); }));
         new MutationObserver(function () {
             /* before paint: things that can be decided from the page alone, so they never show in a stock state */

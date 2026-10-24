@@ -46,4 +46,10 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>A back button in the top-left corner on every page except Home, the player, login and the dashboard.</summary>
     public bool EnableBackButton { get; set; } = true;
+
+    /// <summary>
+    /// The Aster app's details: an episode page titled with the episode's own name and an "S2, E2" line, "N min left"
+    /// beside the buttons of a title that's been started, and Resume on the banner for one.
+    /// </summary>
+    public bool EnableAsterDetails { get; set; } = true;
 }

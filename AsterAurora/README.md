@@ -10,9 +10,11 @@ A Jellyfin 12.x plugin that gives the **web client** Apple TV style behaviour:
 - **Quality badges:** 4K, Dolby Vision, HDR10, Dolby Atmos, 5.1 and CC at a glance on details pages.
 - **Episodes row:** a show's episodes in one row, with season tabs.
 - **Back button** in the top-left corner.
+- **Aster app details:** episode pages titled with the episode's own name and an "S2, E2" line, "N min left" beside a
+  started title's buttons, and Resume on the banner for one.
 - **No flash of the stock layout:** the custom CSS applies from the very first frame.
 
-It pairs with the Aurora custom CSS (Dashboard → Branding) but works without it. Settings are under Dashboard → Aster Aurora.
+It pairs with the [Aster skin](https://github.com/AsterMediaPlayer/aster-skin) (or the older Aurora custom CSS) in Dashboard → Branding, taking its colours, but works without either. Settings are under Dashboard → Aster Aurora.
 Only jellyfin-web and apps that wrap it are affected; native apps (Apple TV, Android TV, Infuse, Swiftfin) draw their own screens.
 
 > **Heads up: this project is vibe coded.** All of the code was written by an AI (Claude, through Claude Code) while

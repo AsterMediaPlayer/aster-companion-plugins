@@ -1,6 +1,7 @@
 /*
  * Aurora plugin styles: only for elements the Aurora script adds (au-*) and the classes it toggles.
- * Uses the Aurora skin's variables when that custom CSS is installed, with fallbacks so it also works on stock Jellyfin.
+ * Uses the Aurora skin's variables when that custom CSS is installed, then the Aster skin's
+ * (github.com/AsterMediaPlayer/aster-skin), with fallbacks so it also works on stock Jellyfin.
  */
 
 /* ---------- Home hero banner ------------------------------------------------ */
@@ -12,7 +13,7 @@
     max-height: 900px;
     overflow: hidden;
     margin-bottom: 1.5em;
-    background: var(--au-bg, #0b0b0e);
+    background: var(--au-bg, var(--aster-bg, #0b0b0e));
     isolation: isolate;
 }
 
@@ -50,7 +51,7 @@
     position: absolute;
     inset: 0;
     background:
-        linear-gradient(to top, var(--au-bg, #0b0b0e) 0%, rgba(11, 11, 14, 0.55) 22%, rgba(11, 11, 14, 0) 50%),
+        linear-gradient(to top, var(--au-bg, var(--aster-bg, #0b0b0e)) 0%, rgba(11, 11, 14, 0.55) 22%, rgba(11, 11, 14, 0) 50%),
         linear-gradient(to right, rgba(11, 11, 14, 0.9) 0%, rgba(11, 11, 14, 0.45) 35%, rgba(11, 11, 14, 0) 62%),
         linear-gradient(to bottom, rgba(11, 11, 14, 0.55) 0%, rgba(11, 11, 14, 0) 18%);
     pointer-events: none;
@@ -62,7 +63,7 @@
     left: 4.2vw;
     bottom: 11%;
     width: min(44vw, 720px);
-    color: var(--au-text, #f5f5f7);
+    color: var(--au-text, var(--aster-text, #f5f5f7));
     opacity: 0;
     transform: translateY(16px);
     transition: opacity 0.7s ease 0.35s, transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.35s;
@@ -96,7 +97,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.35em 0.9em;
-    color: var(--au-text-2, rgba(235, 235, 245, 0.7));
+    color: var(--au-text-2, var(--aster-text-secondary, rgba(235, 235, 245, 0.7)));
     font-weight: 600;
     font-size: 1em;
     margin-bottom: 0.8em;
@@ -111,7 +112,7 @@
 
 .au-hero-overview {
     margin: 0 0 1.4em;
-    color: var(--au-text-2, rgba(235, 235, 245, 0.75));
+    color: var(--au-text-2, var(--aster-text-secondary, rgba(235, 235, 245, 0.75)));
     font-size: 1.05em;
     line-height: 1.5;
     display: -webkit-box;
@@ -147,7 +148,7 @@
 }
 
 .au-btn:focus-visible {
-    outline: 3px solid var(--au-blue, #00a4dc);
+    outline: 3px solid var(--au-blue, var(--aster-accent, #00a4dc));
     outline-offset: 3px;
 }
 
@@ -156,13 +157,13 @@
 }
 
 .au-btn-primary {
-    background: var(--au-text, #f5f5f7);
+    background: var(--au-text, var(--aster-text, #f5f5f7));
     color: #000;
 }
 
 .au-btn-glass {
     background: rgba(255, 255, 255, 0.16);
-    color: var(--au-text, #f5f5f7);
+    color: var(--au-text, var(--aster-text, #f5f5f7));
     backdrop-filter: blur(20px) saturate(160%);
     -webkit-backdrop-filter: blur(20px) saturate(160%);
 }
@@ -196,8 +197,8 @@
     background: rgba(255, 255, 255, 0.95);
 }
 
-/* on Home with a banner, the header floats over the art with no backing */
-html.au-has-hero header.MuiAppBar-root {
+/* on Home with a banner, the header floats over the art with no backing, until the page scrolls rows under it */
+html.au-has-hero:not(.au-scrolled) header.MuiAppBar-root {
     background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0)) !important;
 }
 
@@ -355,7 +356,7 @@ html.au-tilt.layout-desktop .personCard:hover .cardScalable.au-tilting {
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    color: var(--au-text, #f5f5f7) !important;
+    color: var(--au-text, var(--aster-text, #f5f5f7)) !important;
     text-decoration: none;
     transition: background 0.2s;
 }
@@ -414,7 +415,7 @@ html.au-tilt.layout-desktop .personCard:hover .cardScalable.au-tilting {
 }
 
 .au-upnext .card.au-upnext-has-logo .cardText-secondary {
-    color: var(--au-text-2, rgba(235, 235, 245, 0.7)) !important;
+    color: var(--au-text-2, var(--aster-text-secondary, rgba(235, 235, 245, 0.7))) !important;
     font-size: 0.85em;
 }
 
@@ -469,7 +470,7 @@ html.au-tilt.layout-desktop .personCard:hover .cardScalable.au-tilting {
     border: 0;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.08);
-    color: var(--au-text, #f5f5f7);
+    color: var(--au-text, var(--aster-text, #f5f5f7));
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -502,7 +503,7 @@ html.layout-mobile .au-ep-arrows {
     border: 0;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.08);
-    color: var(--au-text-2, rgba(235, 235, 245, 0.75));
+    color: var(--au-text-2, var(--aster-text-secondary, rgba(235, 235, 245, 0.75)));
     font: inherit;
     font-weight: 600;
     cursor: pointer;
@@ -511,11 +512,11 @@ html.layout-mobile .au-ep-arrows {
 
 .au-season-tab:hover {
     background: rgba(255, 255, 255, 0.16);
-    color: var(--au-text, #f5f5f7);
+    color: var(--au-text, var(--aster-text, #f5f5f7));
 }
 
 .au-season-tab.is-active {
-    background: var(--au-text, #f5f5f7);
+    background: var(--au-text, var(--aster-text, #f5f5f7));
     color: #000;
 }
 
@@ -549,8 +550,8 @@ html.layout-mobile .au-ep-arrows {
 .au-ep-img {
     position: relative;
     aspect-ratio: 16 / 9;
-    border-radius: var(--au-radius, 12px);
-    background: var(--au-bg-raised, #16161b) center / cover no-repeat;
+    border-radius: var(--au-radius, var(--aster-radius, 12px));
+    background: var(--au-bg-raised, var(--aster-surface, #16161b)) center / cover no-repeat;
     overflow: hidden;
     box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4);
     transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s;
@@ -563,12 +564,12 @@ html.layout-mobile .au-ep-arrows {
 }
 
 .au-ep:focus-visible .au-ep-img {
-    outline: 3px solid var(--au-blue, #00a4dc);
+    outline: 3px solid var(--au-blue, var(--aster-accent, #00a4dc));
     outline-offset: 3px;
 }
 
 .au-ep.is-next .au-ep-num {
-    color: var(--au-blue, #00a4dc);
+    color: var(--au-blue, var(--aster-accent, #00a4dc));
 }
 
 .au-ep-play {
@@ -615,7 +616,7 @@ html.layout-mobile .au-ep-arrows {
 .au-ep-progress-fill {
     height: 100%;
     border-radius: 999px;
-    background: var(--au-accent, linear-gradient(120deg, #aa5cc3, #00a4dc));
+    background: var(--au-accent, var(--aster-accent, linear-gradient(120deg, #aa5cc3, #00a4dc)));
 }
 
 .au-ep-played {
@@ -625,7 +626,7 @@ html.layout-mobile .au-ep-arrows {
     width: 26px;
     height: 26px;
     border-radius: 999px;
-    background: var(--au-accent, linear-gradient(120deg, #aa5cc3, #00a4dc));
+    background: var(--au-accent, var(--aster-accent, linear-gradient(120deg, #aa5cc3, #00a4dc)));
     color: #fff;
     font-size: 18px !important;
     display: flex;
@@ -644,7 +645,7 @@ html.layout-mobile .au-ep-arrows {
 
 .au-ep-name {
     margin-top: 0.2em;
-    color: var(--au-text, #f5f5f7);
+    color: var(--au-text, var(--aster-text, #f5f5f7));
     font-weight: 700;
     font-size: 1em;
     white-space: nowrap;
@@ -654,7 +655,7 @@ html.layout-mobile .au-ep-arrows {
 
 .au-ep-overview {
     margin: 0.35em 0 0;
-    color: var(--au-text-2, rgba(235, 235, 245, 0.65));
+    color: var(--au-text-2, var(--aster-text-secondary, rgba(235, 235, 245, 0.65)));
     font-size: 0.85em;
     line-height: 1.45;
     display: -webkit-box;
@@ -720,7 +721,7 @@ html.layout-mobile .au-ep-arrows {
     background:
         radial-gradient(60vw 50vh at 70% 30%, rgba(170, 92, 195, 0.10), transparent 70%),
         radial-gradient(50vw 40vh at 85% 10%, rgba(0, 164, 220, 0.08), transparent 70%),
-        var(--au-bg, #0b0b0e);
+        var(--au-bg, var(--aster-bg, #0b0b0e));
 }
 
 /* badges arrive after the page draws: on desktop they float in space reserved under the year line,
@@ -763,7 +764,7 @@ html.layout-desktop .au-badges {
     background: var(--au-glass, rgba(36, 36, 42, 0.55));
     backdrop-filter: blur(30px) saturate(180%);
     -webkit-backdrop-filter: blur(30px) saturate(180%);
-    color: var(--au-text, #f5f5f7);
+    color: var(--au-text, var(--aster-text, #f5f5f7));
     display: none;
     align-items: center;
     justify-content: center;
@@ -785,6 +786,46 @@ html.layout-desktop .au-badges {
 }
 
 .au-back:focus-visible {
-    outline: 3px solid var(--au-blue, #00a4dc);
+    outline: 3px solid var(--au-blue, var(--aster-accent, #00a4dc));
     outline-offset: 2px;
+}
+
+/* ---------- Aster details: episode title and code, time left ------------- */
+
+/* the episode's own name, under the show's logo, as the Aster app titles an episode page */
+.itemDetailPage .au-title {
+    margin: 0 0 0.15em;
+    font-size: 2.6em;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--aster-text, var(--au-text, #f5f5f7));
+}
+
+.itemDetailPage .au-ep-code {
+    margin: 0 0 0.5em;
+    font-size: 1.25em;
+    font-weight: 600;
+    color: var(--aster-text-secondary, var(--au-text-2, rgba(235, 235, 245, 0.7)));
+}
+
+/* jellyfin-web's own "Show - 2. Name" heading steps aside only while Aurora's lines are there */
+.itemDetailPage .nameContainer:has(.au-title) h3.itemName {
+    display: none;
+}
+
+/* "4 min left" beside the buttons of a title that's been started */
+.mainDetailButtons .au-time-left {
+    align-self: center;
+    margin-left: 0.4em;
+    font-size: 1.05em;
+    color: var(--aster-text-secondary, var(--au-text-2, rgba(235, 235, 245, 0.7)));
+    white-space: nowrap;
+}
+
+/* the banner's "Resume · 21 min left" */
+.au-btn .au-btn-sub {
+    margin-left: 0.35em;
+    font-weight: 500;
+    opacity: 0.6;
 }
