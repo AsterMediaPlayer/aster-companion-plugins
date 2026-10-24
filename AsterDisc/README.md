@@ -22,8 +22,8 @@ music, transitions and scene selection, linked automatically to the movies in yo
 
 When you rip or buy a disc, you lose the menu: the "Play Movie / Scene Selection / Special Features" screen
 that made it feel like a *release*. This plugin brings that back. A menu is a small JSON file that describes
-the look and the structure; the plugin matches it to the right title in your library by its TMDB / IMDB id
-and links its extras for you.
+the look and the structure; the plugin matches it to the right title in your library by its TMDB / IMDB / TVDB
+id (or AniDB id, for anime libraries run by Shoko/Shokofin) and links its extras for you.
 
 ## Screenshots
 
@@ -60,6 +60,8 @@ viewer on the right:
 - **Scene selection** generated from the movie's chapters, with thumbnails when Jellyfin has them.
 - **One-click playback** of the movie, any extra, a "Play All" sequence, or a chapter, and the menu comes
   back when playback ends. It works with a mouse, the keyboard, a TV remote and a gamepad.
+- **Find its title by id:** TMDB, IMDB, TVDB or AniDB, so anime libraries managed by Shoko/Shokofin can
+  have menus too (a season is matched by its own AniDB entry, however Shoko numbers it).
 - **Shareable:** a menu is layout and ids only: no file names, paths or server details, and never code, so
   menus can be exchanged safely. Your server's own links to its files are kept separately and never shared.
 

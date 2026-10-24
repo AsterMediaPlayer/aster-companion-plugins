@@ -19,7 +19,7 @@ listings.
 
 1. Copy the `.menu.json` into your server's menus folder (the plugin's `MenusPath`). That's it for a
    title you already have: the plugin finds the matching movie or series in your library by the
-   TMDB / IMDB / TVDB ids in the menu's `match`, links the menu's extras to that title's local
+   TMDB / IMDB / TVDB / AniDB ids in the menu's `match`, links the menu's extras to that title's local
    Special Features by type and duration, and the **Disc Menu** button appears on it. If the title
    isn't in your library yet it waits, and links itself when the title is added.
 2. Check the plugin's page in the Jellyfin dashboard: the **Menu Files** table shows each menu's

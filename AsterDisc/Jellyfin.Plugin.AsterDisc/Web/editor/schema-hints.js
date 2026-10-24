@@ -927,9 +927,9 @@
               "name": "seasonNumber",
               "type": "integer",
               "minimum": 0,
-              "description": "Required when itemType is Season.",
+              "description": "Required when itemType is Season, unless providerIds has AniDB (the season is then found by its own AniDB id and this only breaks ties).",
               "label": "Season number",
-              "help": "Needed when the kind of title is Season."
+              "help": "Needed when the kind of title is Season, unless an AniDB id is given (then it only breaks ties)."
             },
             {
               "name": "providerIds",
@@ -1190,6 +1190,14 @@
               "type": "string",
               "pattern": "^[0-9]+$",
               "label": "TVDB id"
+            },
+            {
+              "name": "AniDB",
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "description": "AniDB anime id, as Shoko/Shokofin store it. For a Season it is that season's own AniDB entry, not the series'.",
+              "label": "AniDB id",
+              "help": "For anime libraries managed by Shoko/Shokofin. For a season, the season's own AniDB entry."
             }
           ],
           "title": "Provider ids"

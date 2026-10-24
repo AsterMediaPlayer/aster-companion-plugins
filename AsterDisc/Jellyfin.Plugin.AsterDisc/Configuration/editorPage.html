@@ -610,7 +610,7 @@
                         row.className = 'discEdRow';
                         var label = document.createElement('span');
                         label.className = 'grow';
-                        label.textContent = t.Name + (t.Year ? ' (' + t.Year + ')' : '') + ' - ' + t.Type + (t.HasIds ? '' : ' - no TMDB, IMDB or TVDB id, so it can\'t be matched');
+                        label.textContent = t.Name + (t.Year ? ' (' + t.Year + ')' : '') + ' - ' + t.Type + (t.HasIds ? '' : ' - no TMDB, IMDB, TVDB or AniDB id, so it can\'t be matched');
                         row.appendChild(label);
                         [['blank', 'Empty menu'], ['draft', 'Starter from its extras']].forEach(function (k) {
                             if (k[0] === 'draft' && t.Type !== 'Movie') {

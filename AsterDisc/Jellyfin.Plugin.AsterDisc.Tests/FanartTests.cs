@@ -133,6 +133,16 @@ public sealed class FanartTargetTests
         Assert.Null(FanartTarget.For(type, Ids((provider, id)), Ids((provider, id))));
 
     [Fact]
+    public void AnAniDbOnlyTitleHasNoFanartPage()
+    {
+        // Shokofin items: only AniDB/Shoko ids, which fanart.tv doesn't know.
+        var shoko = Ids(("AniDB", "18716"), ("Shoko Series", "66"));
+        Assert.Null(FanartTarget.For("Movie", shoko, null));
+        Assert.Null(FanartTarget.For("Series", shoko, null));
+        Assert.Null(FanartTarget.For("Season", shoko, shoko));
+    }
+
+    [Fact]
     public void MissingDictionariesAreFine()
     {
         Assert.Null(FanartTarget.For("Movie", null, null));

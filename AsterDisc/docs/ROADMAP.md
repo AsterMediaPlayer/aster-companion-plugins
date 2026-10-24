@@ -12,8 +12,8 @@ Working today, on Jellyfin 12.x with the web client:
   kinds (Jellyfin image, TMDB backdrop, your own image, colour, looping trailer), music and button sounds,
   transitions, scene selection from chapters.
 - One-click playback, with the menu reappearing when playback ends; keyboard, remote and gamepad navigation.
-- **Automatic discovery:** a menu dropped into the folder is bound to the right title by TMDB / IMDB / TVDB
-  id and its extras are matched by duration.
+- **Automatic discovery:** a menu dropped into the folder is bound to the right title by TMDB / IMDB / TVDB /
+  AniDB id and its extras are matched by duration.
 - **Drafts:** a starter menu generated from a title's real extras and chapters.
 - A **Menu Editor** on the dashboard with a live preview of the real renderer.
 - A **Menu Catalogue** page on the dashboard: browse the community catalogue ([jellydisc-menus](https://github.com/peppy6582/jellydisc-menus),

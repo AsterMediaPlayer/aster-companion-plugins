@@ -45,7 +45,7 @@ type, or just build and read the compiler's `CS0234` / `CS0246` error.
   the result in code (`OwnerId == id`) rather than relying on the query's semantics alone.
 - `InternalItemsQuery` has `HasAnyProviderId` / `HasAnyProviderIds` (`Dictionary<string,string>`),
   `IncludeItemTypes` (`BaseItemKind[]`, namespace `Jellyfin.Data.Enums`), `OwnerIds`, `ExtraTypes`,
-  `IncludeExtras`, `ParentId`, `Recursive`, `IsVirtualItem`, `Years`. Provider keys are `Tmdb`, `Imdb`, `Tvdb`.
+  `IncludeExtras`, `ParentId`, `Recursive`, `IsVirtualItem`, `Years`. Provider keys are `Tmdb`, `Imdb`, `Tvdb`; Shokofin adds `AniDB` (that casing) on series and seasons, each season carrying its own AniDB entry's id.
 - `ILibraryManager` raises `ItemAdded`, `ItemUpdated` and `ItemRemoved`
   (`EventHandler<ItemChangeEventArgs>`). `ILibraryPostScanTask` exists.
 - Chapters: `IChapterManager.GetChapters(Guid itemId)` returns `ChapterInfo`

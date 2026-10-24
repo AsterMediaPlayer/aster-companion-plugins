@@ -91,9 +91,16 @@ public static class MenuDraftBuilder
             }
         }
 
+        // AniDB (Shoko/Shokofin) only when the title has nothing else, so other titles' drafts are unchanged.
+        var aniDb = MenuDiscovery.IdOf(source.ProviderIds, MenuDiscovery.AniDb);
+        if (providerIds.Count == 0 && aniDb is not null && Tmdb.IsMatch(aniDb))
+        {
+            providerIds[MenuDiscovery.AniDb] = aniDb;
+        }
+
         if (providerIds.Count == 0)
         {
-            throw new ArgumentException("This title has no TMDB, IMDB or TVDB id, so a menu can't be matched to it.");
+            throw new ArgumentException("This title has no TMDB, IMDB, TVDB or AniDB id, so a menu can't be matched to it.");
         }
 
         var match = new JsonObject { ["itemType"] = "Movie", ["providerIds"] = providerIds };

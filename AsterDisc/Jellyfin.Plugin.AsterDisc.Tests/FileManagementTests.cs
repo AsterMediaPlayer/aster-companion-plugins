@@ -67,6 +67,32 @@ public sealed class FileManagementTests : IDisposable
         Assert.Equal(type, (string)menu["match"]!["itemType"]!);
     }
 
+    [Theory]
+    [InlineData("Movie", null)]
+    [InlineData("Series", null)]
+    [InlineData("Season", 2)]
+    [InlineData("Season", null)]
+    public void AnAniDbOnlyTitleGetsAnAniDbMatch(string type, int? season)
+    {
+        // What Shokofin gives a series (and each season, for its own AniDB entry): no TMDB/IMDB/TVDB at all.
+        var ids = new Dictionary<string, string> { ["AniDB"] = "18716", ["Shoko Series"] = "66", ["Custom"] = "shoko://series/66" };
+        var menu = MenuBlankBuilder.Build(type, ids, 2025, season);
+        Assert.Empty(MenuFileEditor.Validate(menu.ToJsonString()));
+        var match = menu["match"]!.AsObject();
+        Assert.Equal(type, (string)match["itemType"]!);
+        Assert.Equal("{\"AniDB\":\"18716\"}", match["providerIds"]!.ToJsonString());
+        Assert.Equal(season, (int?)match["seasonNumber"]);
+    }
+
+    [Fact]
+    public void AniDbIsOnlyUsedWhenThereIsNothingElse()
+    {
+        var menu = MenuBlankBuilder.Build("Season", new Dictionary<string, string> { ["Tvdb"] = "81797", ["anidb"] = "69" }, null, null);
+        Assert.Equal("{\"Tvdb\":\"81797\"}", menu["match"]!["providerIds"]!.ToJsonString());
+        Assert.Equal(1, (int)menu["match"]!["seasonNumber"]!);
+        Assert.Throws<ArgumentException>(() => MenuBlankBuilder.Build("Series", new Dictionary<string, string> { ["AniDB"] = "18716a" }, null));
+    }
+
     [Fact]
     public void ABlankMenuNeedsAnIdToMatchOn()
     {

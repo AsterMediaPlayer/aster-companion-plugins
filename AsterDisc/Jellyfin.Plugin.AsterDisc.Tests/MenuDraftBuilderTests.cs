@@ -194,4 +194,17 @@ public class MenuDraftBuilderTests
         Assert.Equal("", MenuDraftBuilder.Slug("日本語"));
         Assert.Equal("a-b-c", MenuDraftBuilder.Slug("  a / b -- c  "));
     }
+
+    [Fact]
+    public void AnAniDbOnlyMovieDraftsWithAnAniDbMatch()
+    {
+        var doc = Load(MenuDraftBuilder.Build(Source(WallEExtras, ids: new() { ["AniDB"] = "8389", ["Shoko Series"] = "12" })));
+        Assert.Equal(MatchItemType.Movie, doc.Match.ItemType);
+        Assert.Equal(new[] { "AniDB" }, doc.Match.ProviderIds.Keys);
+        Assert.Equal("8389", doc.Match.ProviderIds["AniDB"]);
+
+        // With a TMDB id as well, the draft is exactly what it always was.
+        var both = Load(MenuDraftBuilder.Build(Source(WallEExtras, ids: new() { ["Tmdb"] = "10681", ["AniDB"] = "8389" })));
+        Assert.Equal(new[] { "Tmdb" }, both.Match.ProviderIds.Keys);
+    }
 }
