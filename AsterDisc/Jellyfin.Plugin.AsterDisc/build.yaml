@@ -1,6 +1,6 @@
 name: "Aster Disc"
 guid: "913b9d44-cafe-4fe7-ae0b-f1362dc12cc7"
-version: "0.7.0.0"
+version: "0.7.1.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -16,6 +16,10 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterDisc.dll"
 changelog: >
+  - 0.7.1.0: A series with no menu of its own now shows its season's menu, and its Disc Menu button, when exactly one of
+    its seasons has a menu. A one-season anime under Shokofin, whose menu is matched to the season by AniDB id, no longer
+    hides its button on a season page people rarely open (Aster Aurora's Episodes row keeps them on the series page).
+    Play still plays the season. The menu document now says which item it is for (ItemId).
   - 0.7.0.0: Menus can be matched by AniDB id, so anime libraries managed by Shoko/Shokofin can have disc menus. A
     movie or series is matched by its AniDB id like any other id; a season menu with an AniDB id is matched to the
     season whose own AniDB entry it is, so its seasonNumber is optional (and only breaks ties) however Shoko

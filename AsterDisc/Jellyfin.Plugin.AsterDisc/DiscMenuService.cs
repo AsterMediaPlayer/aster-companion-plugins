@@ -50,6 +50,30 @@ public sealed class DiscMenuService : IDisposable
     public IReadOnlyDictionary<Guid, (MenuDocument Menu, BindingDocument Binding, string BindingPath)> ScanBindings() =>
         GetSnapshot().Bound.ToDictionary(kv => kv.Key, kv => (kv.Value.Menu, kv.Value.Binding, kv.Value.BindingPath));
 
+    /// <summary>
+    /// The item whose menu a page for <paramref name="itemId"/> shows: its own, or for a series without one, its only season
+    /// with a menu (see <see cref="MenuDiscovery.MenuItemFor"/>). Null when there is none.
+    /// </summary>
+    public Guid? MenuItemFor(Guid itemId)
+    {
+        var bound = GetSnapshot().Bound;
+        if (bound.ContainsKey(itemId))
+        {
+            return itemId;
+        }
+
+        if (_libraryManager.GetItemById(itemId) is not MediaBrowser.Controller.Entities.TV.Series)
+        {
+            return null;
+        }
+
+        var seasons = bound.Keys
+            .Select(id => _libraryManager.GetItemById(id) as MediaBrowser.Controller.Entities.TV.Season)
+            .Where(s => s is not null)
+            .Select(s => (s!.Id, s.SeriesId != Guid.Empty ? s.SeriesId : s.ParentId));
+        return MenuDiscovery.MenuItemFor(itemId, false, true, seasons);
+    }
+
     // ---- Automatic discovery ---------------------------------------------------
     // A menu file is bound to a library item by its TMDB/IMDB/TVDB/AniDB ids. A binding file written by
     // hand next to the menu always wins (existing behaviour); otherwise the plugin finds the item

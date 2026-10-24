@@ -221,6 +221,9 @@ Drop a `*.menu.json` into the menus folder and the plugin does the rest:
   matches its series by id and then the season number, except that a season menu with an `AniDB` id is
   matched to the season whose own AniDB id it is, whatever its number (the number only breaks a tie). If no
   season has that AniDB id and the menu also has series ids and a `seasonNumber`, the series route is tried.
+- **Shows a season's menu on its series' page** when the series has no menu of its own and exactly one of its seasons
+  has one, so a one-season show (a typical Shokofin anime, whose menu is matched to the season) has its **Disc Menu**
+  button where people look. Play still plays the season. With menus for several seasons, each stays on its own season's page.
 - **Links the extras** by type and duration, without needing a signed-in user. Only extras that aren't
   already matched, manual or ignored are touched, and files are only written when something changes.
 - **Keeps its own bindings** in the plugin's data folder (`bindings/<menuId>.binding.json`), so shareable

@@ -12,6 +12,12 @@ public sealed class RenderableMenuDocument
 {
     public required Guid MenuId { get; init; }
 
+    /// <summary>
+    /// The library item this menu is bound to: what playFeature plays and whose images, chapters, trailers and theme songs
+    /// it uses. Usually the item that was asked for; for a series showing its only season's menu, that season.
+    /// </summary>
+    public Guid? ItemId { get; init; }
+
     public required string Root { get; init; }
 
     public BackgroundSpec? Background { get; init; }

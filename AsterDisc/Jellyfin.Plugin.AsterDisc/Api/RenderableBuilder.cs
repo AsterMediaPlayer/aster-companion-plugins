@@ -29,6 +29,7 @@ public static class RenderableBuilder
         return new RenderableMenuDocument
         {
             MenuId = menu.MenuId,
+            ItemId = hasItem ? parentItemId : null,
             Root = menu.Root,
             Background = menu.Background,
             Theme = menu.Theme,

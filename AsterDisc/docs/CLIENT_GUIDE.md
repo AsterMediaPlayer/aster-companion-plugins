@@ -56,7 +56,9 @@ Requirements: Jellyfin 12.x with the Disc Menus plugin installed. Authentication
 
 ### `GET /DiscMenus/{itemId}/Menu`
 
-- `itemId`: the id of a Movie, Series or Season (either GUID format). Only the item a menu is *bound to* has one.
+- `itemId`: the id of a Movie, Series or Season (either GUID format). Only the item a menu is *bound to* has one, with one exception: a
+  **Series** with no menu of its own answers with its season's menu when exactly one of its seasons has one (with menus for several
+  seasons it answers `404`). The document's `ItemId` then names that season, and the menu is the season's in every way ([§3](#3-the-document)).
 - **200**: the resolved document ([§3](#3-the-document)). **404**: no menu for this item (also what you get when the plugin is not
   installed, so treat it as "nothing to show", never as an error). **401**: not signed in.
 - Any signed-in user may call it. It sets no cache headers; the server rebuilds its index when menu files or the library change, so
@@ -88,7 +90,7 @@ A `tmdb` background is fetched from `image.tmdb.org` ([§5.1](#51-backgrounds)).
 
 ### `GET /DiscMenus/Fanart/{itemId}/{imageId}`
 
-For a `fanart` background. `itemId` is the item you asked for the menu of (a GUID) and `imageId` the background's `FanartId` (1 to 12 digits; validate both before building the URL). The server looks the picture up on
+For a `fanart` background. `itemId` is the menu's item (`ItemId`, or the item you asked for; a GUID) and `imageId` the background's `FanartId` (1 to 12 digits; validate both before building the URL). The server looks the picture up on
 fanart.tv with its administrator's key, keeps a copy, and returns the image (`image/jpeg`, `image/png` or `image/webp`, `Cache-Control: public, max-age=86400`). **It needs no authentication** (like the asset route), and answers
 a plain **404** for everything else: no key set, no such picture, fanart.tv unreachable, an item that has no usable id. Treat a 404 as "show the plain background", never as an error to display.
 
@@ -102,6 +104,7 @@ and other units are explained in the sections that use them.
 | Property | Type | Notes |
 |---|---|---|
 | `MenuId` | GUID | The menu's identity. |
+| `ItemId` | GUID | The item the menu is bound to. Usually the one you asked for; for a series showing its season's menu, that season. Older servers omit it: then use the item you asked for. |
 | `Root` | string | Key in `Menus` of the first screen. |
 | `Menus` | map: key → Menu | Required. Keys match `^[a-z0-9][a-z0-9_-]{0,63}$`. |
 | `Background`, `Theme`, `Layout`, `Audio` | objects | Document-wide **defaults**; each screen may override ([§4.1](#41-resolving-inherited-settings)). |
@@ -109,7 +112,9 @@ and other units are explained in the sections that use them.
 | `Trailers` | Trailer[] | Only present if a background uses a trailer. |
 | `ThemeSongs` | GUID[] | Only present if the music is `themeSong`. May be empty. |
 
-The document does **not** contain the item id: it is the one you asked for. "The feature" always means that item.
+"The feature" (and `{itemId}` in the routes above) always means the **menu's item**: `ItemId`, or the item you asked for if it is absent.
+Use it for `playFeature`, chapter thumbnails, `jellyfin` backgrounds and `fanart` lookups, but keep offering the menu on the page the viewer
+is on, and return there after playback.
 
 ### Menu (`Menus[key]`)
 
@@ -134,7 +139,7 @@ Fields by action. Anything not listed is absent.
 
 | `Action` | Extra properties | What it means |
 |---|---|---|
-| `playFeature` | `StartChapter` (int, **1-based**, optional) | Play the item you asked for, from the start or from `Chapters[StartChapter-1].StartTicks`. |
+| `playFeature` | `StartChapter` (int, **1-based**, optional) | Play the menu's item (`ItemId`, or the item you asked for), from the start or from `Chapters[StartChapter-1].StartTicks`. |
 | `playExtra` | `ItemId` (GUID, optional) | Play that extra. **Absent when the extra isn't matched** in this library: show the button disabled or say it is unavailable. |
 | `playSequence` | `ItemIds` (GUID[]) | Play these in order as a queue. Extras that aren't matched are already dropped. **May be empty**: nothing to play. |
 | `submenu` | `Menu` (key) | Push that screen. |
@@ -378,7 +383,7 @@ Pointer input is simpler: moving the mouse over a button focuses it (only for a 
 
 | Button | Play |
 |---|---|
-| `playFeature` | the item you asked for, from `0` or from `Chapters[StartChapter-1].StartTicks` |
+| `playFeature` | the menu's item (`ItemId`, or the item you asked for), from `0` or from `Chapters[StartChapter-1].StartTicks` |
 | `playExtra` | `ItemId` (if absent: unavailable) |
 | `playSequence` | `ItemIds` in order as a queue (if empty: unavailable) |
 | a chapter (scene selection) | the feature from that chapter's `StartTicks` |

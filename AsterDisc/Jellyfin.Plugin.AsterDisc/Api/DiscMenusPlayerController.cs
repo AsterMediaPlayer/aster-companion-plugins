@@ -26,16 +26,19 @@ public sealed class DiscMenusPlayerController : ControllerBase
     /// A parent item's disc menu, with every playExtra/playSequence entry
     /// already resolved to local item IDs, ready for the web renderer to
     /// consume directly - no separate menu/binding join needed client-side.
+    /// A series with no menu of its own gets its season's menu when exactly one
+    /// of its seasons has one; the document's ItemId then names that season.
     /// </summary>
     [HttpGet("{parentItemId}/Menu")]
     public ActionResult<RenderableMenuDocument> GetRenderableMenu([FromRoute] Guid parentItemId)
     {
-        if (!_discMenuService.ScanBindings().TryGetValue(parentItemId, out var pair))
+        if (_discMenuService.MenuItemFor(parentItemId) is not { } menuItemId
+            || !_discMenuService.ScanBindings().TryGetValue(menuItemId, out var pair))
         {
             return NotFound($"No disc menu bound to item '{parentItemId}'.");
         }
 
         var (menu, binding, _) = pair;
-        return Ok(RenderableBuilder.Build(menu, binding, parentItemId, _discMenuService));
+        return Ok(RenderableBuilder.Build(menu, binding, menuItemId, _discMenuService));
     }
 }

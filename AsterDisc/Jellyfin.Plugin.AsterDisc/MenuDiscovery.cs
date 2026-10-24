@@ -129,6 +129,29 @@ public static class MenuDiscovery
     }
 
     /// <summary>
+    /// Which bound menu a page shows. An item with its own menu shows that one. A series without one shows its season's
+    /// menu when exactly one of its seasons has a menu (a one-season anime under Shokofin, whose menu is matched to the
+    /// season by AniDB id, would otherwise have its button only on a season page people rarely open). With menus for
+    /// several seasons nothing is guessed. Returns the item whose menu to show, or null for none.
+    /// </summary>
+    /// <param name="boundSeasons">Every bound menu's item that is a season, with the series it belongs to.</param>
+    public static Guid? MenuItemFor(Guid itemId, bool hasOwnMenu, bool isSeries, IEnumerable<(Guid SeasonId, Guid SeriesId)> boundSeasons)
+    {
+        if (hasOwnMenu)
+        {
+            return itemId;
+        }
+
+        if (!isSeries)
+        {
+            return null;
+        }
+
+        var seasons = boundSeasons.Where(s => s.SeriesId == itemId).Select(s => s.SeasonId).Distinct().Take(2).ToList();
+        return seasons.Count == 1 ? seasons[0] : null;
+    }
+
+    /// <summary>
     /// When several menus resolve to the same library item only one can be shown. A binding the
     /// user wrote by hand beats an automatic one; then the newer menu revision; then file path
     /// order, so the result is deterministic. Returns the winner per item and, for each loser,
