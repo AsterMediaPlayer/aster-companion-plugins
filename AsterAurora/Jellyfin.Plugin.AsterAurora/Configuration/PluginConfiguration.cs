@@ -1,6 +1,6 @@
 using MediaBrowser.Model.Plugins;
 
-namespace Jellyfin.Plugin.Aurora.Configuration;
+namespace Jellyfin.Plugin.AsterAurora.Configuration;
 
 /// <summary>
 /// Feature switches for the browser script. All of it is read anonymously by every web client (see

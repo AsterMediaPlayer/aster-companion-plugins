@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace Jellyfin.Plugin.Aurora;
+namespace Jellyfin.Plugin.AsterAurora;
 
 /// <summary>
 /// Adds Aurora's stylesheet and script tags to jellyfin-web's <c>index.html</c> as the page is served, so the plugin

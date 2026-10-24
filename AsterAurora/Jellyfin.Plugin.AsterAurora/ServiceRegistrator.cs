@@ -3,7 +3,7 @@ using MediaBrowser.Controller.Plugins;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Jellyfin.Plugin.Aurora;
+namespace Jellyfin.Plugin.AsterAurora;
 
 public sealed class ServiceRegistrator : IPluginServiceRegistrator
 {

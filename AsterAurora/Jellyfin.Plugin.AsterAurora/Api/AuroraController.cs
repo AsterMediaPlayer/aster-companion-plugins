@@ -5,7 +5,7 @@ using MediaBrowser.Model.Branding;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Jellyfin.Plugin.Aurora.Api;
+namespace Jellyfin.Plugin.AsterAurora.Api;
 
 /// <summary>
 /// Serves Aurora's browser files and its feature switches. All three are anonymous: the start page loads them before

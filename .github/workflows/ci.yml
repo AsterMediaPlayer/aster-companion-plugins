@@ -16,6 +16,7 @@ jobs:
       channels: ${{ steps.filter.outputs.channels }}
       disc: ${{ steps.filter.outputs.disc }}
       oped: ${{ steps.filter.outputs.oped }}
+      aurora: ${{ steps.filter.outputs.aurora }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -25,6 +26,7 @@ jobs:
             channels: ["AsterChannels/**", "tools/**", ".github/workflows/ci.yml"]
             disc: ["AsterDisc/**", "tools/**", ".github/workflows/ci.yml"]
             oped: ["AsterOpEd/**", "tools/**", ".github/workflows/ci.yml"]
+            aurora: ["AsterAurora/**", "tools/**", ".github/workflows/ci.yml"]
 
   # ---- Aster Channels ----------------------------------------------------------
 
@@ -60,6 +62,21 @@ jobs:
           dotnet-version: 10.0.x
       - run: dotnet build AsterOpEd/Jellyfin.Plugin.AsterOpEd -c Release
       - run: python3 tools/check_versions.py AsterOpEd/Jellyfin.Plugin.AsterOpEd
+
+  # ---- Aster Aurora --------------------------------------------------------------
+
+  aurora:
+    name: "Aster Aurora: build"
+    needs: changes
+    if: needs.changes.outputs.aurora == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet build AsterAurora/Jellyfin.Plugin.AsterAurora -c Release
+      - run: python3 tools/check_versions.py AsterAurora/Jellyfin.Plugin.AsterAurora
 
   # ---- Aster Disc ---------------------------------------------------------------
 
@@ -160,7 +177,7 @@ jobs:
         run: |
           mkdir -p dist repo
           cp manifest.json repo/manifest.json
-          for project in AsterChannels/Jellyfin.Plugin.AsterChannels AsterDisc/Jellyfin.Plugin.AsterDisc AsterOpEd/Jellyfin.Plugin.AsterOpEd; do
+          for project in AsterChannels/Jellyfin.Plugin.AsterChannels AsterDisc/Jellyfin.Plugin.AsterDisc AsterOpEd/Jellyfin.Plugin.AsterOpEd AsterAurora/Jellyfin.Plugin.AsterAurora; do
             python3 tools/check_versions.py "$project"
             out="dist/$(basename "$project")"
             mkdir -p "$out"

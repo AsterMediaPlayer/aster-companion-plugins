@@ -1,7 +1,7 @@
 name: Release
 
 # Push a tag naming a plugin and its version to release it:
-#   asterchannels-v0.1.2    asterdisc-v0.6.0    asteroped-v0.3.0
+#   asterchannels-v0.1.2    asterdisc-v0.6.0    asteroped-v0.3.0    asteraurora-v0.4.0
 # The plugin's zip is attached to a GitHub release, and the version is added to manifest.json on main: the one plugin
 # repository for all of them. Every release also carries a copy of manifest.json, so
 #   https://github.com/<repo>/releases/latest/download/manifest.json
@@ -12,6 +12,7 @@ on:
       - "asterchannels-v[0-9]+.[0-9]+.[0-9]+"
       - "asterdisc-v[0-9]+.[0-9]+.[0-9]+"
       - "asteroped-v[0-9]+.[0-9]+.[0-9]+"
+      - "asteraurora-v[0-9]+.[0-9]+.[0-9]+"
 
 permissions:
   contents: write
@@ -48,6 +49,7 @@ jobs:
             asterchannels-v*) dir=AsterChannels; project=Jellyfin.Plugin.AsterChannels ;;
             asterdisc-v*) dir=AsterDisc; project=Jellyfin.Plugin.AsterDisc ;;
             asteroped-v*) dir=AsterOpEd; project=Jellyfin.Plugin.AsterOpEd ;;
+            asteraurora-v*) dir=AsterAurora; project=Jellyfin.Plugin.AsterAurora ;;
             *) echo "unknown tag $TAG" >&2; exit 1 ;;
           esac
           echo "DIR=$dir" >> "$GITHUB_ENV"
@@ -69,6 +71,8 @@ jobs:
               python3 tools/validate.py
               python3 -m unittest discover -s tools -p "test_*.py" ;;
             AsterOpEd)
+              dotnet build "$PROJECT" -c Release ;;
+            AsterAurora)
               dotnet build "$PROJECT" -c Release ;;
           esac
 

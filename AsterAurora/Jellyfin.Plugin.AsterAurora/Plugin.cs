@@ -1,22 +1,24 @@
-using Jellyfin.Plugin.Aurora.Configuration;
+using Jellyfin.Plugin.AsterAurora.Configuration;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
 
-namespace Jellyfin.Plugin.Aurora;
+namespace Jellyfin.Plugin.AsterAurora;
 
 public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 {
     public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer)
         : base(applicationPaths, xmlSerializer)
     {
+        RenameMigration.Run(this);
         Instance = this;
     }
 
     public static Plugin? Instance { get; private set; }
 
-    public override string Name => "Aurora";
+    // Jellyfin names the plugin's install folder after this: no slash.
+    public override string Name => "Aster Aurora";
 
     /// <summary>
     /// Must match build.yaml's guid. Jellyfin rewrites meta.json from the loaded assembly on every start, so without
@@ -34,7 +36,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         {
             Name = "Aurora",
             EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.configPage.html",
-            DisplayName = "Aurora",
+            DisplayName = "Aster Aurora",
             EnableInMainMenu = true,
             MenuSection = "server",
             MenuIcon = "auto_awesome",
