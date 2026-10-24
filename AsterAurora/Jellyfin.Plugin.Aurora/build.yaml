@@ -1,0 +1,22 @@
+name: "Aurora"
+guid: "22f5ff1c-c1cd-47b2-839f-25e6cd9c8afc"
+version: "0.3.1.0"
+targetAbi: "12.0.0.0"
+framework: "net10.0"
+owner: "peppy6582"
+overview: "Apple TV style behaviour for the Jellyfin web client."
+description: >
+  Adds a rotating home hero banner, muted trailer backgrounds on details pages,
+  card tilt and genre chips to jellyfin-web. Pairs with the Aurora custom CSS
+  but works without it. Developed primarily with an AI coding assistant
+  (Claude Code); see the README.
+category: "General"
+artifacts:
+  - "Jellyfin.Plugin.Aurora.dll"
+changelog: >
+  - 0.3.1.0: Back button in the top-left corner.
+  - 0.3.0.0: No flashes: custom CSS applied from the first frame, banner placeholder, pre-paint genre chips, art-less layout keyed off the page, reserved badge space.
+  - 0.2.2.0: Also hide the stock Next Up block before first paint; never touch non-show pages.
+  - 0.2.1.0: No more flash of the stock season cards before the Episodes row loads.
+  - 0.2.0.0: Up Next style rows, quality badges, Episodes row with season tabs.
+  - 0.1.0.0: First version. Hero banner, trailer backgrounds, card tilt, genre chips.
