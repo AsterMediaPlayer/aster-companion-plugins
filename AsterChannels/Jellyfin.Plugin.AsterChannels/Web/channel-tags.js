@@ -29,7 +29,7 @@
     var KEYS = ['channel', 'number', 'mode', 'logo', 'reshuffle', 'seed', 'blocks', 'bug', 'bug-location', 'bug-size', 'bug-hide',
         'bug-opacity', 'genre', 'type', 'library', 'network', 'collection', 'years', 'rating', 'weight', 'min-length', 'max-length',
         'filler-playlists', 'filler-playlist', 'filler-types', 'filler-type', 'bumpers-at', 'promo-count', 'trailer-count',
-        'interstitial-count', 'break-length', 'break-every', 'align', 'align-fit', 'user', 'users', 'channel-name'];
+        'interstitial-count', 'break-length', 'break-every', 'align', 'align-fit', 'user', 'users', 'channel-name', 'group'];
 
     var MODES = ['rotation', 'blocks', 'shuffle', 'sequential', 'airdate'];
     var RESHUFFLES = ['day', 'week', 'month'];
@@ -255,7 +255,9 @@
                 exactAlign: false
             },
             users: [],
-            name: null
+            name: null,
+            // The guide's group for the channel; null for none.
+            group: null
         };
     }
 
@@ -397,6 +399,9 @@
                 case 'channel-name':
                     s.name = value ? value : null;
                     break;
+                case 'group':
+                    s.group = value && value.trim() ? value.trim() : null;
+                    break;
                 default:
                     break;
             }
@@ -472,6 +477,9 @@
         }
         if (s.name !== null) {
             add('channel-name=' + s.name);
+        }
+        if (s.group !== null) {
+            add('group=' + s.group);
         }
         return result;
     }

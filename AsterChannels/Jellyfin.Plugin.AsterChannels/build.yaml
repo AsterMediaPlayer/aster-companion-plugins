@@ -1,6 +1,6 @@
 name: "Aster Channels"
 guid: "5b489227-2fc4-4dce-b7f8-6d0e3b2082ee"
-version: "0.1.1.0"
+version: "0.2.0.0"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -9,12 +9,14 @@ description: >
   A Channels page in the Jellyfin dashboard for Aster Media Player. A channel is a
   video playlist tagged aster:channel, its settings more aster: tags on the same
   playlist; this page reads and writes those tags exactly as the app does, so the
-  app, the page and tagging by hand all edit the same channels. It adds nothing
-  else to the server.
+  app, the page and tagging by hand all edit the same channels. It also keeps
+  groups for Jellyfin's Live TV channels, which Aster's guide follows.
 category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterChannels.dll"
 changelog: >
+  - 0.2.0.0: Channel groups. A Group box for each channel (aster:group=), shown in the channel list; and a Live TV
+    Groups section that puts Jellyfin's Live TV channels into groups for Aster's guide and channel flicking.
   - 0.1.1.0: A "?" beside every setting explains it in plain words: hover over it, tab to it or tap it.
   - 0.1.0.0: First release. A Channels page in the dashboard: the channel list, drag to renumber, a Basic and
     Advanced editor for every setting, and New Channel from a show, genre, network, collection or playlist.

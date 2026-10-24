@@ -7,8 +7,8 @@ using MediaBrowser.Model.Serialization;
 namespace Jellyfin.Plugin.AsterChannels;
 
 /// <summary>
-/// Nothing but a dashboard page: channels live in playlist tags, which the page
-/// reads and writes with the signed-in administrator's own API calls.
+/// A dashboard page for Aster's channels, which live in playlist tags the page reads and writes with the signed-in
+/// administrator's own API calls; and the groups of Jellyfin's Live TV channels, kept in the plugin's settings.
 /// </summary>
 public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 {
@@ -29,7 +29,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
     public override string Description =>
         "Make and edit Aster Media Player's TV channels from the dashboard. Channels are playlist tags, so the app, "
-        + "this page and tagging by hand all edit the same thing.";
+        + "this page and tagging by hand all edit the same thing. Also groups your Live TV channels for Aster's guide.";
 
     public IEnumerable<PluginPageInfo> GetPages() =>
     [

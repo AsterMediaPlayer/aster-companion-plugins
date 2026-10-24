@@ -257,6 +257,25 @@
     }
 
     var listCount = 0;
+    // The groups channels are in now, for the Group box's suggestions.
+    var groupSuggestions = [];
+
+    // A channel's group: type a new one, or pick one already in use.
+    function groupInput(value, onChange, suggestions) {
+        suggestions = suggestions || groupSuggestions;
+        var listId = 'acGroups' + (++listCount);
+        var options = suggestions.map(function (g) { return h('option', { value: g }); });
+        var input = h('input', {
+            type: 'text', list: listId, value: value || '', placeholder: 'None',
+            onchange: function (e) {
+                var typed = e.target.value.trim();
+                // An existing group's own spelling, whatever the case typed.
+                var match = suggestions.filter(function (g) { return g.toLowerCase() === typed.toLowerCase(); })[0];
+                onChange(typed ? (match || typed) : null);
+            }
+        });
+        return h('span', {}, [input, h('datalist', { id: listId }, options)]);
+    }
 
     // Names as chips, each removable, with a box to add more: from the
     // suggestions, or (with free on) anything typed.
@@ -330,7 +349,9 @@
             others: page.querySelector('#acOthers'),
             othersTitle: page.querySelector('#acOthersTitle'),
             editor: page.querySelector('#acEditor'),
-            newPanel: page.querySelector('#acNewPanel')
+            newPanel: page.querySelector('#acNewPanel'),
+            live: page.querySelector('#acLive'),
+            liveTitle: page.querySelector('#acLiveTitle')
         };
 
         tipBubble(page);
@@ -345,7 +366,9 @@
             saving: Promise.resolve(),
             pendingSaves: 0,
             creating: false,
-            drag: null
+            drag: null,
+            // Jellyfin's Live TV channels and their groups, by channel id.
+            live: { channels: [], groups: {}, available: true }
         };
 
         function userId() {
@@ -448,7 +471,7 @@
                 return state.loading;
             }
             setStatus('Loading…');
-            state.loading = Promise.all([loadPlaylists(), loadOptions()]).then(function () {
+            state.loading = Promise.all([loadPlaylists(), loadOptions(), loadLive()]).then(function () {
                 setStatus('');
                 render();
             }, function (error) {
@@ -613,10 +636,71 @@
             renderList();
             renderOthers();
             renderEditor();
+            renderLive();
+        }
+
+        // ---- Live TV groups ----
+
+        // Live TV channels and their groups. Neither is needed for the rest
+        // of the page, so a server without Live TV just shows none.
+        function loadLive() {
+            var channels = getJSON('LiveTv/Channels', { userId: userId(), SortBy: 'DefaultChannelOrder', Limit: 1000 })
+                .then(function (result) { return result.Items || []; }, function () { return []; });
+            var groups = getJSON('AsterChannels/LiveTvGroups')
+                .then(function (result) { return result.Groups || []; }, function () { return null; });
+            return Promise.all([channels, groups]).then(function (found) {
+                state.live.channels = found[0];
+                state.live.available = found[1] !== null;
+                state.live.groups = liveGroupMap(found[1] || []);
+            });
+        }
+
+        function liveGroupMap(list) {
+            var map = {};
+            list.forEach(function (g) { map[g.ChannelId] = g.Group; });
+            return map;
+        }
+
+        function renderLive() {
+            var channels = state.live.channels;
+            el.liveTitle.textContent = 'Live TV Groups (' + channels.length + ')';
+            el.live.innerHTML = '';
+            if (!channels.length) {
+                el.live.appendChild(h('div', { className: 'acEmpty', text: 'No Live TV channels. Add a tuner or M3U source in Live TV settings.' }));
+                return;
+            }
+            var groups = state.live.groups;
+            var suggestions = Object.keys(groups).map(function (id) { return groups[id]; })
+                .filter(function (g, i, all) { return all.indexOf(g) === i; })
+                .sort(byName);
+            channels.forEach(function (channel) {
+                el.live.appendChild(h('div', { className: 'acRow off' }, [
+                    h('span', { className: 'acNumber', text: channel.ChannelNumber || '' }),
+                    h('div', { className: 'acRowText' }, [
+                        h('div', { className: 'acRowName', text: channel.Name || '' })
+                    ]),
+                    groupInput(groups[channel.Id], function (group) { setLiveGroup(channel.Id, group); }, suggestions)
+                ]));
+            });
+        }
+
+        function setLiveGroup(channelId, group) {
+            setStatus('Saving…');
+            postJSON('AsterChannels/LiveTvGroups', { ChannelId: channelId, Group: group || '' }, true).then(function (reply) {
+                state.live.groups = liveGroupMap((reply && reply.Groups) || []);
+                setStatus('Saved', 'ok');
+                renderLive();
+            }, function (error) {
+                failure(error, "Couldn't save the group");
+                renderLive();
+            });
         }
 
         function renderList() {
             var list = channels();
+            groupSuggestions = list.map(function (c) { return c.settings.group; })
+                .filter(function (g, i, all) { return g && all.indexOf(g) === i; })
+                .sort(function (a, b) { return a.localeCompare(b, undefined, { sensitivity: 'base' }); });
             var counts = {};
             list.forEach(function (c) { counts[c.number] = (counts[c.number] || 0) + 1; });
             el.list.innerHTML = '';
@@ -638,6 +722,7 @@
                     h('span', { className: 'acNumber', text: String(c.number) }),
                     h('div', { className: 'acRowText' }, [
                         h('div', { className: 'acRowName', text: displayName(p, c.settings) }),
+                        c.settings.group ? h('div', { className: 'acRowGroup', text: c.settings.group }) : null,
                         h('div', { className: 'acRowSummary', text: summary(p, c.settings) }),
                         counts[c.number] > 1 ? h('div', { className: 'acWarn', text: 'Another channel has this number too.' }) : null
                     ])
@@ -754,6 +839,9 @@
                         update(id, function (t) { t.name = name && name !== p.Name ? name : null; });
                     }
                 }), "Leave it empty for the playlist's own name.", 'name'),
+                field('Group', groupInput(s.group, function (group) {
+                    update(id, function (t) { t.group = group; });
+                }), 'Channels go in the guide by group, each group in order of its lowest channel number. Empty: no group.', 'group'),
                 field('Number', numberInput(number, 1, 99999, null, set(function (t, v) { t.number = v; })), null, 'number'),
                 field('Mode', select(T.MODES.map(function (m) { return [m, MODE_TITLES[m]]; }), s.mode, set(function (t, v) { t.mode = v; })), MODE_HELP[s.mode], 'mode'),
                 checkbox("Logo: the playlist's picture is the channel's logo", s.showsLogo, set(function (t, v) { t.showsLogo = v; }), 'logo'),

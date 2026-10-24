@@ -31,6 +31,7 @@
                     .acRowText { flex: 1; min-width: 0; }
                     .acRowName { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                     .acRowSummary { font-size: 0.85em; opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                    .acRowGroup { font-size: 0.75em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #00a4dc; }
                     .acWarn { color: #e9a23b; font-size: 0.85em; }
                     .acSection { margin: 1.4em 0 0.5em; font-size: 1.05em; opacity: 0.9; }
                     .acPanel { border: 1px solid rgba(128, 128, 128, 0.45); border-radius: 4px; padding: 0.8em 1em; margin-bottom: 1em; }
@@ -91,6 +92,11 @@
                             <summary><span id="acOthersTitle">Other Video Playlists</span> <span class="acTip" tabindex="0" role="button" aria-label="What is this?"
                                 data-tip="Your video playlists that aren't channels yet. Channels and filler playlists aren't counted here. Click Make a Channel to turn one into a channel.">?</span></summary>
                             <div id="acOthers"></div>
+                        </details>
+                        <details id="acLiveFold" class="acFold">
+                            <summary><span id="acLiveTitle">Live TV Groups</span> <span class="acTip" tabindex="0" role="button" aria-label="What is this?"
+                                data-tip="Your Jellyfin Live TV channels. Give one a group and Aster's Live TV guide lists it with that group, each group in order of its lowest channel number. Empty: no group.">?</span></summary>
+                            <div id="acLive"></div>
                         </details>
                     </div>
                     <div class="acEditPane">

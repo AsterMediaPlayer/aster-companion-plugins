@@ -393,6 +393,76 @@
         "aster:align=30",
         "aster:align-fit=best"
       ]
+    },
+    {
+      "isChannel" : true,
+      "name" : "a group keeps its case and inner spaces",
+      "tags" : [
+        "aster:channel",
+        "ASTER:GROUP=  Late Night Kids  "
+      ],
+      "written" : [
+        "aster:channel",
+        "aster:mode=rotation",
+        "aster:reshuffle=day",
+        "aster:blocks=2-4",
+        "aster:seed=0",
+        "aster:logo=off",
+        "aster:bug=off",
+        "aster:bug-location=bottom-right",
+        "aster:bug-size=100%",
+        "aster:bug-hide=off",
+        "aster:bug-opacity=45%",
+        "aster:type=all",
+        "aster:group=Late Night Kids"
+      ]
+    },
+    {
+      "isChannel" : true,
+      "name" : "an empty group is dropped",
+      "tags" : [
+        "aster:channel",
+        "aster:group="
+      ],
+      "written" : [
+        "aster:channel",
+        "aster:mode=rotation",
+        "aster:reshuffle=day",
+        "aster:blocks=2-4",
+        "aster:seed=0",
+        "aster:logo=off",
+        "aster:bug=off",
+        "aster:bug-location=bottom-right",
+        "aster:bug-size=100%",
+        "aster:bug-hide=off",
+        "aster:bug-opacity=45%",
+        "aster:type=all"
+      ]
+    },
+    {
+      "isChannel" : true,
+      "name" : "a group goes after the channel name",
+      "tags" : [
+        "aster:channel",
+        "aster:group=Anime",
+        "aster:channel-name=Toonami"
+      ],
+      "written" : [
+        "aster:channel",
+        "aster:mode=rotation",
+        "aster:reshuffle=day",
+        "aster:blocks=2-4",
+        "aster:seed=0",
+        "aster:logo=off",
+        "aster:bug=off",
+        "aster:bug-location=bottom-right",
+        "aster:bug-size=100%",
+        "aster:bug-hide=off",
+        "aster:bug-opacity=45%",
+        "aster:type=all",
+        "aster:channel-name=Toonami",
+        "aster:group=Anime"
+      ]
     }
   ]
 }
