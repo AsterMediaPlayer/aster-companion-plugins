@@ -3,7 +3,7 @@
 A Jellyfin 12.x plugin that gives the **web client** Apple TV style behaviour:
 
 - **Home hero banner:** full-bleed featured titles with logo, details, Play and More Info, rotating every few seconds.
-- **Trailer backgrounds:** a muted trailer fades in behind movie and series pages (local trailer first, YouTube optional).
+- **Trailer backgrounds:** a muted trailer fades in behind movie and series pages (local trailer first, YouTube optional). A button beside the sound button clears the page away to watch it; Escape, a click or a scroll brings the page back.
 - **Opening backgrounds:** an anime show's opening loops behind its page instead, from the
   [Aster OP/ED](../AsterOpEd) plugin (the season you'd watch next; never one marked as a spoiler or NSFW).
 - **Card tilt:** cards tilt and catch a highlight under the mouse.

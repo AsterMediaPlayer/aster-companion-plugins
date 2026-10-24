@@ -256,15 +256,47 @@ video.au-trailer-media {
     object-fit: cover;
 }
 
-/* the same left + bottom shade the Aster skin puts on a backdrop, so the title and buttons stay readable over motion */
+/*
+ * One light shade over a playing video, from the left and the bottom, just enough for the title and buttons.
+ * Jellyfin's backdrop dimmer (.backgroundContainer, 86% near-black) and the Aster skin's backdrop shade
+ * (.itemBackdrop::after) also sit over the video; while it plays they step aside, so the video isn't shaded three times.
+ */
 .au-trailer::after {
     content: "";
     position: absolute;
     inset: 0;
     pointer-events: none;
     background:
-        linear-gradient(to right, rgba(20, 20, 20, 0.85) 0%, rgba(20, 20, 20, 0.35) 45%, rgba(20, 20, 20, 0) 70%),
-        linear-gradient(to top, var(--aster-bg, #141414) 0%, rgba(20, 20, 20, 0.6) 35%, rgba(20, 20, 20, 0) 65%);
+        linear-gradient(to right, rgba(20, 20, 20, 0.7) 0%, rgba(20, 20, 20, 0.25) 40%, rgba(20, 20, 20, 0) 62%),
+        linear-gradient(to top, var(--aster-bg, #141414) 0%, rgba(20, 20, 20, 0.4) 28%, rgba(20, 20, 20, 0) 52%);
+    transition: opacity 0.6s ease;
+}
+
+.backgroundContainer.withBackdrop,
+.itemDetailPage .itemBackdrop::after {
+    transition: opacity 0.8s ease;
+}
+
+html.au-trailer-on .backgroundContainer.withBackdrop,
+html.au-trailer-on .itemDetailPage .itemBackdrop::after {
+    opacity: 0;
+}
+
+/* Focus: just the video. The page fades out (and can't be clicked) and the shade lifts. */
+.itemDetailPage .detailPageWrapperContainer,
+.itemDetailPage .detailLogo {
+    transition: opacity 0.6s ease;
+}
+
+html.au-video-focus .itemDetailPage .detailPageWrapperContainer,
+html.au-video-focus .itemDetailPage .detailLogo,
+html.au-video-focus .au-trailer-caption {
+    opacity: 0 !important;
+    pointer-events: none;
+}
+
+html.au-video-focus .au-trailer::after {
+    opacity: 0;
 }
 
 /* cover the viewport with a 16:9 frame, whatever the window shape */
@@ -281,7 +313,8 @@ video.au-trailer-media {
     border: 0;
 }
 
-.au-trailer-mute {
+.au-trailer-mute,
+.au-trailer-focus {
     position: absolute;
     top: 76px;
     right: 4.2vw;
@@ -303,17 +336,24 @@ video.au-trailer-media {
     transition: opacity 0.6s ease, background 0.2s;
 }
 
-.au-trailer-mute.is-visible {
+.au-trailer-focus {
+    right: calc(4.2vw + 60px);
+}
+
+.au-trailer-mute.is-visible,
+.au-trailer-focus.is-visible {
     opacity: 1;
     pointer-events: auto;
 }
 
-.au-trailer-mute.is-scrolled {
+.au-trailer-mute.is-scrolled,
+.au-trailer-focus.is-scrolled {
     opacity: 0;
     pointer-events: none;
 }
 
-.au-trailer-mute:hover {
+.au-trailer-mute:hover,
+.au-trailer-focus:hover {
     background: rgba(255, 255, 255, 0.3);
 }
 
@@ -321,7 +361,7 @@ video.au-trailer-media {
 .au-trailer-caption {
     position: absolute;
     top: 76px;
-    right: calc(4.2vw + 60px);
+    right: calc(4.2vw + 120px);
     z-index: 5;
     height: 48px;
     display: flex;
