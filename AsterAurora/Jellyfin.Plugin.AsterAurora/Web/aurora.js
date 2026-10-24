@@ -410,7 +410,12 @@
     /* ------------------------------------------------------------------ */
 
     /* doneFor: the item whose trailer already ran (or was tried) on this visit, so an ended or failed trailer never loops. */
-    var trailer = { itemId: null, doneFor: null, timer: null, node: null, mute: null, caption: null, media: null, kind: null, muted: true };
+    var trailer = { itemId: null, doneFor: null, timer: null, node: null, mute: null, focus: null, caption: null, media: null, kind: null, muted: true };
+
+    /* the controls laid over a playing video: sound, focus, and an opening's name */
+    function trailerControls() {
+        return [trailer.mute, trailer.focus, trailer.caption].filter(Boolean);
+    }
 
     function youTubeId(url) {
         var m = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/.exec(url || '');
@@ -423,14 +428,15 @@
             trailer.timer = null;
         }
         var node = trailer.node;
-        if (trailer.mute && trailer.mute.parentNode) {
-            trailer.mute.parentNode.removeChild(trailer.mute);
-        }
+        trailerControls().forEach(function (c) {
+            if (c.parentNode) {
+                c.parentNode.removeChild(c);
+            }
+        });
         trailer.mute = null;
-        if (trailer.caption && trailer.caption.parentNode) {
-            trailer.caption.parentNode.removeChild(trailer.caption);
-        }
+        trailer.focus = null;
         trailer.caption = null;
+        setFocus(false);
         trailer.node = null;
         trailer.media = null;
         trailer.itemId = null;
@@ -470,6 +476,37 @@
         }
     }
 
+    /*
+     * Focus: the page fades away and the shade lifts, leaving just the video (Escape, a click, a scroll or the button
+     * brings the page back).
+     */
+    function setFocus(on) {
+        document.documentElement.classList.toggle('au-video-focus', on);
+        var btn = trailer.focus;
+        if (btn) {
+            btn.querySelector('.material-icons').textContent = on ? 'close_fullscreen' : 'open_in_full';
+            btn.setAttribute('aria-label', on ? 'Show the page' : 'Watch the video');
+            btn.title = btn.getAttribute('aria-label');
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        }
+    }
+
+    function inFocus() {
+        return document.documentElement.classList.contains('au-video-focus');
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && inFocus()) {
+            setFocus(false);
+        }
+    });
+
+    document.addEventListener('click', function (e) {
+        if (inFocus() && !trailerControls().some(function (c) { return c.contains(e.target); })) {
+            setFocus(false);
+        }
+    }, true);
+
     function trailerShell() {
         var node = el('div', 'au-trailer');
         node.setAttribute('aria-hidden', 'true');
@@ -478,7 +515,14 @@
         mute.setAttribute('aria-label', 'Trailer sound');
         mute.appendChild(el('span', 'material-icons', 'volume_off'));
         mute.addEventListener('click', function () { setMuted(!trailer.muted); });
-        return { node: node, mute: mute };
+        var focus = el('button', 'au-trailer-focus');
+        focus.type = 'button';
+        focus.setAttribute('aria-label', 'Watch the video');
+        focus.title = 'Watch the video';
+        focus.setAttribute('aria-pressed', 'false');
+        focus.appendChild(el('span', 'material-icons', 'open_in_full'));
+        focus.addEventListener('click', function () { setFocus(!inFocus()); });
+        return { node: node, mute: mute, focus: focus };
     }
 
     function reveal(itemId) {
@@ -487,12 +531,9 @@
             return;
         }
         trailer.node.classList.add('is-visible');
-        if (trailer.mute) {
-            trailer.mute.classList.add('is-visible');
-        }
-        if (trailer.caption) {
-            trailer.caption.classList.add('is-visible');
-        }
+        trailerControls().forEach(function (c) {
+            c.classList.add('is-visible');
+        });
         document.documentElement.classList.add('au-trailer-on');
     }
 
@@ -521,8 +562,10 @@
         shell.node.appendChild(video);
         document.body.appendChild(shell.node);
         document.body.appendChild(shell.mute);
+        document.body.appendChild(shell.focus);
         trailer.node = shell.node;
         trailer.mute = shell.mute;
+        trailer.focus = shell.focus;
         trailer.media = video;
         trailer.kind = 'local';
         var p = video.play();
@@ -546,8 +589,10 @@
         shell.node.appendChild(frame);
         document.body.appendChild(shell.node);
         document.body.appendChild(shell.mute);
+        document.body.appendChild(shell.focus);
         trailer.node = shell.node;
         trailer.mute = shell.mute;
+        trailer.focus = shell.focus;
         trailer.media = frame;
         trailer.kind = 'youtube';
     }
@@ -665,14 +710,14 @@
         if (!trailer.node) {
             return;
         }
+        if (inFocus()) {
+            setFocus(false);
+        }
         var away = window.scrollY > window.innerHeight * 0.55;
         trailer.node.classList.toggle('is-scrolled', away);
-        if (trailer.mute) {
-            trailer.mute.classList.toggle('is-scrolled', away);
-        }
-        if (trailer.caption) {
-            trailer.caption.classList.toggle('is-scrolled', away);
-        }
+        trailerControls().forEach(function (c) {
+            c.classList.toggle('is-scrolled', away);
+        });
         if (trailer.kind === 'local' && trailer.media) {
             if (away) { trailer.media.pause(); } else if (trailer.media.paused) { trailer.media.play().catch(function () {}); }
         } else {
