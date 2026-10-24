@@ -14,7 +14,9 @@ public static class MenuBlankBuilder
     private static readonly Regex Imdb = new("^tt[0-9]{7,9}$", RegexOptions.Compiled);
 
     /// <param name="itemType">"Movie", "Series" or "Season".</param>
-    /// <exception cref="ArgumentException">The type is unknown, or the title has no usable TMDB, IMDB or TVDB id.</exception>
+    /// <param name="providerIds">The title's ids. For a season, its series' ids, or the season's own when the series has only AniDB ids
+    /// (Shokofin): AniDB is used only when there is no TMDB, IMDB or TVDB id, so ordinary titles get exactly the menu they always did.</param>
+    /// <exception cref="ArgumentException">The type is unknown, or the title has no usable TMDB, IMDB, TVDB or AniDB id.</exception>
     public static JsonObject Build(string itemType, IReadOnlyDictionary<string, string> providerIds, int? year, int? seasonNumber = null, Guid? menuId = null, DateTimeOffset? created = null)
     {
         if (itemType is not ("Movie" or "Series" or "Season"))
@@ -40,15 +42,29 @@ public static class MenuBlankBuilder
             }
         }
 
+        var aniDb = MenuDiscovery.IdOf(providerIds, MenuDiscovery.AniDb);
+        if (ids.Count == 0 && aniDb is not null && Digits.IsMatch(aniDb))
+        {
+            ids[MenuDiscovery.AniDb] = aniDb;
+        }
+
         if (ids.Count == 0)
         {
-            throw new ArgumentException("This title has no TMDB, IMDB or TVDB id, so a menu can't be matched to it.");
+            throw new ArgumentException("This title has no TMDB, IMDB, TVDB or AniDB id, so a menu can't be matched to it.");
         }
 
         var match = new JsonObject { ["itemType"] = itemType, ["providerIds"] = ids };
         if (itemType == "Season")
         {
-            match["seasonNumber"] = seasonNumber is >= 0 ? seasonNumber : 1;
+            // An AniDB season is found by its own id; the number is then only a tie-breaker, so it is written only when known.
+            if (!ids.ContainsKey(MenuDiscovery.AniDb))
+            {
+                match["seasonNumber"] = seasonNumber is >= 0 ? seasonNumber : 1;
+            }
+            else if (seasonNumber is >= 0)
+            {
+                match["seasonNumber"] = seasonNumber;
+            }
         }
 
         if (year is >= 1900 and <= 2100)

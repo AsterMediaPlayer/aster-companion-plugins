@@ -1,6 +1,6 @@
 name: "Aster Disc"
 guid: "913b9d44-cafe-4fe7-ae0b-f1362dc12cc7"
-version: "0.6.0.0"
+version: "0.7.0.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -16,6 +16,11 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterDisc.dll"
 changelog: >
+  - 0.7.0.0: Menus can be matched by AniDB id, so anime libraries managed by Shoko/Shokofin can have disc menus. A
+    movie or series is matched by its AniDB id like any other id; a season menu with an AniDB id is matched to the
+    season whose own AniDB entry it is, so its seasonNumber is optional (and only breaks ties) however Shoko
+    numbers the seasons. "New..." in the Menu Editor makes an AniDB-matched menu for a title that has only an
+    AniDB id. Existing menus match exactly as before.
   - 0.6.0.0: Disc Menus is now Aster Disc, one of the Aster companion plugins, installed from github.com/peppy6582/aster-companion-plugins. It updates in place: on first start it moves its settings and data (menus, bindings, catalogue, assets) across from the old name. Nothing else changes; its API paths stay the same.
   - 0.5.0.0: Arrange on the preview: click a button, the title or a decoration in the Menu Editor's preview, drag it
     into place (snapping to a grid and the centre lines), resize layers with a handle, nudge with the arrow keys,

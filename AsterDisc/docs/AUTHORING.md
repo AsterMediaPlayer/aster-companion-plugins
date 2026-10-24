@@ -24,11 +24,37 @@ Menus are split in two so a menu can be shared publicly without leaking anything
 
 | File | Shareable? | Contains |
 |---|---|---|
-| `*.menu.json` ([schema](../schema/menu.schema.json)) | **Yes** | The look and structure of the menu, which title it is for (TMDB / IMDB / TVDB ids plus release details such as format and year), and the *extras* it expects, each described by type and duration. Never file names, paths or local item ids. |
+| `*.menu.json` ([schema](../schema/menu.schema.json)) | **Yes** | The look and structure of the menu, which title it is for (TMDB / IMDB / TVDB / AniDB ids plus release details such as format and year), and the *extras* it expects, each described by type and duration. Never file names, paths or local item ids. |
 | `*.binding.json` ([schema](../schema/binding.schema.json)) | **Never** | Maps each of a menu's extra keys to *this server's* Jellyfin item ids. Local state. |
 
 You normally never write a binding by hand: the plugin creates and maintains it for you (see
 [Automatic discovery](#automatic-discovery)). A hand-written one next to a menu overrides it.
+
+### Which title: `match`
+
+`match.itemType` is `Movie`, `Series` or `Season`, and `match.providerIds` holds at least one of:
+
+| Key | Value | Example |
+|---|---|---|
+| `Tmdb` | digits | `"603"` |
+| `Imdb` | `tt` and 7-9 digits | `"tt0133093"` |
+| `Tvdb` | digits | `"81797"` |
+| `AniDB` | digits (key spelled exactly so) | `"18716"` |
+
+A **Season** menu normally gives its *series'* ids and a `seasonNumber`. **AniDB** is for anime libraries
+managed by Shoko with the Shokofin plugin, where titles often have no TMDB/TVDB id at all and every AniDB
+entry is one season (Demon Slayer's TV series, Entertainment District Arc and Swordsmith Village Arc are three
+entries, so three seasons of one series). Shoko decides how entries are grouped, so season numbers can change.
+That is why a Season menu with an `AniDB` id names **that season's own AniDB entry**, not the series', and
+`seasonNumber` is optional: if given, it only chooses between several seasons that have the same AniDB id.
+
+```json
+"match": { "itemType": "Season", "providerIds": { "AniDB": "18716" } }
+```
+
+For a Movie or Series, `AniDB` is matched like any other id (the series' AniDB id is its main entry's).
+fanart.tv only knows TMDB and TVDB ids, so `fanart` backgrounds are not available for a title known only by
+AniDB; use a Jellyfin image, your own picture or a colour instead.
 
 ## Menus, entries and actions
 
@@ -111,7 +137,7 @@ work for any client that asks the server, and keeps fanart.tv's traffic and the 
   picture is for **every page** or **one page**, set how much to darken it, and click a picture. The editor changes only the `background` property in your text (your formatting and everything else stay as they
   were), refreshes the preview, and offers **Undo**; press **Save** to keep it. Pictures are shown best-liked first, twelve at a time.
 - **Finding an id by hand.** `fanartId` is the numeric image id from fanart.tv's listing. As an administrator, `GET /DiscMenus/Fanart/List/{itemId}` lists every picture's `Id`, `Category`
-  (such as `moviebackground` or `hdmovielogo`), language and likes. Movies are looked up by their TMDB id and series and seasons by their series' TVDB id, so the title needs one.
+  (such as `moviebackground` or `hdmovielogo`), language and likes. Movies are looked up by their TMDB id and series and seasons by their series' TVDB id, so the title needs one (an AniDB id is not enough).
 - **Without a key**, or for an id fanart.tv doesn't have for that title, the page shows the plain dark background. A shared menu that uses `fanart` works for anyone who has set a key.
 - **The key** is stored in the plugin's settings, sent only to fanart.tv's API (in a header, never in a link, so it cannot appear in a log), never shown again in the page and never sent to a client.
   The *Test the saved key* button checks it. fanart.tv's own terms apply to your use of their service.
@@ -188,11 +214,13 @@ loader and the browser both re-check everything, and a menu can contain data but
 
 Drop a `*.menu.json` into the menus folder and the plugin does the rest:
 
-- **Finds the title** by the menu's `match` provider ids (TMDB / IMDB / TVDB), through Jellyfin's own
+- **Finds the title** by the menu's `match` provider ids (TMDB / IMDB / TVDB / AniDB), through Jellyfin's own
   provider-id lookup, never by file name or path. An item counts if at least one id matches and none
   contradicts (an item with a different TMDB id is a different title even if an IMDB id coincides);
   matching more ids wins; two equally good items are **ambiguous** and nothing is chosen. A season menu
-  matches its series by id and then the season number.
+  matches its series by id and then the season number, except that a season menu with an `AniDB` id is
+  matched to the season whose own AniDB id it is, whatever its number (the number only breaks a tie). If no
+  season has that AniDB id and the menu also has series ids and a `seasonNumber`, the series route is tried.
 - **Links the extras** by type and duration, without needing a signed-in user. Only extras that aren't
   already matched, manual or ignored are touched, and files are only written when something changes.
 - **Keeps its own bindings** in the plugin's data folder (`bindings/<menuId>.binding.json`), so shareable
@@ -225,7 +253,7 @@ automatically, by format and edition, is on the [roadmap](ROADMAP.md).)
 ## Drafting a menu from your library
 
 `GET /DiscMenus/Draft/{itemId}` (admin) previews a starter menu built from what the library has for a
-movie: its TMDB / IMDB ids, its real local extras with their types and durations, and a Scene Selection
+movie: its TMDB / IMDB ids (or its AniDB id, for a Shokofin title that has no other), its real local extras with their types and durations, and a Scene Selection
 entry if it has chapters. Up to eight extras are listed flat; more are grouped by type (Featurettes,
 Shorts, ...) with a Play All, and a type with a single extra becomes a direct entry. Labels come from the
 files' own names with rip clutter removed (`Featurette - title 083` becomes `Featurette 1 (5:10)` so the

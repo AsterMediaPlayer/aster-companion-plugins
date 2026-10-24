@@ -65,7 +65,7 @@ public sealed class DiscMenusFanartController : ControllerBase
         var target = _discMenuService.GetFanartTarget(itemId);
         if (target is null)
         {
-            return NotFound(new { Error = "That item has no TMDB id (movies) or TVDB id (series), so fanart.tv can't be asked about it." });
+            return NotFound(new { Error = "That item has no TMDB id (movies) or TVDB id (series), so fanart.tv can't be asked about it (fanart.tv doesn't use AniDB ids)." });
         }
 
         var lookup = await _fanart.GetListingAsync(target, ct).ConfigureAwait(false);

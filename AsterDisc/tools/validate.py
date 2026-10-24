@@ -16,6 +16,10 @@ neg = {
   "dangling extra ref": mut(lambda d: d["menus"]["features"]["entries"][0].update(extra="nope")),
   "orphan menu": mut(lambda d: d["menus"].update(orphan={"title":"O","entries":[{"action":"back","label":"Back"}]})),
   "season w/o number": mut(lambda d: d["match"].update(itemType="Season")),
+  "anidb id has letters": mut(lambda d: d["match"].update(providerIds={"AniDB":"18716a"})),
+  "anidb id is a number, not text": mut(lambda d: d["match"].update(providerIds={"AniDB":18716})),
+  "anidb key in the wrong case": mut(lambda d: d["match"].update(providerIds={"anidb":"18716"})),
+  "tvdb season w/o number (anidb doesn't apply)": mut(lambda d: d["match"].update(itemType="Season", providerIds={"Tvdb":"81797"})),
   "position out of range": mut(lambda d: d["menus"]["main"]["entries"][0].update(position={"x":120,"y":10})),
   "position missing y": mut(lambda d: d["menus"]["main"]["entries"][0].update(position={"x":10})),
   "bad anchor": mut(lambda d: d["menus"]["main"]["entries"][0].update(position={"x":1,"y":1,"anchor":"middle"})),
@@ -81,7 +85,17 @@ neg = {
   "fanart on a page without id": mut(lambda d: d["menus"]["main"].update(background={"source":"fanart","dim":0.3})),
   "bad uuid": mut(lambda d: d.update(menuId="not-a-uuid")),
 }
+# Must be accepted: AniDB (Shoko/Shokofin) matches, where a Season is found by its own AniDB id so needs no number.
+pos = {
+  "anidb movie": mut(lambda d: d["match"].update(itemType="Movie", providerIds={"AniDB":"18716"})),
+  "anidb series": mut(lambda d: d["match"].update(itemType="Series", providerIds={"AniDB":"18716"})),
+  "anidb season w/o number": mut(lambda d: d["match"].update(itemType="Season", providerIds={"AniDB":"18716"})),
+  "anidb season with number": mut(lambda d: d["match"].update(itemType="Season", providerIds={"AniDB":"18716"}, seasonNumber=2)),
+  "anidb alongside tvdb": mut(lambda d: d["match"].update(itemType="Series", providerIds={"AniDB":"18716","Tvdb":"81797"})),
+}
 ok = True
+for k, d in pos.items():
+    e = check(mv, d, True); print(("PASS " if not e else "FAIL ") + "accepts " + k, e or ""); ok &= not e
 for k, v in {"example menu": check(mv, m, True), "example binding": check(bv, b)}.items():
     print(("PASS " if not v else "FAIL ") + k, v or ""); ok &= not v
 for k, d in neg.items():

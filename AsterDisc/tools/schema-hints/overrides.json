@@ -109,7 +109,7 @@
         },
         "seasonNumber": {
           "label": "Season number",
-          "help": "Needed when the kind of title is Season."
+          "help": "Needed when the kind of title is Season, unless an AniDB id is given (then it only breaks ties)."
         },
         "providerIds": {
           "label": "Provider ids",
@@ -134,6 +134,10 @@
         },
         "Tvdb": {
           "label": "TVDB id"
+        },
+        "AniDB": {
+          "label": "AniDB id",
+          "help": "For anime libraries managed by Shoko/Shokofin. For a season, the season's own AniDB entry."
         }
       }
     },

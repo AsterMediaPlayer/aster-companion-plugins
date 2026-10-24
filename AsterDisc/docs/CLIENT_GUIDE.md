@@ -20,7 +20,7 @@ How to show Disc Menus in a Jellyfin client other than the web client: a native 
 ## 1. What a client does
 
 A **menu** is a small JSON file written by a person (see [Authoring menus](AUTHORING.md)): screens, buttons, layout, backgrounds, music. The
-plugin on the Jellyfin server matches a menu to a library title by TMDB / IMDb / TVDB id, links its buttons to the title's real extras, and
+plugin on the Jellyfin server matches a menu to a library title by TMDB / IMDb / TVDB / AniDB id, links its buttons to the title's real extras, and
 serves the result. **A client never sees the menu file.** It sees a *resolved document*: the presentation parts of the menu, with the
 server's item ids filled in.
 

@@ -51,7 +51,7 @@ public sealed class DiscMenuService : IDisposable
         GetSnapshot().Bound.ToDictionary(kv => kv.Key, kv => (kv.Value.Menu, kv.Value.Binding, kv.Value.BindingPath));
 
     // ---- Automatic discovery ---------------------------------------------------
-    // A menu file is bound to a library item by its TMDB/IMDB/TVDB ids. A binding file written by
+    // A menu file is bound to a library item by its TMDB/IMDB/TVDB/AniDB ids. A binding file written by
     // hand next to the menu always wins (existing behaviour); otherwise the plugin finds the item
     // itself and keeps the binding in its own data folder, so shareable menu files stay clean and
     // a menu dropped into the folder just works.
@@ -201,7 +201,7 @@ public sealed class DiscMenuService : IDisposable
             i.Name ?? string.Empty,
             i.ProductionYear,
             i is MediaBrowser.Controller.Entities.Movies.Movie ? "Movie" : "Series",
-            ProviderIdsOf(i).Any(p => p.Key.ToLowerInvariant() is "tmdb" or "imdb" or "tvdb" && !string.IsNullOrEmpty(p.Value))))
+            ProviderIdsOf(i).Any(p => p.Key.ToLowerInvariant() is "tmdb" or "imdb" or "tvdb" or "anidb" && !string.IsNullOrEmpty(p.Value))))
         .ToList();
     }
 
@@ -229,8 +229,10 @@ public sealed class DiscMenuService : IDisposable
             return new DraftOutcome(null, null, 400, "A menu can be made for a movie, a series or a season.");
         }
 
+        // A season menu normally uses its series' ids plus the season number. A Shokofin series has only AniDB ids, and its
+        // seasons are separate AniDB entries, so then the season's own AniDB id is used instead.
         var ids = item is MediaBrowser.Controller.Entities.TV.Season season && _libraryManager.GetItemById(season.ParentId) is { } series
-            ? ProviderIdsOf(series)
+            ? (MenuDiscovery.HasStandardId(ProviderIdsOf(series)) ? ProviderIdsOf(series) : ProviderIdsOf(season))
             : ProviderIdsOf(item);
         try
         {
@@ -298,7 +300,7 @@ public sealed class DiscMenuService : IDisposable
         return counts;
     }
 
-    /// <summary>The fanart.tv title a library item corresponds to (movies by TMDB id, series and seasons by TVDB id), if it has one.</summary>
+    /// <summary>The fanart.tv title a library item corresponds to (movies by TMDB id, series and seasons by TVDB id), if it has one. AniDB-only titles have none.</summary>
     public Fanart.FanartTarget? GetFanartTarget(Guid itemId) => _libraryManager.GetItemById(itemId) switch
     {
         MediaBrowser.Controller.Entities.Movies.Movie m => Fanart.FanartTarget.For("Movie", ProviderIdsOf(m), null),
@@ -643,17 +645,41 @@ public sealed class DiscMenuService : IDisposable
     // Finds the library item for a menu by provider id. Never by file name or path.
     private (DiscoveryDecision Decision, string? Note) Discover(MatchInfo match)
     {
+        // A season menu with an AniDB id (Shoko/Shokofin) names the season's own AniDB entry: find that season directly.
+        // Only if there is none, and the menu also has series ids and a season number, try the usual series route.
+        var wanted = match.ProviderIds;
+        if (match.ItemType == MatchItemType.Season && MenuDiscovery.IdOf(wanted, MenuDiscovery.AniDb) is { } aniDb)
+        {
+            var aniDbSeasons = _libraryManager.GetItemList(new InternalItemsQuery
+            {
+                IncludeItemTypes = new[] { BaseItemKind.Season },
+                HasAnyProviderId = new Dictionary<string, string> { [MenuDiscovery.AniDb] = aniDb },
+                Recursive = true,
+                IsVirtualItem = false,
+            });
+            var byAniDb = MenuDiscovery.DecideSeasonByAniDb(
+                aniDb,
+                match.SeasonNumber,
+                aniDbSeasons.Select(s => new SeasonCandidate(s.Id, s.IndexNumber, ProviderIdsOf(s))));
+            if (byAniDb.Outcome != DiscoveryOutcome.Pending || match.SeasonNumber is null || !MenuDiscovery.HasStandardId(wanted))
+            {
+                return (byAniDb, byAniDb.Outcome == DiscoveryOutcome.Pending ? $"No season with AniDB id {aniDb} is in the library yet." : null);
+            }
+
+            wanted = MenuDiscovery.WithoutAniDb(wanted);
+        }
+
         var kind = match.ItemType == MatchItemType.Movie ? BaseItemKind.Movie : BaseItemKind.Series;
         var items = _libraryManager.GetItemList(new InternalItemsQuery
         {
             IncludeItemTypes = new[] { kind },
-            HasAnyProviderId = new Dictionary<string, string>(match.ProviderIds),
+            HasAnyProviderId = new Dictionary<string, string>(wanted),
             Recursive = true,
             IsVirtualItem = false,
         });
 
         var decision = MenuDiscovery.Decide(
-            match.ProviderIds,
+            wanted,
             items.Select(i => new DiscoveryCandidate(i.Id, ProviderIdsOf(i))));
 
         if (match.ItemType != MatchItemType.Season || decision.Outcome != DiscoveryOutcome.Bound)
@@ -680,10 +706,22 @@ public sealed class DiscMenuService : IDisposable
     {
         if (match.ItemType == MatchItemType.Season)
         {
-            return item is MediaBrowser.Controller.Entities.TV.Season season
+            if (item is not MediaBrowser.Controller.Entities.TV.Season season)
+            {
+                return false;
+            }
+
+            var aniDb = MenuDiscovery.IdOf(match.ProviderIds, MenuDiscovery.AniDb);
+            if (aniDb is not null && string.Equals(MenuDiscovery.IdOf(ProviderIdsOf(season), MenuDiscovery.AniDb), aniDb, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var seriesIds = aniDb is null ? match.ProviderIds : MenuDiscovery.WithoutAniDb(match.ProviderIds);
+            return seriesIds.Count > 0
                 && season.IndexNumber == match.SeasonNumber
                 && _libraryManager.GetItemById(season.ParentId) is { } series
-                && MenuDiscovery.Decide(match.ProviderIds, new[] { new DiscoveryCandidate(series.Id, ProviderIdsOf(series)) }).Outcome == DiscoveryOutcome.Bound;
+                && MenuDiscovery.Decide(seriesIds, new[] { new DiscoveryCandidate(series.Id, ProviderIdsOf(series)) }).Outcome == DiscoveryOutcome.Bound;
         }
 
         var rightKind = match.ItemType == MatchItemType.Movie

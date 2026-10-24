@@ -3,6 +3,9 @@ namespace Jellyfin.Plugin.AsterDisc;
 /// <summary>A library item that might be the title a menu describes, reduced to what matching needs.</summary>
 public sealed record DiscoveryCandidate(Guid Id, IReadOnlyDictionary<string, string> ProviderIds);
 
+/// <summary>A season that might be the one an AniDB-matched season menu describes.</summary>
+public sealed record SeasonCandidate(Guid Id, int? SeasonNumber, IReadOnlyDictionary<string, string> ProviderIds);
+
 public enum DiscoveryOutcome
 {
     /// <summary>Exactly one library item fits: bind to it.</summary>
@@ -22,11 +25,60 @@ public sealed record BoundEntry(string MenuPath, Guid MenuId, int Revision, bool
 
 /// <summary>
 /// The pure decisions behind automatic menu discovery, kept free of any Jellyfin types so they
-/// can be tested exhaustively. Matching uses only provider ids (TMDB / IMDB / TVDB): never file
+/// can be tested exhaustively. Matching uses only provider ids (TMDB / IMDB / TVDB / AniDB): never file
 /// names or paths, in keeping with the menu format's rule that menus are shareable.
 /// </summary>
 public static class MenuDiscovery
 {
+    /// <summary>The provider-id key Jellyfin and Shokofin use for AniDB, and the one menus use.</summary>
+    public const string AniDb = "AniDB";
+
+    /// <summary>A provider id by name, ignoring the name's case; null when absent or empty.</summary>
+    public static string? IdOf(IReadOnlyDictionary<string, string>? ids, string provider)
+    {
+        var value = ids?.FirstOrDefault(p => p.Key.Equals(provider, StringComparison.OrdinalIgnoreCase)).Value;
+        return string.IsNullOrEmpty(value) ? null : value;
+    }
+
+    /// <summary>Whether the ids include a TMDB, IMDB or TVDB id (the ids a menu was matched by before AniDB).</summary>
+    public static bool HasStandardId(IReadOnlyDictionary<string, string> ids) =>
+        IdOf(ids, "Tmdb") is not null || IdOf(ids, "Imdb") is not null || IdOf(ids, "Tvdb") is not null;
+
+    /// <summary>The ids without AniDB, for matching a season's series (whose AniDB entry is usually not the season's).</summary>
+    public static Dictionary<string, string> WithoutAniDb(IReadOnlyDictionary<string, string> ids) =>
+        ids.Where(p => !p.Key.Equals(AniDb, StringComparison.OrdinalIgnoreCase)).ToDictionary(p => p.Key, p => p.Value);
+
+    /// <summary>
+    /// Chooses the season for a season menu matched by AniDB id. With Shoko/Shokofin every AniDB entry is one season
+    /// and season numbers depend on how Shoko groups things, so the season is the one whose OWN AniDB id is the menu's.
+    /// The season number only breaks a tie between several such seasons (the same anime in two libraries, say); a
+    /// lone match is bound whatever its number.
+    /// </summary>
+    public static DiscoveryDecision DecideSeasonByAniDb(string aniDbId, int? seasonNumber, IEnumerable<SeasonCandidate> candidates)
+    {
+        var hits = candidates
+            .Where(c => string.Equals(IdOf(c.ProviderIds, AniDb), aniDbId, StringComparison.OrdinalIgnoreCase))
+            .GroupBy(c => c.Id)
+            .Select(g => g.First())
+            .ToList();
+        if (hits.Count > 1 && seasonNumber is not null)
+        {
+            var numbered = hits.Where(c => c.SeasonNumber == seasonNumber).ToList();
+            if (numbered.Count > 0)
+            {
+                hits = numbered;
+            }
+        }
+
+        var ids = hits.Select(c => c.Id).ToList();
+        return ids.Count switch
+        {
+            0 => new DiscoveryDecision(DiscoveryOutcome.Pending, null, Array.Empty<Guid>()),
+            1 => new DiscoveryDecision(DiscoveryOutcome.Bound, ids[0], ids),
+            _ => new DiscoveryDecision(DiscoveryOutcome.Ambiguous, null, ids),
+        };
+    }
+
     /// <summary>
     /// Chooses among library items for a menu's provider ids. An item counts only if at least one
     /// wanted id matches and none contradicts (an item that has a TMDB id different from the
