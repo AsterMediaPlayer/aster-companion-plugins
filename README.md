@@ -8,6 +8,7 @@ plugin repository:
 | [**Aster Channels**](AsterChannels/README.md) | A Channels page in the dashboard for Aster's TV channels: make and edit them, drag to renumber. |
 | [**Aster Disc**](AsterDisc/README.md) | Shareable disc menus for special features, with a menu editor and a community catalogue. (Formerly Disc Menus.) |
 | [**Aster OP-ED**](AsterOpEd/README.md) | Anime openings and endings matched to your shows, with song details, playable copies for every client, and Jellyfin libraries of them. (Formerly OP/ED.) |
+| [**Aster Aurora**](AsterAurora/README.md) | Apple TV style behaviour for the Jellyfin web client: home hero banner, trailer backgrounds, Up Next rows, quality badges, an Episodes row. (Formerly Aurora.) |
 
 ## Install
 
@@ -17,7 +18,7 @@ plugin repository:
 
 They need Jellyfin 12.
 
-**Coming from Disc Menus or OP/ED?** Add this repository and update as usual. The plugins keep their ids, so they update in
+**Coming from Disc Menus, OP/ED or Aurora?** Add this repository and update as usual. The plugins keep their ids, so they update in
 place, and on first start each moves its settings and data across from its old name. You can then remove the old
 repository (jellydisc or jellyfin-oped) from your list.
 
@@ -29,6 +30,7 @@ Each plugin is a folder of its own, with its project, tests, tools and docs:
 AsterChannels/   Jellyfin.Plugin.AsterChannels
 AsterDisc/       Jellyfin.Plugin.AsterDisc, its tests, schema, examples and tools
 AsterOpEd/       Jellyfin.Plugin.AsterOpEd
+AsterAurora/     Jellyfin.Plugin.AsterAurora
 tools/           check_versions.py, shared by the release workflow
 manifest.json    the plugin repository: every plugin, every version
 ```
@@ -42,7 +44,7 @@ manifest.json    the plugin repository: every plugin, every version
 3. Push a tag naming the plugin and the version (`X.Y.Z` releases `X.Y.Z.0`):
 
    ```bash
-   git tag asterdisc-v0.6.0 && git push origin asterdisc-v0.6.0      # or asterchannels-v… / asteroped-v…
+   git tag asterdisc-v0.6.0 && git push origin asterdisc-v0.6.0      # or asterchannels-v… / asteroped-v… / asteraurora-v…
    ```
 
 The release workflow tests that plugin, builds its zip with jprm, publishes the GitHub release, and adds the version to

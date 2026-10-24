@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <title>Aster Aurora</title>
+</head>
+<body>
+    <div id="AuroraConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="AuroraConfigForm">
+                    <p>
+                        Apple TV style behaviour for the web client. Changes apply the next time a browser loads or refreshes
+                        Jellyfin; no restart is needed. Apps that draw their own screens (Apple TV, Android TV, Infuse, Swiftfin)
+                        are not affected.
+                    </p>
+
+                    <h2>Home hero banner</h2>
+                    <div class="checkboxContainer">
+                        <label><input id="EnableHero" type="checkbox" is="emby-checkbox" /><span>Show a rotating banner at the top of Home</span></label>
+                    </div>
+                    <div class="selectContainer">
+                        <label class="selectLabel" for="HeroSource">Titles to feature</label>
+                        <select id="HeroSource" is="emby-select">
+                            <option value="latest">Recently added</option>
+                            <option value="random">Random</option>
+                            <option value="favorites">Favorites</option>
+                        </select>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="HeroCount">Number of titles</label>
+                        <input id="HeroCount" type="number" min="1" max="20" is="emby-input" />
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="HeroIntervalSeconds">Seconds per title</label>
+                        <input id="HeroIntervalSeconds" type="number" min="4" max="60" is="emby-input" />
+                    </div>
+
+                    <h2>Trailer backgrounds</h2>
+                    <div class="checkboxContainer">
+                        <label><input id="EnableTrailers" type="checkbox" is="emby-checkbox" /><span>Fade a muted trailer in behind movie and series pages</span></label>
+                    </div>
+                    <div class="checkboxContainer">
+                        <label><input id="AllowYouTubeTrailers" type="checkbox" is="emby-checkbox" /><span>Use YouTube trailers when there is no local one</span></label>
+                        <div class="fieldDescription">Embeds YouTube's player, which contacts Google from the viewer's browser.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="TrailerDelaySeconds">Seconds before the trailer starts</label>
+                        <input id="TrailerDelaySeconds" type="number" min="1" max="30" is="emby-input" />
+                    </div>
+
+                    <h2>Details</h2>
+                    <div class="checkboxContainer">
+                        <label><input id="EnableTilt" type="checkbox" is="emby-checkbox" /><span>Tilt and highlight cards under the mouse</span></label>
+                    </div>
+                    <div class="checkboxContainer">
+                        <label><input id="EnableGenreChips" type="checkbox" is="emby-checkbox" /><span>Show genres as chips</span></label>
+                    </div>
+                    <div class="checkboxContainer">
+                        <label><input id="EnableBadges" type="checkbox" is="emby-checkbox" /><span>Show quality badges (4K, HDR, Dolby Atmos, CC)</span></label>
+                    </div>
+                    <div class="checkboxContainer">
+                        <label><input id="EnableUpNext" type="checkbox" is="emby-checkbox" /><span>Up Next style for Continue Watching and Next Up (title logos over stills)</span></label>
+                    </div>
+                    <div class="checkboxContainer">
+                        <label><input id="EnableEpisodeShelf" type="checkbox" is="emby-checkbox" /><span>Episodes row with season tabs on show pages</span></label>
+                    </div>
+                    <div class="checkboxContainer">
+                        <label><input id="EnableBackButton" type="checkbox" is="emby-checkbox" /><span>Back button in the top-left corner</span></label>
+                    </div>
+
+                    <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
+                </form>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var pluginId = '22f5ff1c-c1cd-47b2-839f-25e6cd9c8afc';
+            var BOOLS = ['EnableHero', 'EnableTrailers', 'AllowYouTubeTrailers', 'EnableTilt', 'EnableGenreChips', 'EnableUpNext', 'EnableBadges', 'EnableEpisodeShelf', 'EnableBackButton'];
+            var NUMS = ['HeroCount', 'HeroIntervalSeconds', 'TrailerDelaySeconds'];
+
+            function loadConfig(page) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    BOOLS.forEach(function (k) { page.querySelector('#' + k).checked = !!config[k]; });
+                    NUMS.forEach(function (k) { page.querySelector('#' + k).value = config[k]; });
+                    page.querySelector('#HeroSource').value = config.HeroSource || 'latest';
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            document.querySelector('#AuroraConfigPage').addEventListener('pageshow', function () {
+                loadConfig(this);
+            });
+
+            document.querySelector('#AuroraConfigForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                var page = document.querySelector('#AuroraConfigPage');
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    BOOLS.forEach(function (k) { config[k] = page.querySelector('#' + k).checked; });
+                    NUMS.forEach(function (k) { config[k] = parseInt(page.querySelector('#' + k).value, 10) || config[k]; });
+                    config.HeroSource = page.querySelector('#HeroSource').value;
+                    ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+                return false;
+            });
+        </script>
+    </div>
+</body>
+</html>
