@@ -70,6 +70,9 @@
                     <div class="checkboxContainer">
                         <label><input id="EnableAsterDetails" type="checkbox" is="emby-checkbox" /><span>Aster app details: an episode's own title and "S2, E2" line, and how much is left of a title you've started</span></label>
                     </div>
+                    <div class="checkboxContainer">
+                        <label><input id="EnableOpeningBackgrounds" type="checkbox" is="emby-checkbox" /><span>On anime show pages, loop the opening behind the page instead of a trailer (needs the Aster OP/ED plugin)</span></label>
+                    </div>
 
                     <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
                 </form>
@@ -77,7 +80,7 @@
         </div>
         <script type="text/javascript">
             var pluginId = '22f5ff1c-c1cd-47b2-839f-25e6cd9c8afc';
-            var BOOLS = ['EnableHero', 'EnableTrailers', 'AllowYouTubeTrailers', 'EnableTilt', 'EnableGenreChips', 'EnableUpNext', 'EnableBadges', 'EnableEpisodeShelf', 'EnableBackButton', 'EnableAsterDetails'];
+            var BOOLS = ['EnableHero', 'EnableTrailers', 'AllowYouTubeTrailers', 'EnableTilt', 'EnableGenreChips', 'EnableUpNext', 'EnableBadges', 'EnableEpisodeShelf', 'EnableBackButton', 'EnableAsterDetails', 'EnableOpeningBackgrounds'];
             var NUMS = ['HeroCount', 'HeroIntervalSeconds', 'TrailerDelaySeconds'];
 
             function loadConfig(page) {
