@@ -196,5 +196,23 @@
                 "timestamp": "2026-10-11T14:12:57Z"
             }
         ]
+    },
+    {
+        "guid": "22f5ff1c-c1cd-47b2-839f-25e6cd9c8afc",
+        "name": "Aster Aurora",
+        "description": "Adds a rotating home hero banner, muted trailer backgrounds on details pages, card tilt and genre chips to jellyfin-web. Pairs with the Aurora custom CSS but works without it. Developed primarily with an AI coding assistant (Claude Code); see the README.\n",
+        "overview": "Apple TV style behaviour for the Jellyfin web client.",
+        "owner": "AsterMediaPlayer",
+        "category": "General",
+        "versions": [
+            {
+                "version": "0.5.0.0",
+                "changelog": "- 0.5.0.0: Matches the Aster skin and app: its colours carry into Aurora's elements, episode pages are titled with the episode's own name and an \"S2, E2\" line, a started title shows how much is left and resumes from the banner, and Home's header gets its backing back once the page scrolls. - 0.4.0.0: Now Aster Aurora, installed from the Aster companion plugins repository. Same plugin id, so it updates in place, and your Aurora settings move across on first start. - 0.3.1.0: Back button in the top-left corner. - 0.3.0.0: No flashes: custom CSS applied from the first frame, banner placeholder, pre-paint genre chips, art-less layout keyed off the page, reserved badge space. - 0.2.2.0: Also hide the stock Next Up block before first paint; never touch non-show pages. - 0.2.1.0: No more flash of the stock season cards before the Episodes row loads. - 0.2.0.0: Up Next style rows, quality badges, Episodes row with season tabs. - 0.1.0.0: First version. Hero banner, trailer backgrounds, card tilt, genre chips.\n",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/AsterMediaPlayer/aster-companion-plugins/releases/download/asteraurora-v0.5.0/aster-aurora_0.5.0.0.zip",
+                "checksum": "1793f67f2f3a3c8dd5e95ddc16406341",
+                "timestamp": "2026-10-24T12:36:19Z"
+            }
+        ]
     }
 ]
