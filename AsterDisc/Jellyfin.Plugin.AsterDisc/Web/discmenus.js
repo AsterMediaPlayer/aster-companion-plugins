@@ -4,8 +4,10 @@
 // (see IndexHtmlInjection.cs). Loads once with the page and never
 // reloads on in-app navigation - jellyfin-web is a client-routed, hash-based
 // SPA (confirmed: components/router/appRouter.js builds URLs like
-// "#/details?id=<guid>"), so this watches the native `hashchange` event to
-// know which item's details page is currently showing.
+// "#/details?id=<guid>"). Its router moves between pages with
+// history.pushState, which fires no `hashchange`, so this watches the history
+// calls, `popstate`, `hashchange` and jellyfin-web's own `viewshow` event to
+// know which item's details page is currently showing (see the end of file).
 //
 // PLAYBACK: playbackManager isn't reachable from an injected script (it's an
 // ES module internal to jellyfin-web's bundle), so play actions send a
@@ -202,6 +204,16 @@
                 setTimeout(place, 500);
             }
         })();
+    }
+
+    function onViewShow(e) {
+        checkForMenu();
+        var btn = document.getElementById(BUTTON_ID);
+        var view = e && e.target;
+        var row = btn && view && view.querySelector ? view.querySelector('.mainDetailButtons') : null;
+        if (row && !row.contains(btn)) {
+            insertInRow(row, btn); // moves it: there is still only one
+        }
     }
 
     function removeButton() {
@@ -2555,7 +2567,37 @@
         };
         notifyEditor('ready');
     } else {
+        // jellyfin-web's router (createHashRouter, src/RootAppRouter.tsx) changes pages with history.pushState / replaceState, which
+        // fire no 'hashchange': listening for that alone meant a title reached by clicking had no button until the page was reloaded.
+        // So the history calls are watched too ('hashchange' still covers a typed address, 'popstate' Back and Forward). Calling
+        // checkForMenu more often is harmless: it does nothing while the item is the same.
         window.addEventListener('hashchange', checkForMenu);
+        window.addEventListener('popstate', checkForMenu);
+        var browserHistory = window.history; // absent in the test harnesses that load this file with a stub window
+        ['pushState', 'replaceState'].forEach(function (name) {
+            var original = browserHistory && browserHistory[name];
+            if (typeof original !== 'function') {
+                return;
+            }
+
+            browserHistory[name] = function () {
+                var result = original.apply(this, arguments);
+                try {
+                    checkForMenu();
+                } catch (e) {
+                    console.warn('[Disc Menus] checking for a menu after navigation failed', e);
+                }
+
+                return result;
+            };
+        });
+        // jellyfin-web dispatches a bubbling 'viewshow' on each page once it is on screen (components/viewManager/viewManager.js).
+        // Going from one title to another, the button can be placed while the old page is still showing; this is the moment to move
+        // it into the row of the page actually shown.
+        if (typeof document !== 'undefined' && document.addEventListener) {
+            document.addEventListener('viewshow', onViewShow);
+        }
+
         waitForApiClient(checkForMenu);
     }
 
