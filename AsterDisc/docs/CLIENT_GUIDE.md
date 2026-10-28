@@ -59,9 +59,9 @@ Requirements: Jellyfin 12.x with the Disc Menus plugin installed. Authentication
 - `itemId`: the id of a Movie, Series or Season (either GUID format). Only the item a menu is *bound to* has one, with one exception: a
   **Series** with no menu of its own answers with its season's menu when exactly one of its seasons has one (with menus for several
   seasons it answers `404`). The document's `ItemId` then names that season, and the menu is the season's in every way ([§3](#3-the-document)).
-- **200**: the resolved document ([§3](#3-the-document)). **404**: no menu for this item (also what you get when the plugin is not
+- **200**: the resolved document ([§3](#3-the-document)). **404**: no menu for this item, or none this user may see (a title outside their libraries or parental limits; also what you get when the plugin is not
   installed, so treat it as "nothing to show", never as an error). **401**: not signed in.
-- Any signed-in user may call it. It sets no cache headers; the server rebuilds its index when menu files or the library change, so
+- Any signed-in user may call it, for the titles they can see. Extras, local trailers and theme songs they can't see are left out of the document. It sets no cache headers; the server rebuilds its index when menu files or the library change, so
   re-fetch when a viewer opens the title rather than caching for long.
 - There is no endpoint for "which items have menus" for ordinary users, so ask per item.
 
