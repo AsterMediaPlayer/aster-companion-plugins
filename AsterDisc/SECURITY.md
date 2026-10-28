@@ -16,8 +16,9 @@ these are in scope:
 - Any way to read or write a file outside the menus folder, or to read a file type other than the images and
   audio meant to be served from the assets folder.
 - A way for a non-admin to reach an admin endpoint, or for an unauthenticated request to reach anything
-  beyond the few endpoints that are public on purpose (the renderer script, the preview page, the assets
-  folder's images and audio, and the callback File Transformation uses to inject the script).
+  beyond the few endpoints that are public on purpose (the renderer and editor scripts, the preview and designer
+  pages, the assets folder's images and audio, and cached fanart pictures). All of them are read-only GETs that never send back
+  anything the caller supplied; `AnonymousEndpointTests` enforces that list.
 - Anything that exposes another user's data, an access token, or a server path.
 
 ## Supported versions

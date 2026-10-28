@@ -154,7 +154,7 @@ Copyright (C) 2026 Phillip Berryman. Licensed under the [GNU General Public Lice
   holder and want them removed, please open an issue.
 - Menus are shown through [Jellyfin](https://jellyfin.org). Earlier versions relied on the
   [File Transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation) plugin by
-  IAmParadox27 to reach the web client; the idea of hooking the served page is theirs, and the plugin still cooperates with it if it is
-  installed, but it no longer needs it.
+  IAmParadox27 to reach the web client; the idea of hooking the served page is theirs. The plugin no longer needs it or registers
+  with it, and works alongside it if it is installed.
 - Movie and series metadata and images come from TMDB through Jellyfin. This product uses the TMDB API but
   is not endorsed or certified by TMDB.

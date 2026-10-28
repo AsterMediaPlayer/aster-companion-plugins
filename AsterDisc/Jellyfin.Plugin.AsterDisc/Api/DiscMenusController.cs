@@ -197,21 +197,10 @@ public sealed class DiscMenusController : ControllerBase
 
     private static string ScriptVersion => ScriptInfo.Version;
 
-    /// <summary>
-    /// Called by the optional "File Transformation" plugin (server-to-server, no Jellyfin session) when it is installed and serves index.html itself.
-    /// Without it the plugin's own middleware (IndexHtmlInjection.cs) adds the same tag. Body is a plain JSON object with a single "contents"
-    /// field (the full file text); response body is the transformed text.
-    /// </summary>
-    [HttpPost("web/Transform")]
-    [AllowAnonymous]
-    public async Task<ContentResult> TransformIndexHtml()
-    {
-        using var reader = new StreamReader(Request.Body);
-        var raw = await reader.ReadToEndAsync();
-        using var doc = System.Text.Json.JsonDocument.Parse(raw);
-        var contents = doc.RootElement.TryGetProperty("contents", out var contentsProp) ? contentsProp.GetString() ?? string.Empty : string.Empty;
-        return Content(IndexHtmlInjector.Inject(contents, null, ScriptVersion), "text/html");
-    }
+    // There is no File Transformation callback ("POST web/Transform") any more. It was anonymous and sent the posted text back as
+    // text/html on Jellyfin's own origin, so a hostile page could submit a form to it and run script as the signed-in user (an
+    // administrator included). Our own middleware (IndexHtmlInjection.cs) puts the script into index.html on every request, with or
+    // without File Transformation, so nothing needed it. AnonymousEndpointTests keeps every anonymous endpoint read-only.
 
     private static readonly Dictionary<string, string> AssetTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -286,7 +275,7 @@ public sealed class DiscMenusController : ControllerBase
         return Content(DesignerPage.Build(Read("Web.designer.html"), Read("Configuration.editorPage.html")), "text/html");
     }
 
-    /// <summary>The web menu renderer script injected into jellyfin-web by <see cref="TransformIndexHtml"/>.</summary>
+    /// <summary>The web menu renderer script, which <see cref="IndexHtmlInjectionMiddleware"/> adds to jellyfin-web's start page.</summary>
     /// <summary>
     /// The Menu Editor's script modules (Web/editor/*.js). A dashboard page can only reliably run the script inside its own fragment, so the
     /// page loads these through script tags that point here. The name is limited to lower-case letters, digits and hyphens, and only

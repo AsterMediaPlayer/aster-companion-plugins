@@ -13,8 +13,5 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<Fanart.FanartService>();
         // The web client's start page gets the renderer script from our own middleware: no other plugin is needed.
         serviceCollection.AddTransient<IStartupFilter, IndexHtmlInjectionStartupFilter>();
-
-        // If the File Transformation plugin is installed too, also offer it our transformation. Harmless: a page that already has the tag is left alone.
-        serviceCollection.AddHostedService<FileTransformationIntegration>();
     }
 }
