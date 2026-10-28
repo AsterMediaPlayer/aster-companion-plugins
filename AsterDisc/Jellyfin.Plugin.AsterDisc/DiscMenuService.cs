@@ -50,6 +50,29 @@ public sealed class DiscMenuService : IDisposable
     public IReadOnlyDictionary<Guid, (MenuDocument Menu, BindingDocument Binding, string BindingPath)> ScanBindings() =>
         GetSnapshot().Bound.ToDictionary(kv => kv.Key, kv => (kv.Value.Menu, kv.Value.Binding, kv.Value.BindingPath));
 
+    /// <summary>Whether the item is in the library at all.</summary>
+    public bool ItemExists(Guid itemId) => _libraryManager.GetItemById(itemId) is not null;
+
+    /// <summary>
+    /// Whether <paramref name="user"/> may see a library item: library access, parental rating and tags, through Jellyfin's own
+    /// <c>IsVisibleStandalone</c>. An extra (a special feature, a local trailer, a theme song) is judged by its owner, the title it
+    /// belongs to, plus its own rating and tags: standalone visibility follows ParentId, which an extra doesn't use.
+    /// </summary>
+    public bool IsVisibleTo(User user, Guid itemId)
+    {
+        if (_libraryManager.GetItemById(itemId) is not { } item)
+        {
+            return false;
+        }
+
+        if (item.OwnerId != Guid.Empty)
+        {
+            return item.IsVisible(user) && _libraryManager.GetItemById(item.OwnerId) is { } owner && owner.IsVisibleStandalone(user);
+        }
+
+        return item.IsVisibleStandalone(user);
+    }
+
     /// <summary>
     /// The item whose menu a page for <paramref name="itemId"/> shows: its own, or for a series without one, its only season
     /// with a menu (see <see cref="MenuDiscovery.MenuItemFor"/>). Null when there is none.

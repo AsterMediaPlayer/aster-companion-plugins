@@ -1,6 +1,6 @@
 name: "Aster Disc"
 guid: "913b9d44-cafe-4fe7-ae0b-f1362dc12cc7"
-version: "0.7.3.0"
+version: "0.7.4.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -16,6 +16,8 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterDisc.dll"
 changelog: >
+  - 0.7.4.0: Disc menus follow each user's library access and parental controls: a title a profile can't see has no menu for
+    it, and extras, trailers and theme songs it can't see are left out of the menus it can. API keys are unaffected.
   - 0.7.3.0: The Disc Menu button appears on a title you reach by clicking, without reloading the page. The web client moves
     between pages without loading a new one, and the plugin only noticed when the page was loaded or the address was typed;
     it now follows the web client's own navigation, and the button moves with you from one title to the next.
