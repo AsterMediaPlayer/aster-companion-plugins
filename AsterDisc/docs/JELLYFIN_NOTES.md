@@ -76,8 +76,11 @@ middleware (`IndexHtmlInjection.cs`), so nothing else needs installing:
   are removed; only a plain 200 HTML answer is changed; and a page that already has the tag is left alone.
 - Jellyfin's own files are never edited.
 
-The community **File Transformation** plugin does the same job for plugins that don't want to write middleware, and this plugin
-still registers with it if it is installed (harmless, see "left alone" above). How that registration works:
+The community **File Transformation** plugin does the same job for plugins that don't want to write middleware. This plugin used
+to register with it too, through an HTTP `transformationEndpoint`, and stopped in 0.7.2: that endpoint has to be anonymous
+(File Transformation calls it without a session) and sends the posted page back as `text/html` on Jellyfin's origin, so any web
+page could submit a form to it and run script as the signed-in user. If you ever need to register again, never use an anonymous
+HTTP endpoint that echoes content; check File Transformation's reflection callback instead (not verified here). How registration works:
 
 - Register with `PluginInterface.RegisterTransformation(JObject payload)`; the payload has an `id` (a guid),
   `fileNamePattern` (a regex tested against the path relative to `/web/`, so use `^index\.html$`, anchored),

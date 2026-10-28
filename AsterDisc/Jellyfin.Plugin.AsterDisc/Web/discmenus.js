@@ -1,7 +1,7 @@
 // Disc Menus web renderer.
 //
-// Injected into jellyfin-web's index.html by the File Transformation plugin
-// (see FileTransformationIntegration.cs). Loads once with the page and never
+// Injected into jellyfin-web's index.html by the plugin's own middleware
+// (see IndexHtmlInjection.cs). Loads once with the page and never
 // reloads on in-app navigation - jellyfin-web is a client-routed, hash-based
 // SPA (confirmed: components/router/appRouter.js builds URLs like
 // "#/details?id=<guid>"), so this watches the native `hashchange` event to

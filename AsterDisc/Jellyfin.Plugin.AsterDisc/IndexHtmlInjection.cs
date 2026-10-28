@@ -9,8 +9,8 @@ namespace Jellyfin.Plugin.AsterDisc;
 
 /// <summary>
 /// Puts the web menu renderer's script tag into jellyfin-web's <c>index.html</c> as the page is served, so the plugin needs no other plugin and
-/// never edits Jellyfin's own files. The tag is added once: a page that already has it is left alone, so this and the optional File Transformation
-/// hook can both be present.
+/// never edits Jellyfin's own files. The tag is added once: a page that already has it is left alone, so another plugin (File Transformation,
+/// say) that changes the same page does not cause a second copy.
 /// </summary>
 public static class IndexHtmlInjector
 {

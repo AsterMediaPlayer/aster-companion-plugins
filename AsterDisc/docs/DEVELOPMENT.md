@@ -43,9 +43,9 @@ How to build, test, run and understand the project. For *using* it see the [READ
 
 Inside `Jellyfin.Plugin.AsterDisc/`:
 
-- **Plugin shell:** `Plugin.cs` (identity and the two dashboard pages), `ServiceRegistrator.cs`,
-  `IndexHtmlInjection.cs` (the middleware that adds the renderer script to jellyfin-web's start page: no other plugin needed) and
-  `FileTransformationIntegration.cs` (optional: also registers with the *File Transformation* plugin if it is installed).
+- **Plugin shell:** `Plugin.cs` (identity and the two dashboard pages), `ServiceRegistrator.cs` and
+  `IndexHtmlInjection.cs` (the middleware that adds the renderer script to jellyfin-web's start page: no other plugin needed).
+  Every endpoint reachable without a session is listed in `AnonymousEndpointTests`, which also keeps them read-only.
 - **Model and validation:** `Model/` mirrors the two schemas as C# types; `MenuFileLoader.cs` parses a
   menu and runs the semantic and presentation checks. The JSON Schema in `schema/`, `tools/validate.py`
   and `MenuFileLoader` are **three implementations of the same rules** (menus are untrusted input, and

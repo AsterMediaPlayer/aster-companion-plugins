@@ -1,6 +1,6 @@
 name: "Aster Disc"
 guid: "913b9d44-cafe-4fe7-ae0b-f1362dc12cc7"
-version: "0.7.1.0"
+version: "0.7.2.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -16,6 +16,10 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterDisc.dll"
 changelog: >
+  - 0.7.2.0: Security fix. An endpoint that needed no sign-in (the callback for the optional File Transformation plugin) sent
+    back whatever page it was sent, on the server's own address, so a malicious website could run script as a signed-in user,
+    an administrator included, and take over their session. The endpoint is removed. Nothing else changes: the plugin already adds
+    its script to the web client itself, with or without File Transformation. Update as soon as you can.
   - 0.7.1.0: A series with no menu of its own now shows its season's menu, and its Disc Menu button, when exactly one of
     its seasons has a menu. A one-season anime under Shokofin, whose menu is matched to the season by AniDB id, no longer
     hides its button on a season page people rarely open (Aster Aurora's Episodes row keeps them on the series page).
