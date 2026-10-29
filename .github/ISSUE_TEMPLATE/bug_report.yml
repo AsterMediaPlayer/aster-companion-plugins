@@ -1,7 +1,22 @@
 name: Bug report
-description: Something doesn't work or looks wrong
+description: Something in a plugin doesn't work or looks wrong
 labels: [bug]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        This repository is the server plugins. A problem in one of the Aster apps goes to that app's repository ([Apple](https://github.com/AsterMediaPlayer/Aster-Media-Player/issues/new/choose), [Android](https://github.com/AsterMediaPlayer/aster-android/issues/new/choose), [Windows and Linux](https://github.com/AsterMediaPlayer/aster-windows/issues/new/choose)); questions go to the [support page](https://astermediaplayer.com/support.html).
+  - type: dropdown
+    id: which
+    attributes:
+      label: Which plugin?
+      options:
+        - "Aster Disc"
+        - "Aster OP/ED"
+        - "Aster Channels"
+        - "Aster Aurora"
+    validations:
+      required: true
   - type: textarea
     id: what
     attributes:
@@ -12,7 +27,7 @@ body:
     id: steps
     attributes:
       label: Steps to reproduce
-      placeholder: "1. Menu file ...  2. Open the title ...  3. Click ..."
+      placeholder: "1. Open the title ...  2. Click ...  3. ..."
   - type: input
     id: jellyfin
     attributes:
@@ -23,21 +38,23 @@ body:
   - type: input
     id: plugin
     attributes:
-      label: Plugin version or commit
+      label: Plugin version
+      description: Dashboard ▸ Plugins.
+      placeholder: "0.7.4.0"
   - type: input
     id: browser
     attributes:
-      label: Browser and device
-      placeholder: "Firefox 150 on Linux"
+      label: Where you saw it (browser and device, or Aster app and platform)
+      placeholder: "Firefox 150 on Linux, or Aster 0.10.0 on Apple TV"
   - type: textarea
     id: menu
     attributes:
-      label: The menu file (or the relevant part)
+      label: For Aster Disc, the menu file (or the relevant part)
       description: Don't include anything private. If it's long, the part that misbehaves is enough.
       render: json
   - type: textarea
     id: logs
     attributes:
       label: Browser console and server log
-      description: Lines starting with `[Disc Menus]`, plus any errors. Remove tokens or addresses you don't want to share.
+      description: The browser console's errors and messages from the plugin (Aster Disc's start with `[Disc Menus]`), and the server log's lines from that moment. Remove tokens or addresses you don't want to share.
       render: text
