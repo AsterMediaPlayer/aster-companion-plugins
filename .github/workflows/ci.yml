@@ -44,6 +44,8 @@ jobs:
         with:
           node-version: 22
       - run: dotnet build AsterChannels/Jellyfin.Plugin.AsterChannels -c Release
+      - name: The Emby version builds too (it shares channel-tags.js)
+        run: dotnet build AsterChannels/Emby.Plugin.AsterChannels -c Release
       - name: The tag rules match the app's vectors
         run: node --test AsterChannels/tests/*.test.js
       - run: python3 tools/check_versions.py AsterChannels/Jellyfin.Plugin.AsterChannels

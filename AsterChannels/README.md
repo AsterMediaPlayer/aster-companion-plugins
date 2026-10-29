@@ -25,6 +25,30 @@ Other users only see a channel in Aster if its playlist is shared with them or p
 
 Every tag is listed in Aster's [channel tag reference](https://github.com/AsterMediaPlayer/Aster-Media-Player/blob/main/docs/channel-tags.md).
 
+## Emby
+
+`Emby.Plugin.AsterChannels` is the same Channels page for **Emby 4.8 and later**: the same list, New Channel,
+editor and drag-to-renumber, writing the same `aster:` tags, which Aster reads on Emby too. Live TV groups are
+Jellyfin-only and aren't in it.
+
+**Install.** Emby has no third-party plugin catalogue, so:
+
+1. Download `Emby.Plugin.AsterChannels.dll` from this repository's
+   [releases](https://github.com/AsterMediaPlayer/aster-companion-plugins/releases) (tags `asterchannels-emby-v…`).
+2. Put it in Emby's `plugins` folder (in Docker, usually `/config/plugins`).
+3. Restart Emby. **Channels** appears in the dashboard's server menu.
+
+It needs an administrator account, and stores nothing of its own: uninstall it any time and the channels stay.
+
+**How it differs from the Jellyfin page** (`Web/channels.js` is the Jellyfin page with only these changes; keep the
+two in step): Emby is asked for the `Tags` field but returns and accepts tags as `TagItems`; libraries come from
+`Users/{id}/Views`; new playlists are made with query-string parameters, then filled 200 items at a time; and
+playlists are listed without `mediaTypes`, which makes Emby ignore `includeItemTypes`. The tag rules are the
+Jellyfin plugin's `Web/channel-tags.js`, embedded as is, so both plugins follow the app's tests. The page itself is
+loaded the way Emby's own plugins are: `Configuration/channelsPage.js` is the view controller.
+
+Build: `dotnet build Emby.Plugin.AsterChannels -c Release` (it targets netstandard2.0 against Emby's 4.8.10 SDK).
+
 ## Building
 
 ```sh
