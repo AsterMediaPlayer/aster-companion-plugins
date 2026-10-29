@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Help and questions
+    url: https://astermediaplayer.com/support.html
+    about: Installing the plugins, setting them up, or "how do I…?" questions.
   - name: Report a security problem privately
     url: https://github.com/AsterMediaPlayer/aster-companion-plugins/security/advisories/new
     about: Please don't open a public issue for a vulnerability.
