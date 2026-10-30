@@ -5,7 +5,7 @@ plugin repository:
 
 | Plugin | What it does |
 |---|---|
-| [**Aster Channels**](AsterChannels/README.md) | A Channels page in the dashboard for Aster's TV channels: make and edit them, drag to renumber. |
+| [**Aster Channels**](AsterChannels/README.md) | A Channels page in the dashboard for Aster's TV channels: make and edit them, drag to renumber. For Jellyfin, and for Emby. |
 | [**Aster Disc**](AsterDisc/README.md) | Shareable disc menus for special features, with a menu editor and a community catalogue. (Formerly Disc Menus.) |
 | [**Aster OP-ED**](AsterOpEd/README.md) | Anime openings and endings matched to your shows, with song details, playable copies for every client, and Jellyfin libraries of them. (Formerly OP/ED.) |
 | [**Aster Aurora**](AsterAurora/README.md) | Apple TV style behaviour for the Jellyfin web client: home hero banner, trailer backgrounds, Up Next rows, quality badges, an Episodes row. (Formerly Aurora.) |
@@ -27,7 +27,7 @@ repository (jellydisc or jellyfin-oped) from your list.
 Each plugin is a folder of its own, with its project, tests, tools and docs:
 
 ```
-AsterChannels/   Jellyfin.Plugin.AsterChannels
+AsterChannels/   Jellyfin.Plugin.AsterChannels, Emby.Plugin.AsterChannels
 AsterDisc/       Jellyfin.Plugin.AsterDisc, its tests, schema, examples and tools
 AsterOpEd/       Jellyfin.Plugin.AsterOpEd
 AsterAurora/     Jellyfin.Plugin.AsterAurora
