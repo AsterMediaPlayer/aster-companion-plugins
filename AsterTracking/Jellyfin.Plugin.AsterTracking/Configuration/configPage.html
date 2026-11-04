@@ -82,6 +82,7 @@
             ];
             var configKeys = ['SimklClientId', 'AniListClientId', 'MyAnimeListClientId', 'LastFmApiKey', 'LastFmSharedSecret'];
             var linkTimer = null;
+            var waiting = null;   // the service whose code or approval is awaited, checked again on coming back to the tab
 
             function addressOk(text) {
                 try { var u = new URL(text); return u.protocol === 'http:' || u.protocol === 'https:'; } catch (e) { return false; }
@@ -146,6 +147,7 @@
 
             function stopLinking() {
                 if (linkTimer) { clearTimeout(linkTimer); linkTimer = null; }
+                waiting = null;
                 services.forEach(function (s) {
                     el(s, 'Device').style.display = 'none';
                     el(s, 'Paste').style.display = 'none';
@@ -200,7 +202,7 @@
                         el(s, 'DeviceUrl').textContent = 'Approve Aster on ' + s.name;
                         el(s, 'DeviceAnd').textContent = '(opens a new tab).';
                         el(s, 'DeviceCode').textContent = '';
-                        el(s, 'DeviceWait').textContent = 'Waiting for you to approve it…';
+                        el(s, 'DeviceWait').textContent = 'Waiting for you to approve it… If ' + s.name + ' shows an error page after you allow access, the approval still counts: come back to this tab.';
                         window.open(link.Url, '_blank', 'noopener');
                     }
                     el(s, 'Device').style.display = '';
@@ -208,10 +210,12 @@
                 }, function (r) { Dashboard.alert(failed(s, r)); });
             }
 
-            function pollDevice(s, interval) {
+            function pollDevice(s, interval, now) {
+                waiting = { service: s, interval: interval };
                 linkTimer = setTimeout(function () {
+                    linkTimer = null;
                     call('POST', '/' + s.id + '/Link/Complete').then(function (r) {
-                        if (r.status === 202) { pollDevice(s, interval); return; }
+                        if (r.status === 202) { if (waiting && waiting.service === s && !linkTimer) { pollDevice(s, interval); } return; }
                         stopLinking();
                         showAccounts();
                     }, function (r) {
@@ -219,8 +223,17 @@
                         Dashboard.alert(failed(s, r));
                         showAccounts();
                     });
-                }, Math.max(interval, 3) * 1000);
+                }, now ? 0 : Math.max(interval, 3) * 1000);
             }
+
+            // Phones pause a tab in the background, so its checks stop while the person is on the service's page:
+            // check at once on coming back.
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'visible' && waiting) {
+                    if (linkTimer) { clearTimeout(linkTimer); linkTimer = null; }
+                    pollDevice(waiting.service, waiting.interval, true);
+                }
+            });
 
             function finishPaste(s) {
                 var code = el(s, 'Code').value.trim();
