@@ -19,8 +19,8 @@ namespace Jellyfin.Plugin.AsterTracking.Hardcover;
 /// </summary>
 public sealed partial class HardcoverClient : ITracker, IProgressTracker
 {
-    /// <summary>Aster's Hardcover app ("Mobile, desktop, or CLI", device grant on). Blank until it's registered.</summary>
-    public const string BuiltInClientId = "";
+    /// <summary>Aster's Hardcover app ("Mobile, desktop, or CLI", device grant on). A server can set its own.</summary>
+    public const string BuiltInClientId = "8b225c16-f832-43f1-80e1-a4e80a08fceb";
 
     private const string Scope = "read:me read:catalog:search read:library write:library";
 
