@@ -180,7 +180,7 @@ public sealed class Scrobbler : IHostedService, IDisposable
         }
     }
 
-    /// <summary>The account's token, refreshed when it has under two weeks left.</summary>
+    /// <summary>The account's token, refreshed when it has under a day left (Simkl's last a week).</summary>
     private async Task<string?> SimklTokenAsync(Guid userId)
     {
         var account = (await _store.GetAsync(userId).ConfigureAwait(false)).Simkl;
@@ -189,7 +189,7 @@ public sealed class Scrobbler : IHostedService, IDisposable
             return null;
         }
 
-        if (account.Expires is DateTimeOffset expires && expires - DateTimeOffset.UtcNow < TimeSpan.FromDays(14) && account.RefreshToken is string refresh)
+        if (account.Expires is DateTimeOffset expires && expires - DateTimeOffset.UtcNow < TimeSpan.FromDays(1) && account.RefreshToken is string refresh)
         {
             var fresh = await _simkl.RefreshAsync(refresh, CancellationToken.None).ConfigureAwait(false);
             await _store.UpdateAsync(userId, t =>
