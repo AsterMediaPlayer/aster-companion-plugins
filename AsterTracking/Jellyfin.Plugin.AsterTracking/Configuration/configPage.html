@@ -4,7 +4,7 @@
     <title>Aster Tracking</title>
 </head>
 <body>
-    <div id="AsterTrackingConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+    <div id="AsterTrackingConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox,emby-select">
         <div data-role="content">
             <div class="content-primary">
                 <form id="AsterTrackingConfigForm">
@@ -25,9 +25,38 @@
 
                     <h2 class="sectionTitle">Tracking</h2>
                     <p>
-                        Scrobbling and discovery through Trakt, Simkl, AniList, MyAnimeList, Last.fm, ListenBrainz and
-                        Hardcover arrive in the next releases. Each person will link their own accounts.
+                        What each person watches, in any app, is added to the history of the services they link: a film
+                        or episode once it's stopped past 85%, or marked played. People link their own accounts from
+                        Aster's settings, or here for anyone. Simkl now; Trakt, AniList, MyAnimeList, Last.fm, ListenBrainz
+                        and Hardcover follow.
                     </p>
+                    <div class="selectContainer">
+                        <label class="selectLabel" for="TrackingUser">Person</label>
+                        <select id="TrackingUser" is="emby-select"></select>
+                    </div>
+                    <div class="verticalSection" style="margin-bottom:1.5em">
+                        <h3 style="margin:.5em 0">Simkl</h3>
+                        <div id="SimklStatus" class="fieldDescription">…</div>
+                        <div id="SimklCode" style="display:none;margin:1em 0">
+                            Go to <a id="SimklUrl" target="_blank" rel="noopener" class="button-link"></a> and enter
+                            <strong id="SimklUserCode" style="font-size:1.6em;letter-spacing:.15em;margin-left:.3em"></strong>
+                            <div class="fieldDescription">Waiting for the code to be entered…</div>
+                        </div>
+                        <div class="checkboxContainer" id="SimklScrobbleBox" style="display:none">
+                            <label><input id="SimklScrobble" type="checkbox" is="emby-checkbox" /><span>Add what this person watches to their Simkl history</span></label>
+                        </div>
+                        <button is="emby-button" type="button" id="SimklLink" class="raised"><span>Link Simkl</span></button>
+                        <button is="emby-button" type="button" id="SimklUnlink" class="raised" style="display:none"><span>Unlink</span></button>
+                    </div>
+                    <h3 style="margin:.5em 0">Recent sends</h3>
+                    <div id="TrackingLog" class="fieldDescription">Nothing sent yet.</div>
+
+                    <h2 class="sectionTitle" style="margin-top:2em">Developer apps</h2>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="SimklClientId">Simkl client id</label>
+                        <input id="SimklClientId" type="text" is="emby-input" />
+                        <div class="fieldDescription">Blank uses Aster's own Simkl app. To use your own, register a "TV, devices &amp; command line" app at simkl.com/settings/developer. Changing it means everyone links again.</div>
+                    </div>
 
                     <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
                 </form>
@@ -40,13 +69,108 @@
                 try { var u = new URL(text); return u.protocol === 'http:' || u.protocol === 'https:'; } catch (e) { return false; }
             }
 
+            var linkTimer = null;
+
+            function accountsUrl(path) {
+                var user = document.querySelector('#TrackingUser').value;
+                return ApiClient.getUrl('AsterTracking/Accounts' + (path || ''), user ? { userId: user } : {});
+            }
+
+            function call(method, path, body) {
+                return ApiClient.fetch({
+                    type: method, url: accountsUrl(path),
+                    data: body ? JSON.stringify(body) : undefined, contentType: body ? 'application/json' : undefined
+                }, true);
+            }
+
+            function text(value) {
+                var d = document.createElement('div'); d.textContent = value == null ? '' : String(value); return d.innerHTML;
+            }
+
+            function stopLinking() {
+                if (linkTimer) { clearTimeout(linkTimer); linkTimer = null; }
+                document.querySelector('#SimklCode').style.display = 'none';
+            }
+
+            function showAccounts() {
+                var page = document.querySelector('#AsterTrackingConfigPage');
+                return call('GET').then(function (r) { return r.json(); }).then(function (a) {
+                    var s = a.Simkl || {};
+                    page.querySelector('#SimklStatus').innerHTML = s.Linked
+                        ? 'Linked to <strong>' + text(s.Name || 'a Simkl account') + '</strong> since ' + text(new Date(s.LinkedAt).toLocaleDateString())
+                        : 'Not linked.';
+                    page.querySelector('#SimklLink').style.display = s.Linked ? 'none' : '';
+                    page.querySelector('#SimklUnlink').style.display = s.Linked ? '' : 'none';
+                    page.querySelector('#SimklScrobbleBox').style.display = s.Linked ? '' : 'none';
+                    page.querySelector('#SimklScrobble').checked = !!s.Scrobble;
+                    var log = a.Log || [];
+                    page.querySelector('#TrackingLog').innerHTML = log.length
+                        ? log.map(function (e) {
+                            return text(new Date(e.At).toLocaleString()) + ' · ' + text(e.Service) + ' · ' + text(e.Title) + ': ' + text(e.Result);
+                        }).join('<br>') + (a.Waiting ? '<br>' + a.Waiting + ' waiting to retry.' : '')
+                        : 'Nothing sent yet.';
+                });
+            }
+
+            function pollLink(interval) {
+                linkTimer = setTimeout(function () {
+                    call('POST', '/Simkl/Link/Complete').then(function (r) {
+                        if (r.status === 202) { pollLink(interval); return; }
+                        stopLinking();
+                        showAccounts();
+                    }, function (r) {
+                        // The api client rejects anything 400 and over with the response itself.
+                        stopLinking();
+                        Dashboard.alert(r && r.status === 410
+                            ? 'The code ran out or was refused. Try linking again.'
+                            : 'Simkl couldn\'t be reached. Try again.');
+                        showAccounts();
+                    });
+                }, Math.max(interval, 3) * 1000);
+            }
+
+            document.querySelector('#TrackingUser').addEventListener('change', function () { stopLinking(); showAccounts(); });
+
+            document.querySelector('#SimklLink').addEventListener('click', function () {
+                var page = document.querySelector('#AsterTrackingConfigPage');
+                stopLinking();
+                call('POST', '/Simkl/Link').then(function (r) { return r.json(); }).then(function (code) {
+                    var link = page.querySelector('#SimklUrl');
+                    link.textContent = code.Url.replace(/^https?:\/\//, '');
+                    link.href = code.CompleteUrl || code.Url;
+                    page.querySelector('#SimklUserCode').textContent = code.Code;
+                    page.querySelector('#SimklCode').style.display = '';
+                    pollLink(code.Interval || 5);
+                }, function () { Dashboard.alert('Simkl couldn\'t be reached. Try again.'); });
+            });
+
+            document.querySelector('#SimklUnlink').addEventListener('click', function () {
+                call('DELETE', '/Simkl').then(showAccounts);
+            });
+
+            document.querySelector('#SimklScrobble').addEventListener('change', function () {
+                call('PUT', '/Simkl/Settings', { Scrobble: this.checked }).then(showAccounts);
+            });
+
+            document.querySelector('#AsterTrackingConfigPage').addEventListener('pagehide', stopLinking);
+
             document.querySelector('#AsterTrackingConfigPage').addEventListener('pageshow', function () {
                 var page = this;
                 Dashboard.showLoadingMsg();
                 ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                     page.querySelector('#SeerrEnabled').checked = !!config.SeerrEnabled;
                     page.querySelector('#SeerrUrl').value = config.SeerrUrl || '';
+                    page.querySelector('#SimklClientId').value = config.SimklClientId || '';
                     Dashboard.hideLoadingMsg();
+                });
+                var select = page.querySelector('#TrackingUser');
+                Promise.all([ApiClient.getUsers(), ApiClient.getCurrentUser()]).then(function (results) {
+                    var me = results[1].Id;
+                    select.innerHTML = results[0].map(function (u) {
+                        return '<option value="' + (u.Id === me ? '' : u.Id) + '">' + text(u.Name) + (u.Id === me ? ' (you)' : '') + '</option>';
+                    }).join('');
+                    select.value = '';
+                    showAccounts();
                 });
             });
 
@@ -63,6 +187,7 @@
                 ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                     config.SeerrEnabled = enabled;
                     config.SeerrUrl = url;
+                    config.SimklClientId = page.querySelector('#SimklClientId').value.trim();
                     ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);
                     });

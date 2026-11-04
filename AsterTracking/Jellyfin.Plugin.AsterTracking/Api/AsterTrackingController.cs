@@ -25,7 +25,7 @@ public class AsterTrackingController : ControllerBase
         return new FeaturesDto
         {
             Seerr = new SeerrDto { Enabled = on, Url = on ? url : null },
-            Services = new List<string>(),
+            Services = new List<string> { "simkl" },
         };
     }
 
@@ -48,7 +48,7 @@ public class FeaturesDto
 {
     public SeerrDto Seerr { get; set; } = new();
 
-    /// <summary>The tracking services this server offers (from the next release; empty for now).</summary>
+    /// <summary>The tracking services this server offers people to link ("simkl"; more in later releases).</summary>
     public List<string> Services { get; set; } = new();
 }
 

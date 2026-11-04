@@ -1,6 +1,6 @@
 name: "Aster Tracking"
 guid: "023a7921-895e-40fb-b815-ab4462f68107"
-version: "0.1.0.0"
+version: "0.2.0.0"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -15,5 +15,9 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterTracking.dll"
 changelog: >
+  - 0.2.0.0: Simkl. Each person links their Simkl account (a code entered at simkl.com/pin, from Aster's settings or
+    the dashboard), and films and episodes they watch in any app are added to their Simkl history once stopped past
+    85% or marked played; anime from Shokofin goes by its season's AniDB id. Sends that fail while Simkl is down are
+    retried.
   - 0.1.0.0: First release: the switch for Aster's requests. A Requests (Seerr) setting with Seerr's address, which
     the apps read before showing their Seerr features. Tracking services follow in the next releases.

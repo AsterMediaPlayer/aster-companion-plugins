@@ -4,7 +4,7 @@ namespace Jellyfin.Plugin.AsterTracking.Configuration;
 
 /// <summary>
 /// The server's settings. People's linked accounts are not kept here (this file is shown to every administrator and
-/// copied by backups): they'll live per person in the plugin's data folder.
+/// copied by backups): they're kept per person in the plugin's data folder (data/AsterTracking/users).
 /// </summary>
 public class PluginConfiguration : BasePluginConfiguration
 {
@@ -16,4 +16,10 @@ public class PluginConfiguration : BasePluginConfiguration
     /// to Seerr with their own Jellyfin login, so no key is kept here.
     /// </summary>
     public string SeerrUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// This server's own Simkl app (a "TV, devices &amp; command line" app's client id), in place of Aster's built-in
+    /// one. Blank uses Aster's.
+    /// </summary>
+    public string SimklClientId { get; set; } = string.Empty;
 }
