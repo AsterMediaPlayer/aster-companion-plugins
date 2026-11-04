@@ -60,8 +60,8 @@ public sealed class WatchedTitle
                 var label = $"{show?.Name ?? episode.SeriesName} S{episode.ParentIndexNumber ?? 0:00}E{first:00}";
 
                 // Shokofin gives each season (an AniDB series) its own AniDB id. Its specials share the series' id
-                // and would land on the wrong episodes, so they're left out.
-                var aniDb = episode.Season?.GetProviderId("AniDB");
+                // and would land on the wrong episodes, so they're left out. Other plugins' AniDB guesses don't count.
+                var aniDb = AnimeIds.ShokoAniDb(episode.Season);
                 if (!string.IsNullOrEmpty(aniDb))
                 {
                     return episode.ParentIndexNumber == 0

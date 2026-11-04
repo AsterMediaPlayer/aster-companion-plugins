@@ -91,7 +91,11 @@ public sealed class AccountStore
 /// <summary>One person's tracking.</summary>
 public sealed class UserTracking
 {
-    public SimklAccount? Simkl { get; set; }
+    public LinkedAccount? Simkl { get; set; }
+
+    public LinkedAccount? AniList { get; set; }
+
+    public LinkedAccount? MyAnimeList { get; set; }
 
     /// <summary>Sends that failed while a service was down, retried later.</summary>
     public List<PendingSend> Pending { get; set; } = new();
@@ -100,7 +104,8 @@ public sealed class UserTracking
     public List<SendLog> Log { get; set; } = new();
 }
 
-public sealed class SimklAccount
+/// <summary>A linked account on one service.</summary>
+public sealed class LinkedAccount
 {
     public string AccessToken { get; set; } = string.Empty;
 
@@ -108,12 +113,12 @@ public sealed class SimklAccount
 
     public DateTimeOffset? Expires { get; set; }
 
-    /// <summary>The account's name on Simkl.</summary>
+    /// <summary>The account's name on the service.</summary>
     public string? Name { get; set; }
 
     public DateTimeOffset Linked { get; set; }
 
-    /// <summary>Whether what this person watches is added to their Simkl history.</summary>
+    /// <summary>Whether what this person watches is sent to this service.</summary>
     public bool Scrobble { get; set; } = true;
 }
 
@@ -123,8 +128,13 @@ public sealed class PendingSend
 
     public string Title { get; set; } = string.Empty;
 
-    /// <summary>The request body, as it was first sent (with its watched time).</summary>
-    public string Body { get; set; } = string.Empty;
+    /// <summary>The request body, as it was first sent (with its watched time); null when it couldn't be made yet (the anime id map was down).</summary>
+    public string? Body { get; set; }
+
+    /// <summary>The item, for making the body later.</summary>
+    public Guid ItemId { get; set; }
+
+    public DateTimeOffset WatchedAt { get; set; }
 
     public DateTimeOffset Added { get; set; }
 

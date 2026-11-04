@@ -1,3 +1,5 @@
+using Jellyfin.Plugin.AsterTracking.AniList;
+using Jellyfin.Plugin.AsterTracking.MyAnimeList;
 using Jellyfin.Plugin.AsterTracking.Simkl;
 using Jellyfin.Plugin.AsterTracking.Tracking;
 using MediaBrowser.Controller;
@@ -12,7 +14,13 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
     {
         // One store shared by the API and the scrobbler, so their writes to a person's file don't cross.
         serviceCollection.AddSingleton<AccountStore>();
+        serviceCollection.AddSingleton<AnimeIds>();
         serviceCollection.AddSingleton<SimklClient>();
+        serviceCollection.AddSingleton<AniListClient>();
+        serviceCollection.AddSingleton<MyAnimeListClient>();
+        serviceCollection.AddSingleton<ITracker>(services => services.GetRequiredService<SimklClient>());
+        serviceCollection.AddSingleton<ITracker>(services => services.GetRequiredService<AniListClient>());
+        serviceCollection.AddSingleton<ITracker>(services => services.GetRequiredService<MyAnimeListClient>());
         serviceCollection.AddHostedService<Scrobbler>();
     }
 }

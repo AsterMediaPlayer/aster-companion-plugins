@@ -1,3 +1,4 @@
+using Jellyfin.Plugin.AsterTracking.Tracking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +14,13 @@ namespace Jellyfin.Plugin.AsterTracking.Api;
 [Route("AsterTracking")]
 public class AsterTrackingController : ControllerBase
 {
+    private readonly IReadOnlyList<ITracker> _trackers;
+
+    public AsterTrackingController(IEnumerable<ITracker> trackers)
+    {
+        _trackers = trackers.ToList();
+    }
+
     /// <summary>The server's Aster features. Seerr is only on with an address the apps can use.</summary>
     [HttpGet("Features")]
     [Authorize]
@@ -25,7 +33,7 @@ public class AsterTrackingController : ControllerBase
         return new FeaturesDto
         {
             Seerr = new SeerrDto { Enabled = on, Url = on ? url : null },
-            Services = new List<string> { "simkl" },
+            Services = _trackers.Where(t => t.Available).Select(t => t.Service).ToList(),
         };
     }
 
@@ -48,7 +56,7 @@ public class FeaturesDto
 {
     public SeerrDto Seerr { get; set; } = new();
 
-    /// <summary>The tracking services this server offers people to link ("simkl"; more in later releases).</summary>
+    /// <summary>The tracking services people can link on this server: "simkl", "anilist", "myanimelist".</summary>
     public List<string> Services { get; set; } = new();
 }
 

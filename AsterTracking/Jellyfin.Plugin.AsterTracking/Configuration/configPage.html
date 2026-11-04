@@ -25,37 +25,35 @@
 
                     <h2 class="sectionTitle">Tracking</h2>
                     <p>
-                        What each person watches, in any app, is added to the history of the services they link: a film
-                        or episode once it's stopped past 85%, or marked played. People link their own accounts from
-                        Aster's settings, or here for anyone. Simkl now; Trakt, AniList, MyAnimeList, Last.fm, ListenBrainz
-                        and Hardcover follow.
+                        What each person watches, in any app, is sent to the services they link, once a film or episode
+                        is stopped past 85% or marked played: Simkl adds it to their history, and AniList and MyAnimeList
+                        move an anime's progress on. People link their own accounts from Aster's settings, or here for
+                        anyone. Trakt, Last.fm, ListenBrainz and Hardcover follow.
                     </p>
                     <div class="selectContainer">
                         <label class="selectLabel" for="TrackingUser">Person</label>
                         <select id="TrackingUser" is="emby-select"></select>
                     </div>
-                    <div class="verticalSection" style="margin-bottom:1.5em">
-                        <h3 style="margin:.5em 0">Simkl</h3>
-                        <div id="SimklStatus" class="fieldDescription">…</div>
-                        <div id="SimklCode" style="display:none;margin:1em 0">
-                            Go to <a id="SimklUrl" target="_blank" rel="noopener" class="button-link"></a> and enter
-                            <strong id="SimklUserCode" style="font-size:1.6em;letter-spacing:.15em;margin-left:.3em"></strong>
-                            <div class="fieldDescription">Waiting for the code to be entered…</div>
-                        </div>
-                        <div class="checkboxContainer" id="SimklScrobbleBox" style="display:none">
-                            <label><input id="SimklScrobble" type="checkbox" is="emby-checkbox" /><span>Add what this person watches to their Simkl history</span></label>
-                        </div>
-                        <button is="emby-button" type="button" id="SimklLink" class="raised"><span>Link Simkl</span></button>
-                        <button is="emby-button" type="button" id="SimklUnlink" class="raised" style="display:none"><span>Unlink</span></button>
-                    </div>
+                    <div id="TrackingServices"></div>
                     <h3 style="margin:.5em 0">Recent sends</h3>
                     <div id="TrackingLog" class="fieldDescription">Nothing sent yet.</div>
 
                     <h2 class="sectionTitle" style="margin-top:2em">Developer apps</h2>
+                    <p class="fieldDescription">Blank uses Aster's own apps. Changing one means everyone links that service again.</p>
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="SimklClientId">Simkl client id</label>
                         <input id="SimklClientId" type="text" is="emby-input" />
-                        <div class="fieldDescription">Blank uses Aster's own Simkl app. To use your own, register a "TV, devices &amp; command line" app at simkl.com/settings/developer. Changing it means everyone links again.</div>
+                        <div class="fieldDescription">A "TV, devices &amp; command line" app, at simkl.com/settings/developer.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="AniListClientId">AniList client id</label>
+                        <input id="AniListClientId" type="text" is="emby-input" />
+                        <div class="fieldDescription">An app at anilist.co/settings/developer with the redirect https://anilist.co/api/v2/oauth/pin.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MyAnimeListClientId">MyAnimeList client id</label>
+                        <input id="MyAnimeListClientId" type="text" is="emby-input" />
+                        <div class="fieldDescription">An app of type "other" at myanimelist.net/apiconfig with the redirect https://astermediaplayer.com/link/myanimelist/.</div>
                     </div>
 
                     <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
@@ -65,17 +63,33 @@
         <script type="text/javascript">
             var pluginId = '023a7921-895e-40fb-b815-ab4462f68107';
 
+            // Each service: its route name, its key in GET Accounts, and what sending does there.
+            var services = [
+                { id: 'simkl', key: 'Simkl', name: 'Simkl', sends: 'Add what this person watches to their Simkl history' },
+                { id: 'anilist', key: 'AniList', name: 'AniList', sends: 'Move this person\'s anime progress on AniList' },
+                { id: 'myanimelist', key: 'MyAnimeList', name: 'MyAnimeList', sends: 'Move this person\'s anime progress on MyAnimeList' }
+            ];
+            var configKeys = ['SimklClientId', 'AniListClientId', 'MyAnimeListClientId'];
+            var linkTimer = null;
+
             function addressOk(text) {
                 try { var u = new URL(text); return u.protocol === 'http:' || u.protocol === 'https:'; } catch (e) { return false; }
             }
 
-            var linkTimer = null;
+            function text(value) {
+                var d = document.createElement('div'); d.textContent = value == null ? '' : String(value); return d.innerHTML;
+            }
+
+            function page() { return document.querySelector('#AsterTrackingConfigPage'); }
+
+            function el(service, part) { return page().querySelector('#' + service.key + part); }
 
             function accountsUrl(path) {
-                var user = document.querySelector('#TrackingUser').value;
+                var user = page().querySelector('#TrackingUser').value;
                 return ApiClient.getUrl('AsterTracking/Accounts' + (path || ''), user ? { userId: user } : {});
             }
 
+            // The api client rejects anything 400 and over with the response itself.
             function call(method, path, body) {
                 return ApiClient.fetch({
                     type: method, url: accountsUrl(path),
@@ -83,87 +97,136 @@
                 }, true);
             }
 
-            function text(value) {
-                var d = document.createElement('div'); d.textContent = value == null ? '' : String(value); return d.innerHTML;
+            function failed(service, r) {
+                if (r && r.status === 410) { return 'That sign-in ran out or was refused. Link again.'; }
+                if (r && r.status === 409) { return 'This server has no ' + service.name + ' app yet: add one under Developer apps.'; }
+                if (r && r.status === 400) { return 'Paste the code the sign-in page showed.'; }
+                return service.name + ' couldn\'t be reached, or didn\'t take the code. Try again.';
+            }
+
+            function build() {
+                page().querySelector('#TrackingServices').innerHTML = services.map(function (s) {
+                    return '<div class="verticalSection" style="margin-bottom:1.5em">'
+                        + '<h3 style="margin:.5em 0">' + s.name + '</h3>'
+                        + '<div id="' + s.key + 'Status" class="fieldDescription">…</div>'
+                        + '<div id="' + s.key + 'Device" style="display:none;margin:1em 0">Go to <a id="' + s.key + 'DeviceUrl" target="_blank" rel="noopener" class="button-link"></a> and enter '
+                        + '<strong id="' + s.key + 'DeviceCode" style="font-size:1.6em;letter-spacing:.15em;margin-left:.3em"></strong>'
+                        + '<div class="fieldDescription">Waiting for the code to be entered…</div></div>'
+                        + '<div id="' + s.key + 'Paste" style="display:none;margin:1em 0">'
+                        + '<p><a id="' + s.key + 'PasteUrl" target="_blank" rel="noopener" class="button-link">Sign in to ' + s.name + '</a> (opens a new tab), approve Aster, then paste the code it shows here.</p>'
+                        + '<div class="inputContainer"><input id="' + s.key + 'Code" type="text" is="emby-input" autocomplete="off" placeholder="Code" /></div>'
+                        + '<button is="emby-button" type="button" id="' + s.key + 'Finish" class="raised button-submit"><span>Finish linking</span></button></div>'
+                        + '<div class="checkboxContainer" id="' + s.key + 'ScrobbleBox" style="display:none">'
+                        + '<label><input id="' + s.key + 'Scrobble" type="checkbox" is="emby-checkbox" /><span>' + s.sends + '</span></label></div>'
+                        + '<button is="emby-button" type="button" id="' + s.key + 'Link" class="raised"><span>Link ' + s.name + '</span></button>'
+                        + '<button is="emby-button" type="button" id="' + s.key + 'Unlink" class="raised" style="display:none"><span>Unlink</span></button>'
+                        + '</div>';
+                }).join('');
+
+                services.forEach(function (s) {
+                    el(s, 'Link').addEventListener('click', function () { startLink(s); });
+                    el(s, 'Finish').addEventListener('click', function () { finishPaste(s); });
+                    el(s, 'Unlink').addEventListener('click', function () { call('DELETE', '/' + s.id).then(showAccounts); });
+                    el(s, 'Scrobble').addEventListener('change', function () {
+                        call('PUT', '/' + s.id + '/Settings', { Scrobble: this.checked }).then(showAccounts);
+                    });
+                });
             }
 
             function stopLinking() {
                 if (linkTimer) { clearTimeout(linkTimer); linkTimer = null; }
-                document.querySelector('#SimklCode').style.display = 'none';
+                services.forEach(function (s) {
+                    el(s, 'Device').style.display = 'none';
+                    el(s, 'Paste').style.display = 'none';
+                    el(s, 'Code').value = '';
+                });
             }
 
             function showAccounts() {
-                var page = document.querySelector('#AsterTrackingConfigPage');
                 return call('GET').then(function (r) { return r.json(); }).then(function (a) {
-                    var s = a.Simkl || {};
-                    page.querySelector('#SimklStatus').innerHTML = s.Linked
-                        ? 'Linked to <strong>' + text(s.Name || 'a Simkl account') + '</strong> since ' + text(new Date(s.LinkedAt).toLocaleDateString())
-                        : 'Not linked.';
-                    page.querySelector('#SimklLink').style.display = s.Linked ? 'none' : '';
-                    page.querySelector('#SimklUnlink').style.display = s.Linked ? '' : 'none';
-                    page.querySelector('#SimklScrobbleBox').style.display = s.Linked ? '' : 'none';
-                    page.querySelector('#SimklScrobble').checked = !!s.Scrobble;
+                    services.forEach(function (s) {
+                        var account = a[s.key] || {};
+                        var status = account.Linked
+                            ? 'Linked to <strong>' + text(account.Name || 'an account') + '</strong> since ' + text(new Date(account.LinkedAt).toLocaleDateString())
+                              + (account.Expires ? '; link again by ' + text(new Date(account.Expires).toLocaleDateString()) : '')
+                            : account.Available ? 'Not linked.' : 'Not available yet: this server needs a ' + s.name + ' app (Developer apps, below).';
+                        el(s, 'Status').innerHTML = status;
+                        el(s, 'Link').style.display = account.Linked || !account.Available ? 'none' : '';
+                        el(s, 'Unlink').style.display = account.Linked ? '' : 'none';
+                        el(s, 'ScrobbleBox').style.display = account.Linked ? '' : 'none';
+                        el(s, 'Scrobble').checked = !!account.Scrobble;
+                    });
                     var log = a.Log || [];
-                    page.querySelector('#TrackingLog').innerHTML = log.length
+                    var names = {};
+                    services.forEach(function (s) { names[s.id] = s.name; });
+                    page().querySelector('#TrackingLog').innerHTML = log.length
                         ? log.map(function (e) {
-                            return text(new Date(e.At).toLocaleString()) + ' · ' + text(e.Service) + ' · ' + text(e.Title) + ': ' + text(e.Result);
+                            return text(new Date(e.At).toLocaleString()) + ' · ' + text(names[e.Service] || e.Service) + ' · ' + text(e.Title) + ': ' + text(e.Result);
                         }).join('<br>') + (a.Waiting ? '<br>' + a.Waiting + ' waiting to retry.' : '')
                         : 'Nothing sent yet.';
                 });
             }
 
-            function pollLink(interval) {
+            function startLink(s) {
+                stopLinking();
+                call('POST', '/' + s.id + '/Link').then(function (r) { return r.json(); }).then(function (link) {
+                    if (link.Paste) {
+                        el(s, 'PasteUrl').href = link.Url;
+                        el(s, 'Paste').style.display = '';
+                        window.open(link.Url, '_blank', 'noopener');
+                        return;
+                    }
+                    el(s, 'DeviceUrl').textContent = link.Url.replace(/^https?:\/\//, '');
+                    el(s, 'DeviceUrl').href = link.CompleteUrl || link.Url;
+                    el(s, 'DeviceCode').textContent = link.Code;
+                    el(s, 'Device').style.display = '';
+                    pollDevice(s, link.Interval || 5);
+                }, function (r) { Dashboard.alert(failed(s, r)); });
+            }
+
+            function pollDevice(s, interval) {
                 linkTimer = setTimeout(function () {
-                    call('POST', '/Simkl/Link/Complete').then(function (r) {
-                        if (r.status === 202) { pollLink(interval); return; }
+                    call('POST', '/' + s.id + '/Link/Complete').then(function (r) {
+                        if (r.status === 202) { pollDevice(s, interval); return; }
                         stopLinking();
                         showAccounts();
                     }, function (r) {
-                        // The api client rejects anything 400 and over with the response itself.
                         stopLinking();
-                        Dashboard.alert(r && r.status === 410
-                            ? 'The code ran out or was refused. Try linking again.'
-                            : 'Simkl couldn\'t be reached. Try again.');
+                        Dashboard.alert(failed(s, r));
                         showAccounts();
                     });
                 }, Math.max(interval, 3) * 1000);
             }
 
-            document.querySelector('#TrackingUser').addEventListener('change', function () { stopLinking(); showAccounts(); });
+            function finishPaste(s) {
+                var code = el(s, 'Code').value.trim();
+                if (!code) { Dashboard.alert(failed(s, { status: 400 })); return; }
+                Dashboard.showLoadingMsg();
+                call('POST', '/' + s.id + '/Link/Complete', { Code: code }).then(function () {
+                    Dashboard.hideLoadingMsg();
+                    stopLinking();
+                    showAccounts();
+                }, function (r) {
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert(failed(s, r));
+                    showAccounts();
+                });
+            }
 
-            document.querySelector('#SimklLink').addEventListener('click', function () {
-                var page = document.querySelector('#AsterTrackingConfigPage');
-                stopLinking();
-                call('POST', '/Simkl/Link').then(function (r) { return r.json(); }).then(function (code) {
-                    var link = page.querySelector('#SimklUrl');
-                    link.textContent = code.Url.replace(/^https?:\/\//, '');
-                    link.href = code.CompleteUrl || code.Url;
-                    page.querySelector('#SimklUserCode').textContent = code.Code;
-                    page.querySelector('#SimklCode').style.display = '';
-                    pollLink(code.Interval || 5);
-                }, function () { Dashboard.alert('Simkl couldn\'t be reached. Try again.'); });
-            });
+            build();
+            page().querySelector('#TrackingUser').addEventListener('change', function () { stopLinking(); showAccounts(); });
+            page().addEventListener('pagehide', stopLinking);
 
-            document.querySelector('#SimklUnlink').addEventListener('click', function () {
-                call('DELETE', '/Simkl').then(showAccounts);
-            });
-
-            document.querySelector('#SimklScrobble').addEventListener('change', function () {
-                call('PUT', '/Simkl/Settings', { Scrobble: this.checked }).then(showAccounts);
-            });
-
-            document.querySelector('#AsterTrackingConfigPage').addEventListener('pagehide', stopLinking);
-
-            document.querySelector('#AsterTrackingConfigPage').addEventListener('pageshow', function () {
-                var page = this;
+            page().addEventListener('pageshow', function () {
+                var view = this;
                 Dashboard.showLoadingMsg();
                 ApiClient.getPluginConfiguration(pluginId).then(function (config) {
-                    page.querySelector('#SeerrEnabled').checked = !!config.SeerrEnabled;
-                    page.querySelector('#SeerrUrl').value = config.SeerrUrl || '';
-                    page.querySelector('#SimklClientId').value = config.SimklClientId || '';
+                    view.querySelector('#SeerrEnabled').checked = !!config.SeerrEnabled;
+                    view.querySelector('#SeerrUrl').value = config.SeerrUrl || '';
+                    configKeys.forEach(function (key) { view.querySelector('#' + key).value = config[key] || ''; });
                     Dashboard.hideLoadingMsg();
                 });
-                var select = page.querySelector('#TrackingUser');
+                var select = view.querySelector('#TrackingUser');
                 Promise.all([ApiClient.getUsers(), ApiClient.getCurrentUser()]).then(function (results) {
                     var me = results[1].Id;
                     select.innerHTML = results[0].map(function (u) {
@@ -176,9 +239,9 @@
 
             document.querySelector('#AsterTrackingConfigForm').addEventListener('submit', function (e) {
                 e.preventDefault();
-                var page = document.querySelector('#AsterTrackingConfigPage');
-                var enabled = page.querySelector('#SeerrEnabled').checked;
-                var url = page.querySelector('#SeerrUrl').value.trim();
+                var view = page();
+                var enabled = view.querySelector('#SeerrEnabled').checked;
+                var url = view.querySelector('#SeerrUrl').value.trim();
                 if (enabled && !addressOk(url)) {
                     Dashboard.alert('To turn requests on, give Seerr\'s address, starting with https:// or http://.');
                     return false;
@@ -187,9 +250,10 @@
                 ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                     config.SeerrEnabled = enabled;
                     config.SeerrUrl = url;
-                    config.SimklClientId = page.querySelector('#SimklClientId').value.trim();
+                    configKeys.forEach(function (key) { config[key] = view.querySelector('#' + key).value.trim(); });
                     ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);
+                        showAccounts();
                     });
                 });
                 return false;

@@ -1,6 +1,6 @@
 name: "Aster Tracking"
 guid: "023a7921-895e-40fb-b815-ab4462f68107"
-version: "0.2.0.0"
+version: "0.3.0.0"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -15,6 +15,10 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterTracking.dll"
 changelog: >
+  - 0.3.0.0: AniList and MyAnimeList. People link them on the dashboard (sign in, then paste the code shown), and
+    each anime episode they watch moves that season's progress on (Watching, or Completed at the last episode); Shokofin
+    seasons are matched through their AniDB ids and the ARM id map. AniDB ids from other plugins no longer count as
+    anime for Simkl. Tokens about to run out are refreshed in the background.
   - 0.2.0.0: Simkl. Each person links their Simkl account (a code entered at simkl.com/pin, from Aster's settings or
     the dashboard), and films and episodes they watch in any app are added to their Simkl history once stopped past
     85% or marked played; anime from Shokofin goes by its season's AniDB id. Sends that fail while Simkl is down are

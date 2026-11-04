@@ -22,4 +22,16 @@ public class PluginConfiguration : BasePluginConfiguration
     /// one. Blank uses Aster's.
     /// </summary>
     public string SimklClientId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// This server's own AniList app (its redirect set to https://anilist.co/api/v2/oauth/pin), in place of Aster's.
+    /// Blank uses Aster's.
+    /// </summary>
+    public string AniListClientId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// This server's own MyAnimeList app (type "other", its redirect https://astermediaplayer.com/link/myanimelist/),
+    /// in place of Aster's. Blank uses Aster's.
+    /// </summary>
+    public string MyAnimeListClientId { get; set; } = string.Empty;
 }

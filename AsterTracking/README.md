@@ -24,7 +24,7 @@ fails while Simkl is down waits in the person's file and is retried every 15 min
 
 Linking, for the apps' settings (a signed-in person for themselves; an administrator or API key adds `?userId=`):
 
-    POST   /AsterTracking/Accounts/Simkl/Link            → { "Code", "Url", "CompleteUrl", "Interval", "ExpiresIn" }
+    POST   /AsterTracking/Accounts/simkl/Link            → { "Code", "Url", "CompleteUrl", "Interval", "ExpiresIn" }
     POST   /AsterTracking/Accounts/Simkl/Link/Complete   → 202 until the code's entered at simkl.com/pin, then 200; 410 if it ran out
     GET    /AsterTracking/Accounts                       → what's linked, sends waiting, the last sends
     PUT    /AsterTracking/Accounts/Simkl/Settings        { "Scrobble": false }
@@ -33,6 +33,29 @@ Linking, for the apps' settings (a signed-in person for themselves; an administr
 The dashboard page can do the same for any person. Aster's own Simkl app is built in; Developer apps ▸ Simkl client id
 swaps in the server's own. Apps that scrobble to Simkl themselves should stop once `Features.Services` lists `simkl`
 and the person is linked here, or each watch is sent twice.
+
+## 0.3: AniList and MyAnimeList
+
+Each anime episode a person watches moves that season's progress on their AniList and MyAnimeList lists (never back),
+Watching, or Completed at the last episode, as the Aster apps do. Both sites list each season apart, so it's the
+season that's matched: an AniList or MyAnimeList id the server has for it, else the AniDB id Shokofin gives each
+season, mapped through [ARM](https://arm.haglund.dev). Only seasons carrying Shoko's own id count: other metadata
+plugins put AniDB guesses on films and cartoons. Specials are skipped.
+
+Neither site has a code sign-in like Simkl's, so linking is done on the dashboard: **Link**, sign in on the page that
+opens, then paste back the code it shows.
+
+- **AniList**: an app whose redirect is `https://anilist.co/api/v2/oauth/pin`; AniList itself shows the token
+  (a year long, then link again). The apps' AniList app (55643) redirects to `aster://`, which a server can't receive.
+- **MyAnimeList**: an app of type "other" whose redirect is `https://astermediaplayer.com/link/myanimelist/`, a page
+  that only shows the code. The code is traded with a PKCE verifier only the server has, so it's no use to anyone
+  else. Tokens last a month and are refreshed in the background.
+
+    POST /AsterTracking/Accounts/{anilist|myanimelist}/Link            → { "Url", "Paste": true }
+    POST /AsterTracking/Accounts/{anilist|myanimelist}/Link/Complete   { "Code": "…" } → 200 linked
+
+A whole pasted address works as well as the code. Until the server has an app for a service (built in, or under
+Developer apps) the service is left out of `Features.Services` and linking it is a 409.
 
 ## Building
 

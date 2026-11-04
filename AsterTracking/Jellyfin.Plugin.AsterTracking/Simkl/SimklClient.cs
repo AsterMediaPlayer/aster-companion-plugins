@@ -3,6 +3,8 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Jellyfin.Plugin.AsterTracking.Tracking;
+using MediaBrowser.Controller.Entities;
 
 namespace Jellyfin.Plugin.AsterTracking.Simkl;
 
@@ -12,7 +14,7 @@ namespace Jellyfin.Plugin.AsterTracking.Simkl;
 /// address (<c>client_id</c>, <c>app-name</c>, <c>app-version</c>) and carries a User-Agent; without them Simkl
 /// answers 403.
 /// </summary>
-public sealed class SimklClient
+public sealed class SimklClient : ITracker
 {
     /// <summary>Aster's own Simkl app ("TV, devices &amp; command line": device sign-in, no secret).</summary>
     public const string BuiltInClientId = "ebd388547e0ade13dad9e3196e820dcbc4b86ebb47d84d838b142a83b31bd71d";
@@ -22,6 +24,39 @@ public sealed class SimklClient
     public SimklClient(IHttpClientFactory http)
     {
         _http = http;
+    }
+
+    public string Service => "simkl";
+
+    public bool Available => true;
+
+    public LinkedAccount? Account(UserTracking tracking) => tracking.Simkl;
+
+    public void SetAccount(UserTracking tracking, LinkedAccount? account) => tracking.Simkl = account;
+
+    public Task<string?> BodyAsync(BaseItem item, DateTimeOffset watchedAt, CancellationToken cancellation) =>
+        Task.FromResult(WatchedTitle.From(item)?.HistoryBody(watchedAt).ToJsonString());
+
+    public Task<HistoryResult> SendAsync(string body, string token, CancellationToken cancellation) =>
+        AddToHistoryAsync(body, token, cancellation);
+
+    public async Task<LinkedAccount?> RefreshAsync(LinkedAccount account, CancellationToken cancellation)
+    {
+        if (account.RefreshToken is not string refresh)
+        {
+            return null;
+        }
+
+        var fresh = await RefreshAsync(refresh, cancellation).ConfigureAwait(false);
+        return new LinkedAccount
+        {
+            AccessToken = fresh.Access,
+            RefreshToken = fresh.Refresh,
+            Expires = fresh.Expires,
+            Name = account.Name,
+            Linked = account.Linked,
+            Scrobble = account.Scrobble,
+        };
     }
 
     private static string ClientId
@@ -42,13 +77,13 @@ public sealed class SimklClient
         var (status, reply) = await OAuthAsync("/oauth2/device", new() { ["client_id"] = ClientId, ["scope"] = "media:read media:write" }, cancellation).ConfigureAwait(false);
         if (status != HttpStatusCode.OK || reply is null)
         {
-            throw new SimklException(status);
+            throw new TrackerException("Simkl", status);
         }
 
         return new DeviceCode
         {
-            UserCode = Text(reply, "user_code") ?? throw new SimklException(status),
-            DeviceCodeValue = Text(reply, "device_code") ?? throw new SimklException(status),
+            UserCode = Text(reply, "user_code") ?? throw new TrackerException("Simkl", status),
+            DeviceCodeValue = Text(reply, "device_code") ?? throw new TrackerException("Simkl", status),
             VerificationUrl = Text(reply, "verification_uri") ?? "https://simkl.com/pin",
             CompleteUrl = Text(reply, "verification_uri_complete"),
             Interval = Number(reply, "interval") ?? 5,
@@ -56,7 +91,7 @@ public sealed class SimklClient
         };
     }
 
-    /// <summary>The tokens once the code's been entered; null while it hasn't. Throws <see cref="SimklSignedOutException"/> when it was refused or ran out.</summary>
+    /// <summary>The tokens once the code's been entered; null while it hasn't. Throws <see cref="SignedOutException"/> when it was refused or ran out.</summary>
     public async Task<SimklTokens?> PollAsync(string deviceCode, CancellationToken cancellation)
     {
         var (status, reply) = await OAuthAsync("/oauth2/token", new()
@@ -73,8 +108,8 @@ public sealed class SimklClient
         return (reply is null ? null : Text(reply, "error")) switch
         {
             "authorization_pending" or "slow_down" => null,
-            "access_denied" or "expired_token" => throw new SimklSignedOutException(),
-            _ => throw new SimklException(status),
+            "access_denied" or "expired_token" => throw new SignedOutException("simkl"),
+            _ => throw new TrackerException("Simkl", status),
         };
     }
 
@@ -88,12 +123,12 @@ public sealed class SimklClient
         }, cancellation).ConfigureAwait(false);
         if (status is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
         {
-            throw new SimklSignedOutException();
+            throw new SignedOutException("simkl");
         }
 
         if (status != HttpStatusCode.OK || reply is null)
         {
-            throw new SimklException(status);
+            throw new TrackerException("Simkl", status);
         }
 
         var tokens = Tokens(reply);
@@ -129,12 +164,12 @@ public sealed class SimklClient
     {
         if (status == HttpStatusCode.Unauthorized)
         {
-            throw new SimklSignedOutException();
+            throw new SignedOutException("simkl");
         }
 
         if (status is not (HttpStatusCode.OK or HttpStatusCode.Created))
         {
-            throw new SimklException(status);
+            throw new TrackerException("Simkl", status);
         }
     }
 
@@ -192,7 +227,7 @@ public sealed class SimklClient
     }
 
     private static SimklTokens Tokens(JsonNode reply) => new(
-        Text(reply, "access_token") ?? throw new SimklException(HttpStatusCode.OK),
+        Text(reply, "access_token") ?? throw new TrackerException("Simkl", HttpStatusCode.BadGateway),
         Text(reply, "refresh_token"),
         Number(reply, "expires_in") is double seconds ? DateTimeOffset.UtcNow.AddSeconds(seconds) : null);
 
@@ -222,34 +257,3 @@ public sealed class DeviceCode
 }
 
 public sealed record SimklTokens(string Access, string? Refresh, DateTimeOffset? Expires);
-
-public enum HistoryResult
-{
-    Added,
-    Unchanged,
-    NotFound,
-}
-
-/// <summary>Simkl answered with something other than success.</summary>
-public class SimklException : Exception
-{
-    public SimklException(HttpStatusCode status)
-        : base($"Simkl answered {(int)status}")
-    {
-        Status = status;
-    }
-
-    public HttpStatusCode Status { get; }
-
-    /// <summary>Worth retrying later: Simkl busy or down.</summary>
-    public bool Transient => Status is HttpStatusCode.TooManyRequests || (int)Status >= 500 || Status == 0;
-}
-
-/// <summary>The account's token is no longer good (or a sign-in was refused): it needs linking again.</summary>
-public sealed class SimklSignedOutException : Exception
-{
-    public SimklSignedOutException()
-        : base("Simkl signed out")
-    {
-    }
-}
