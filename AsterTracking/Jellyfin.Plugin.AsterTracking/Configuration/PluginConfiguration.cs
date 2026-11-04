@@ -40,4 +40,7 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>The shared secret Last.fm gives with <see cref="LastFmApiKey"/>, which signs every request.</summary>
     public string LastFmSharedSecret { get; set; } = string.Empty;
+
+    /// <summary>This server's own Hardcover app (device grant on), in place of Aster's. Blank uses Aster's.</summary>
+    public string HardcoverClientId { get; set; } = string.Empty;
 }

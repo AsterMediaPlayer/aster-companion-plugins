@@ -27,9 +27,9 @@
                     <p>
                         What each person watches, in any app, is sent to the services they link, once a film or episode
                         is stopped past 85% or marked played: Simkl adds it to their history, and AniList and MyAnimeList
-                        move an anime's progress on. Music goes to Last.fm once a song has played half way or four
-                        minutes. People link their own accounts from Aster's settings, or here for anyone. Trakt,
-                        ListenBrainz and Hardcover follow.
+                        move an anime's progress on. Music goes to Last.fm and ListenBrainz once a song has played half
+                        way or four minutes, and audiobook progress to Hardcover. People link their own accounts from
+                        Aster's settings, or here for anyone. Trakt follows.
                     </p>
                     <div class="selectContainer">
                         <label class="selectLabel" for="TrackingUser">Person</label>
@@ -65,6 +65,11 @@
                         <input id="LastFmSharedSecret" type="password" is="emby-input" autocomplete="off" />
                         <div class="fieldDescription">Both from an API account at last.fm/api/account/create. Set both or neither.</div>
                     </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="HardcoverClientId">Hardcover client id</label>
+                        <input id="HardcoverClientId" type="text" is="emby-input" />
+                        <div class="fieldDescription">An app of type "Mobile, desktop, or CLI" at hardcover.app with Device Authorization Grant on and the scopes read:me, read:catalog:search, read:library and write:library.</div>
+                    </div>
 
                     <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
                 </form>
@@ -78,9 +83,12 @@
                 { id: 'simkl', key: 'Simkl', name: 'Simkl', sends: 'Add what this person watches to their Simkl history' },
                 { id: 'anilist', key: 'AniList', name: 'AniList', sends: 'Move this person\'s anime progress on AniList' },
                 { id: 'myanimelist', key: 'MyAnimeList', name: 'MyAnimeList', sends: 'Move this person\'s anime progress on MyAnimeList' },
-                { id: 'lastfm', key: 'LastFm', name: 'Last.fm', sends: 'Scrobble the music this person plays to Last.fm' }
+                { id: 'lastfm', key: 'LastFm', name: 'Last.fm', sends: 'Scrobble the music this person plays to Last.fm' },
+                { id: 'listenbrainz', key: 'ListenBrainz', name: 'ListenBrainz', sends: 'Send the music this person plays to ListenBrainz',
+                  paste: 'Open your ListenBrainz settings (opens a new tab), copy your User token, and paste it here.' },
+                { id: 'hardcover', key: 'Hardcover', name: 'Hardcover', sends: 'Keep this person\'s audiobook progress on Hardcover' }
             ];
-            var configKeys = ['SimklClientId', 'AniListClientId', 'MyAnimeListClientId', 'LastFmApiKey', 'LastFmSharedSecret'];
+            var configKeys = ['SimklClientId', 'AniListClientId', 'MyAnimeListClientId', 'LastFmApiKey', 'LastFmSharedSecret', 'HardcoverClientId'];
             var linkTimer = null;
             var waiting = null;   // the service whose code or approval is awaited, checked again on coming back to the tab
 
@@ -125,7 +133,9 @@
                         + '<span id="' + s.key + 'DeviceAnd">and enter</span> <strong id="' + s.key + 'DeviceCode" style="font-size:1.6em;letter-spacing:.15em;margin-left:.3em"></strong>'
                         + '<div class="fieldDescription" id="' + s.key + 'DeviceWait">Waiting for the code to be entered…</div></div>'
                         + '<div id="' + s.key + 'Paste" style="display:none;margin:1em 0">'
-                        + '<p><a id="' + s.key + 'PasteUrl" target="_blank" rel="noopener" class="button-link">Sign in to ' + s.name + '</a> (opens a new tab), approve Aster, then paste the code it shows here.</p>'
+                        + (s.paste
+                            ? '<p>' + s.paste.replace(/^Open your (.*?) settings/, '<a id="' + s.key + 'PasteUrl" target="_blank" rel="noopener" class="button-link">Open your $1 settings</a>') + '</p>'
+                            : '<p><a id="' + s.key + 'PasteUrl" target="_blank" rel="noopener" class="button-link">Sign in to ' + s.name + '</a> (opens a new tab), approve Aster, then paste the code it shows here.</p>')
                         + '<div class="inputContainer"><input id="' + s.key + 'Code" type="text" is="emby-input" autocomplete="off" placeholder="Code" /></div>'
                         + '<button is="emby-button" type="button" id="' + s.key + 'Finish" class="raised button-submit"><span>Finish linking</span></button></div>'
                         + '<div class="checkboxContainer" id="' + s.key + 'ScrobbleBox" style="display:none">'

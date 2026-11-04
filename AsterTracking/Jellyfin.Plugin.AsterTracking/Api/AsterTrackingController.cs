@@ -56,7 +56,7 @@ public class FeaturesDto
 {
     public SeerrDto Seerr { get; set; } = new();
 
-    /// <summary>The tracking services people can link on this server: "simkl", "anilist", "myanimelist", "lastfm".</summary>
+    /// <summary>The tracking services people can link on this server: "simkl", "anilist", "myanimelist", "lastfm", "listenbrainz", "hardcover".</summary>
     public List<string> Services { get; set; } = new();
 }
 

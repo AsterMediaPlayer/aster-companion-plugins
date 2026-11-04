@@ -1,5 +1,7 @@
 using Jellyfin.Plugin.AsterTracking.AniList;
+using Jellyfin.Plugin.AsterTracking.Hardcover;
 using Jellyfin.Plugin.AsterTracking.LastFm;
+using Jellyfin.Plugin.AsterTracking.ListenBrainz;
 using Jellyfin.Plugin.AsterTracking.MyAnimeList;
 using Jellyfin.Plugin.AsterTracking.Simkl;
 using Jellyfin.Plugin.AsterTracking.Tracking;
@@ -20,10 +22,14 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<AniListClient>();
         serviceCollection.AddSingleton<MyAnimeListClient>();
         serviceCollection.AddSingleton<LastFmClient>();
+        serviceCollection.AddSingleton<ListenBrainzClient>();
+        serviceCollection.AddSingleton<HardcoverClient>();
         serviceCollection.AddSingleton<ITracker>(services => services.GetRequiredService<SimklClient>());
         serviceCollection.AddSingleton<ITracker>(services => services.GetRequiredService<AniListClient>());
         serviceCollection.AddSingleton<ITracker>(services => services.GetRequiredService<MyAnimeListClient>());
         serviceCollection.AddSingleton<ITracker>(services => services.GetRequiredService<LastFmClient>());
+        serviceCollection.AddSingleton<ITracker>(services => services.GetRequiredService<ListenBrainzClient>());
+        serviceCollection.AddSingleton<ITracker>(services => services.GetRequiredService<HardcoverClient>());
         serviceCollection.AddHostedService<Scrobbler>();
     }
 }

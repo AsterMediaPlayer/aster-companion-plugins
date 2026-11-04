@@ -68,6 +68,24 @@ Linking needs no code: **Link Last.fm** opens last.fm to approve Aster, and the 
 `POST /AsterTracking/Accounts/lastfm/Link/Complete`) waits for the approval. The session key never runs out. Every request
 is signed with the API account's shared secret; Developer apps can swap in the server's own key and secret.
 
+## 0.5: ListenBrainz and Hardcover
+
+**ListenBrainz** gets the same songs as Last.fm, by the same rule, with "playing now" as they start. Listens carry the
+MusicBrainz recording, track, release, release group and artist ids the server has. People link it by pasting their
+user token from listenbrainz.org/settings (no app to register; the token doesn't run out).
+
+**Hardcover** follows audiobooks:
+- **Matching:** the book is found by title and author through Hardcover's search, since Jellyfin has no ISBNs for
+  `.m4b` audiobooks. The author comes from the item, or from the `audiobooks/Author/…` folder.
+- **While listening:** the first progress puts the book in the person's library as Currently Reading. Progress is
+  sent every 15 minutes while it plays and again when it stops, as the same share of Hardcover's audiobook edition,
+  short of the very end.
+- **Finishing:** it's marked Read at 98% or more, or when it's marked played.
+
+Linking is Hardcover's OAuth device flow, a code entered at hardcover.app like Simkl's. Tokens refresh themselves, and
+unlinking revokes them. It needs Aster's Hardcover app (type "Mobile, desktop, or CLI", device grant on, scopes
+`read:me read:catalog:search read:library write:library`), or the server's own under Developer apps.
+
 ## Building
 
     dotnet build AsterTracking/Jellyfin.Plugin.AsterTracking -c Release

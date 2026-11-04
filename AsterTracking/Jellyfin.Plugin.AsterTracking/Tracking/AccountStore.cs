@@ -99,6 +99,10 @@ public sealed class UserTracking
 
     public LinkedAccount? LastFm { get; set; }
 
+    public LinkedAccount? ListenBrainz { get; set; }
+
+    public LinkedAccount? Hardcover { get; set; }
+
     /// <summary>Sends that failed while a service was down, retried later.</summary>
     public List<PendingSend> Pending { get; set; } = new();
 

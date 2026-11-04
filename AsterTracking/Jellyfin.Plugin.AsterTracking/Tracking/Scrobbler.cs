@@ -13,7 +13,9 @@ namespace Jellyfin.Plugin.AsterTracking.Tracking;
 /// Sends what each person watches and listens to, in any app, to the services they linked: a film or episode once it's
 /// stopped past 85% (the Aster apps' rule), or marked played by hand; a song once it's played half way or four minutes,
 /// when it's longer than 30 seconds (Last.fm's rule), with "now playing" as it starts. Simkl gets films and episodes in
-/// the history; AniList and MyAnimeList get an anime season's progress; Last.fm gets songs. A send that fails while a service is down waits in the person's file and is retried every
+/// the history; AniList and MyAnimeList get an anime season's progress; Last.fm and ListenBrainz get songs. Audiobooks
+/// go by their progress instead (Hardcover): every quarter of an hour while one plays, when it stops, and Read at the
+/// end or when it's marked played. A send that fails while a service is down waits in the person's file and is retried every
 /// quarter of an hour, when tokens close to running out are also refreshed.
 /// </summary>
 public sealed class Scrobbler : IHostedService, IDisposable
@@ -87,7 +89,55 @@ public sealed class Scrobbler : IHostedService, IDisposable
         ?? (item is Episode e ? $"{e.SeriesName} S{e.ParentIndexNumber ?? 0:00}E{e.IndexNumber ?? 0:00}"
             : LastFm.LastFmClient.Song(item) is { } song ? $"{song["artist"]} – {song["track"]}" : item.Name);
 
+    /// <summary>How often an audiobook's progress is sent while it plays.</summary>
+    private static readonly TimeSpan ProgressEvery = TimeSpan.FromMinutes(15);
+
+    private readonly ConcurrentDictionary<(Guid User, Guid Item), DateTimeOffset> _progressSent = new();
+
     private static bool IsSong(BaseItem item) => LastFm.LastFmClient.Song(item) is not null;
+
+    private static bool IsAudiobook(BaseItem item) => item is AudioBook;
+
+    /// <summary>An audiobook at <paramref name="position"/>, or finished: sent to the services that follow progress.</summary>
+    private void Progress(Guid userId, BaseItem item, long position, bool finished, bool retry)
+    {
+        _progressSent[(userId, item.Id)] = DateTimeOffset.UtcNow;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var tracking = await _store.GetAsync(userId).ConfigureAwait(false);
+                foreach (var tracker in _trackers)
+                {
+                    if (tracker is not IProgressTracker progress || tracker.Account(tracking) is not { Scrobble: true })
+                    {
+                        continue;
+                    }
+
+                    var label = item.Name + (finished ? " (finished)" : $" ({(item.RunTimeTicks is long run && run > 0 ? 100 * position / run : 0)}%)");
+                    var body = await progress.ProgressBodyAsync(item, position, finished, CancellationToken.None).ConfigureAwait(false);
+                    if (body is null)
+                    {
+                        continue;
+                    }
+
+                    var result = await SendAsync(userId, tracker, label, body).ConfigureAwait(false);
+                    if (result == Outcome.Retry && retry)
+                    {
+                        await Wait(userId, tracker, label, body, item.Id, DateTimeOffset.UtcNow).ConfigureAwait(false);
+                    }
+                    else if (result != Outcome.Unchanged && (retry || result != Outcome.Retry))
+                    {
+                        await _store.UpdateAsync(userId, t => t.Log.Add(Entry(tracker.Service, label, result))).ConfigureAwait(false);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "Aster Tracking: progress of {Item} for {User} failed", item.Name, userId);
+            }
+        });
+    }
 
     private void OnPlaybackStart(object? sender, PlaybackProgressEventArgs e)
     {
@@ -118,6 +168,25 @@ public sealed class Scrobbler : IHostedService, IDisposable
             return;
         }
 
+        if (IsAudiobook(e.Item))
+        {
+            foreach (var user in e.Users)
+            {
+                var key = (user.Id, e.Item.Id);
+                if (!_progressSent.TryGetValue(key, out var last))
+                {
+                    // The first report starts the clock: no send for merely starting.
+                    _progressSent[key] = DateTimeOffset.UtcNow;
+                }
+                else if (DateTimeOffset.UtcNow - last >= ProgressEvery && !e.IsPaused)
+                {
+                    Progress(user.Id, e.Item, position, false, retry: false);
+                }
+            }
+
+            return;
+        }
+
         foreach (var user in e.Users)
         {
             var key = (user.Id, e.Item.Id);
@@ -137,6 +206,22 @@ public sealed class Scrobbler : IHostedService, IDisposable
 
         var runtime = e.Item.RunTimeTicks ?? 0;
         var position = e.PlaybackPositionTicks ?? 0;
+        if (IsAudiobook(e.Item))
+        {
+            // The end counts as finished: the last 2% is usually credits and the publisher's sign-off.
+            var finished = e.PlayedToCompletion || (runtime > 0 && position >= runtime * 0.98);
+            foreach (var user in e.Users)
+            {
+                _progressSent.TryRemove((user.Id, e.Item.Id), out _);
+                if (position > 0 || finished)
+                {
+                    Progress(user.Id, e.Item, position, finished, retry: true);
+                }
+            }
+
+            return;
+        }
+
         if (IsSong(e.Item))
         {
             foreach (var user in e.Users)
@@ -172,7 +257,14 @@ public sealed class Scrobbler : IHostedService, IDisposable
 
     private void OnUserDataSaved(object? sender, UserDataSaveEventArgs e)
     {
-        // A song marked played wasn't listened to: only films and episodes count that way.
+        // A song marked played wasn't listened to: only films and episodes count that way. An audiobook marked played
+        // is finished.
+        if (e.SaveReason == UserDataSaveReason.TogglePlayed && e.UserData?.Played == true && e.Item is not null && IsAudiobook(e.Item))
+        {
+            Progress(e.UserId, e.Item, e.Item.RunTimeTicks ?? 0, true, retry: true);
+            return;
+        }
+
         if (e.SaveReason == UserDataSaveReason.TogglePlayed && e.UserData?.Played == true && e.Item is not null && !IsSong(e.Item))
         {
             Watched(e.UserId, e.Item, DateTimeOffset.UtcNow, Repeat);

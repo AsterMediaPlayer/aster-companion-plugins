@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
 using System.Security.Claims;
 using Jellyfin.Plugin.AsterTracking.AniList;
+using Jellyfin.Plugin.AsterTracking.Hardcover;
 using Jellyfin.Plugin.AsterTracking.LastFm;
+using Jellyfin.Plugin.AsterTracking.ListenBrainz;
 using Jellyfin.Plugin.AsterTracking.MyAnimeList;
 using Jellyfin.Plugin.AsterTracking.Simkl;
 using Jellyfin.Plugin.AsterTracking.Tracking;
@@ -14,10 +16,10 @@ namespace Jellyfin.Plugin.AsterTracking.Api;
 
 /// <summary>
 /// Each person's linked accounts, for the apps' settings and the dashboard page (a signed-in person for themselves;
-/// an administrator may name anyone with <c>userId</c>). <c>{service}</c> is simkl, anilist, myanimelist or lastfm.
+/// an administrator may name anyone with <c>userId</c>). <c>{service}</c> is simkl, anilist, myanimelist, lastfm, listenbrainz or hardcover.
 ///   GET    /AsterTracking/Accounts                           what's linked, and the last sends
 ///   POST   /AsterTracking/Accounts/{service}/Link            starts linking: { Url, and for Simkl Code to enter there; Paste when a code comes back to paste }
-///   POST   /AsterTracking/Accounts/{service}/Link/Complete   Simkl, Last.fm: 200 linked, 202 not entered or approved yet. AniList, MyAnimeList: body { "Code": "…" } as pasted
+///   POST   /AsterTracking/Accounts/{service}/Link/Complete   Simkl, Last.fm, Hardcover: 200 linked, 202 not entered or approved yet. AniList, MyAnimeList, ListenBrainz: body { "Code": "…" } as pasted
 ///   PUT    /AsterTracking/Accounts/{service}/Settings        { "Scrobble": false } to stop sending without unlinking
 ///   DELETE /AsterTracking/Accounts/{service}                 unlinks
 /// A link that ran out or was refused is 410; a service the server has no app for yet is 409.
@@ -37,16 +39,20 @@ public class AccountsController : ControllerBase
     private readonly AniListClient _aniList;
     private readonly MyAnimeListClient _mal;
     private readonly LastFmClient _lastFm;
+    private readonly ListenBrainzClient _listenBrainz;
+    private readonly HardcoverClient _hardcover;
     private readonly IReadOnlyList<ITracker> _trackers;
     private readonly IUserManager _users;
 
-    public AccountsController(AccountStore store, SimklClient simkl, AniListClient aniList, MyAnimeListClient mal, LastFmClient lastFm, IEnumerable<ITracker> trackers, IUserManager users)
+    public AccountsController(AccountStore store, SimklClient simkl, AniListClient aniList, MyAnimeListClient mal, LastFmClient lastFm, ListenBrainzClient listenBrainz, HardcoverClient hardcover, IEnumerable<ITracker> trackers, IUserManager users)
     {
         _store = store;
         _simkl = simkl;
         _aniList = aniList;
         _mal = mal;
         _lastFm = lastFm;
+        _listenBrainz = listenBrainz;
+        _hardcover = hardcover;
         _trackers = trackers.ToList();
         _users = users;
     }
@@ -67,6 +73,8 @@ public class AccountsController : ControllerBase
             AniList = Describe(_aniList, tracking),
             MyAnimeList = Describe(_mal, tracking),
             LastFm = Describe(_lastFm, tracking),
+            ListenBrainz = Describe(_listenBrainz, tracking),
+            Hardcover = Describe(_hardcover, tracking),
             Waiting = tracking.Pending.Count,
             Log = Enumerable.Reverse(tracking.Log).ToList(),
         };
@@ -115,6 +123,30 @@ public class AccountsController : ControllerBase
                     Interval = code.Interval,
                     ExpiresIn = (int)(code.Expires - DateTimeOffset.UtcNow).TotalSeconds,
                 };
+
+            case HardcoverClient:
+                DeviceCode hardcoverCode;
+                try
+                {
+                    hardcoverCode = await _hardcover.StartSignInAsync(cancellation).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is TrackerException or SignedOutException or HttpRequestException or TaskCanceledException)
+                {
+                    return Problem(ex.Message, statusCode: StatusCodes.Status502BadGateway);
+                }
+
+                Pending[(id, tracker.Service)] = new Linking(hardcoverCode.Expires, hardcoverCode.DeviceCodeValue);
+                return new LinkDto
+                {
+                    Code = hardcoverCode.UserCode,
+                    Url = hardcoverCode.VerificationUrl,
+                    CompleteUrl = hardcoverCode.CompleteUrl,
+                    Interval = hardcoverCode.Interval,
+                    ExpiresIn = (int)(hardcoverCode.Expires - DateTimeOffset.UtcNow).TotalSeconds,
+                };
+
+            case ListenBrainzClient:
+                return new LinkDto { Url = ListenBrainzClient.TokenPage, Paste = true };
 
             case LastFmClient:
                 string token, approve;
@@ -168,7 +200,7 @@ public class AccountsController : ControllerBase
         }
 
         var code = Pasted(pasted?.Code);
-        if (tracker is not (SimklClient or LastFmClient) && code is null)
+        if (tracker is not (SimklClient or LastFmClient or HardcoverClient) && code is null)
         {
             return Problem("Paste the code the sign-in page showed.", statusCode: StatusCodes.Status400BadRequest);
         }
@@ -198,6 +230,24 @@ public class AccountsController : ControllerBase
                         Name = await _simkl.UserNameAsync(tokens.Access, cancellation).ConfigureAwait(false),
                         Linked = DateTimeOffset.UtcNow,
                     };
+                    break;
+
+                case HardcoverClient:
+                    if (linking is null)
+                    {
+                        return StatusCode(StatusCodes.Status410Gone);
+                    }
+
+                    if (await _hardcover.PollAsync(linking.Secret, cancellation).ConfigureAwait(false) is not LinkedAccount signedIn)
+                    {
+                        return Accepted();
+                    }
+
+                    account = signedIn;
+                    break;
+
+                case ListenBrainzClient:
+                    account = await _listenBrainz.LinkAsync(code!, cancellation).ConfigureAwait(false);
                     break;
 
                 case LastFmClient:
@@ -281,8 +331,13 @@ public class AccountsController : ControllerBase
             return NotFound();
         }
 
-        // None of the three has a revoke: the token is forgotten here, and the person can remove Aster in the
-        // service's own settings.
+        // Hardcover is told, so it stops listing Aster among the person's sessions. The others have no revoke: the token
+        // is forgotten here, and the person can remove Aster in the service's own settings.
+        if (tracker is HardcoverClient && tracker.Account(await _store.GetAsync(id).ConfigureAwait(false)) is LinkedAccount linked)
+        {
+            await _hardcover.RevokeAsync(linked, CancellationToken.None).ConfigureAwait(false);
+        }
+
         await _store.UpdateAsync(id, t =>
         {
             tracker.SetAccount(t, null);
@@ -357,6 +412,10 @@ public class AccountsDto
 
     public AccountDto LastFm { get; set; } = new();
 
+    public AccountDto ListenBrainz { get; set; } = new();
+
+    public AccountDto Hardcover { get; set; } = new();
+
     /// <summary>Sends waiting to be retried.</summary>
     public int Waiting { get; set; }
 
@@ -402,7 +461,7 @@ public class LinkDto
     /// <summary>The address with the code in it, for a QR code, where the service gives one.</summary>
     public string? CompleteUrl { get; set; }
 
-    /// <summary>Whether the sign-in ends with a code to paste back to Complete (AniList, MyAnimeList).</summary>
+    /// <summary>Whether the sign-in ends with a code or token to paste back to Complete (AniList, MyAnimeList, ListenBrainz).</summary>
     public bool Paste { get; set; }
 
     /// <summary>Seconds to wait between Complete calls (Simkl, Last.fm).</summary>

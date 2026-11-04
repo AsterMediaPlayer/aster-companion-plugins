@@ -9,7 +9,7 @@ namespace Jellyfin.Plugin.AsterTracking.Tracking;
 /// </summary>
 public interface ITracker
 {
-    /// <summary>"simkl", "anilist", "myanimelist", "lastfm": the name in routes, the person's file and the log.</summary>
+    /// <summary>"simkl", "anilist", "myanimelist", "lastfm", "listenbrainz", "hardcover": the name in routes, the person's file and the log.</summary>
     string Service { get; }
 
     /// <summary>Whether the server has an app for this service to sign in with (built in, or its own).</summary>
@@ -34,6 +34,13 @@ public interface INowPlaying
     Task NowPlayingAsync(BaseItem item, string token, CancellationToken cancellation);
 }
 
+/// <summary>A service that follows how far through something the person is (Hardcover's audiobook progress).</summary>
+public interface IProgressTracker
+{
+    /// <summary>The request for this position (or the end, when <paramref name="finished"/>), or null when the service doesn't take this item.</summary>
+    Task<string?> ProgressBodyAsync(BaseItem item, long positionTicks, bool finished, CancellationToken cancellation);
+}
+
 public enum HistoryResult
 {
     /// <summary>Added to the history, or the list's progress moved on.</summary>
@@ -50,6 +57,12 @@ public class TrackerException : Exception
 {
     public TrackerException(string service, HttpStatusCode status)
         : base($"{service} answered {(int)status}")
+    {
+        Status = status;
+    }
+
+    public TrackerException(string service, HttpStatusCode status, string detail)
+        : base($"{service}: {detail}")
     {
         Status = status;
     }
