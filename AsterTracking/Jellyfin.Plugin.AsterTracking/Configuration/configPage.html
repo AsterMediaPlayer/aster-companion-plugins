@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <title>Aster Tracking</title>
+</head>
+<body>
+    <div id="AsterTrackingConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="AsterTrackingConfigForm">
+                    <h2 class="sectionTitle">Requests (Seerr)</h2>
+                    <p>
+                        Aster's request features (requesting a film or show, and seeing a request's progress) stay off
+                        unless they're turned on here. Each person signs in to Seerr with their own Jellyfin login, so no
+                        Seerr key is needed.
+                    </p>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label><input id="SeerrEnabled" type="checkbox" is="emby-checkbox" /><span>Turn on requests in Aster</span></label>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="SeerrUrl">Seerr address</label>
+                        <input id="SeerrUrl" type="url" is="emby-input" placeholder="https://requests.example.com" />
+                        <div class="fieldDescription">The address the apps use to reach Seerr, as you'd type it in a browser.</div>
+                    </div>
+
+                    <h2 class="sectionTitle">Tracking</h2>
+                    <p>
+                        Scrobbling and discovery through Trakt, Simkl, AniList, MyAnimeList, Last.fm, ListenBrainz and
+                        Hardcover arrive in the next releases. Each person will link their own accounts.
+                    </p>
+
+                    <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
+                </form>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var pluginId = '023a7921-895e-40fb-b815-ab4462f68107';
+
+            function addressOk(text) {
+                try { var u = new URL(text); return u.protocol === 'http:' || u.protocol === 'https:'; } catch (e) { return false; }
+            }
+
+            document.querySelector('#AsterTrackingConfigPage').addEventListener('pageshow', function () {
+                var page = this;
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    page.querySelector('#SeerrEnabled').checked = !!config.SeerrEnabled;
+                    page.querySelector('#SeerrUrl').value = config.SeerrUrl || '';
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+
+            document.querySelector('#AsterTrackingConfigForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                var page = document.querySelector('#AsterTrackingConfigPage');
+                var enabled = page.querySelector('#SeerrEnabled').checked;
+                var url = page.querySelector('#SeerrUrl').value.trim();
+                if (enabled && !addressOk(url)) {
+                    Dashboard.alert('To turn requests on, give Seerr\'s address, starting with https:// or http://.');
+                    return false;
+                }
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    config.SeerrEnabled = enabled;
+                    config.SeerrUrl = url;
+                    ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+                return false;
+            });
+        </script>
+    </div>
+</body>
+</html>
