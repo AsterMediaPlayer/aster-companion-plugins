@@ -17,9 +17,9 @@ public sealed class AniListClient : ITracker
 {
     /// <summary>
     /// Aster's AniList app for servers, whose redirect is https://anilist.co/api/v2/oauth/pin. (The apps' own, 55643,
-    /// redirects to aster://, which only an app can receive.) Blank until it's registered: a server can set its own.
+    /// redirects to aster://, which only an app can receive.) A server can set its own.
     /// </summary>
-    public const string BuiltInClientId = "";
+    public const string BuiltInClientId = "55940";
 
     private readonly IHttpClientFactory _http;
     private readonly AnimeIds _anime;

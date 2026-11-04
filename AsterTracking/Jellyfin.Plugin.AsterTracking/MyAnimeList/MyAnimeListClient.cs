@@ -17,10 +17,10 @@ namespace Jellyfin.Plugin.AsterTracking.MyAnimeList;
 public sealed class MyAnimeListClient : ITracker
 {
     /// <summary>
-    /// Aster's MyAnimeList app for servers, with <see cref="Redirect"/> as its redirect. Blank until it's registered:
-    /// a server can set its own.
+    /// Aster's MyAnimeList app for servers (type "other", no secret), with <see cref="Redirect"/> as its redirect. A
+    /// server can set its own.
     /// </summary>
-    public const string BuiltInClientId = "";
+    public const string BuiltInClientId = "c714c89f9ba3e4281a8090df255153a1";
 
     /// <summary>The page that shows the code to paste.</summary>
     public const string Redirect = "https://astermediaplayer.com/link/myanimelist/";
