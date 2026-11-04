@@ -57,6 +57,17 @@ opens, then paste back the code it shows.
 A whole pasted address works as well as the code. Until the server has an app for a service (built in, or under
 Developer apps) the service is left out of `Features.Services` and linking it is a 409.
 
+## 0.4: Last.fm
+
+Songs played in any app show on Last.fm as "now playing" as they start, and are scrobbled, with the time they began,
+once they've played half way or four minutes, when they're longer than 30 seconds (Last.fm's rule). The furthest
+progress report counts as well as the stop, since some apps report a song stopped only after the next has loaded.
+Audiobooks aren't songs, and a song marked played by hand isn't scrobbled.
+
+Linking needs no code: **Link Last.fm** opens last.fm to approve Aster, and the page (or an app, polling
+`POST /AsterTracking/Accounts/lastfm/Link/Complete`) waits for the approval. The session key never runs out. Every request
+is signed with the API account's shared secret; Developer apps can swap in the server's own key and secret.
+
 ## Building
 
     dotnet build AsterTracking/Jellyfin.Plugin.AsterTracking -c Release

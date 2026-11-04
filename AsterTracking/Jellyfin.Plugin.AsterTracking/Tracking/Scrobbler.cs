@@ -10,9 +10,10 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.AsterTracking.Tracking;
 
 /// <summary>
-/// Sends what each person watches, in any app, to the services they linked: once a film or episode is stopped past 85%
-/// (the Aster apps' rule), or marked played by hand. Simkl gets it in the history; AniList and MyAnimeList get an
-/// anime season's progress. A send that fails while a service is down waits in the person's file and is retried every
+/// Sends what each person watches and listens to, in any app, to the services they linked: a film or episode once it's
+/// stopped past 85% (the Aster apps' rule), or marked played by hand; a song once it's played half way or four minutes,
+/// when it's longer than 30 seconds (Last.fm's rule), with "now playing" as it starts. Simkl gets films and episodes in
+/// the history; AniList and MyAnimeList get an anime season's progress; Last.fm gets songs. A send that fails while a service is down waits in the person's file and is retried every
 /// quarter of an hour, when tokens close to running out are also refreshed.
 /// </summary>
 public sealed class Scrobbler : IHostedService, IDisposable
@@ -35,6 +36,12 @@ public sealed class Scrobbler : IHostedService, IDisposable
     private readonly IReadOnlyList<ITracker> _trackers;
     private readonly ILogger<Scrobbler> _log;
     private readonly ConcurrentDictionary<(Guid User, Guid Item), DateTimeOffset> _sent = new();
+
+    /// <summary>
+    /// When each song began, for its scrobble's time, and the furthest it's been reported played: some apps report a
+    /// song stopped only once the next has loaded, at position 0.
+    /// </summary>
+    private readonly ConcurrentDictionary<(Guid User, Guid Item), (DateTimeOffset At, long Furthest)> _started = new();
     private readonly SemaphoreSlim _sweeping = new(1, 1);
     private Timer? _retry;
 
@@ -50,6 +57,8 @@ public sealed class Scrobbler : IHostedService, IDisposable
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
+        _sessions.PlaybackStart += OnPlaybackStart;
+        _sessions.PlaybackProgress += OnPlaybackProgress;
         _sessions.PlaybackStopped += OnPlaybackStopped;
         _userData.UserDataSaved += OnUserDataSaved;
         _retry = new Timer(_ => _ = SweepAsync(), null, TimeSpan.FromMinutes(1), RetryEvery);
@@ -58,6 +67,8 @@ public sealed class Scrobbler : IHostedService, IDisposable
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
+        _sessions.PlaybackStart -= OnPlaybackStart;
+        _sessions.PlaybackProgress -= OnPlaybackProgress;
         _sessions.PlaybackStopped -= OnPlaybackStopped;
         _userData.UserDataSaved -= OnUserDataSaved;
         _retry?.Change(Timeout.Infinite, Timeout.Infinite);
@@ -70,10 +81,52 @@ public sealed class Scrobbler : IHostedService, IDisposable
         _sweeping.Dispose();
     }
 
-    /// <summary>"Frieren S01E05", or a film's name, for the log.</summary>
+    /// <summary>"Frieren S01E05", "Artist – Song", or a film's name, for the log.</summary>
     public static string Label(BaseItem item) =>
         WatchedTitle.From(item)?.Label
-        ?? (item is Episode e ? $"{e.SeriesName} S{e.ParentIndexNumber ?? 0:00}E{e.IndexNumber ?? 0:00}" : item.Name);
+        ?? (item is Episode e ? $"{e.SeriesName} S{e.ParentIndexNumber ?? 0:00}E{e.IndexNumber ?? 0:00}"
+            : LastFm.LastFmClient.Song(item) is { } song ? $"{song["artist"]} – {song["track"]}" : item.Name);
+
+    private static bool IsSong(BaseItem item) => LastFm.LastFmClient.Song(item) is not null;
+
+    private void OnPlaybackStart(object? sender, PlaybackProgressEventArgs e)
+    {
+        if (e.Item is null || e.Users is null || !IsSong(e.Item))
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        foreach (var user in e.Users)
+        {
+            _started[(user.Id, e.Item.Id)] = (now, 0);
+            var userId = user.Id;
+            var item = e.Item;
+            _ = Task.Run(() => NowPlayingAsync(userId, item));
+        }
+
+        foreach (var old in _started.Where(pair => now - pair.Value.At > TimeSpan.FromHours(12)).Select(pair => pair.Key).ToList())
+        {
+            _started.TryRemove(old, out _);
+        }
+    }
+
+    private void OnPlaybackProgress(object? sender, PlaybackProgressEventArgs e)
+    {
+        if (e.Item is null || e.Users is null || e.PlaybackPositionTicks is not long position)
+        {
+            return;
+        }
+
+        foreach (var user in e.Users)
+        {
+            var key = (user.Id, e.Item.Id);
+            if (_started.TryGetValue(key, out var song) && position > song.Furthest)
+            {
+                _started[key] = (song.At, position);
+            }
+        }
+    }
 
     private void OnPlaybackStopped(object? sender, PlaybackStopEventArgs e)
     {
@@ -83,7 +136,29 @@ public sealed class Scrobbler : IHostedService, IDisposable
         }
 
         var runtime = e.Item.RunTimeTicks ?? 0;
-        var through = runtime > 0 && e.PlaybackPositionTicks is long position ? (double)position / runtime : 0;
+        var position = e.PlaybackPositionTicks ?? 0;
+        if (IsSong(e.Item))
+        {
+            foreach (var user in e.Users)
+            {
+                var known = _started.TryRemove((user.Id, e.Item.Id), out var song);
+                var played = Math.Max(position, known ? song.Furthest : 0);
+                var began = known ? song.At : DateTimeOffset.UtcNow - TimeSpan.FromTicks(played);
+
+                // Last.fm's rule: longer than 30 seconds, and played half way or four minutes.
+                var counts = runtime > TimeSpan.FromSeconds(30).Ticks
+                    && (e.PlayedToCompletion || played >= runtime / 2 || played >= TimeSpan.FromMinutes(4).Ticks);
+                if (counts)
+                {
+                    // The same song again counts again, once the first play could have finished.
+                    Watched(user.Id, e.Item, began, TimeSpan.FromTicks(Math.Max(runtime / 2, TimeSpan.FromSeconds(30).Ticks)));
+                }
+            }
+
+            return;
+        }
+
+        var through = runtime > 0 ? (double)position / runtime : 0;
         if (!e.PlayedToCompletion && through < WatchedAt)
         {
             return;
@@ -91,22 +166,54 @@ public sealed class Scrobbler : IHostedService, IDisposable
 
         foreach (var user in e.Users)
         {
-            Watched(user.Id, e.Item);
+            Watched(user.Id, e.Item, DateTimeOffset.UtcNow, Repeat);
         }
     }
 
     private void OnUserDataSaved(object? sender, UserDataSaveEventArgs e)
     {
-        if (e.SaveReason == UserDataSaveReason.TogglePlayed && e.UserData?.Played == true && e.Item is not null)
+        // A song marked played wasn't listened to: only films and episodes count that way.
+        if (e.SaveReason == UserDataSaveReason.TogglePlayed && e.UserData?.Played == true && e.Item is not null && !IsSong(e.Item))
         {
-            Watched(e.UserId, e.Item);
+            Watched(e.UserId, e.Item, DateTimeOffset.UtcNow, Repeat);
         }
     }
 
-    private void Watched(Guid userId, BaseItem item)
+    private async Task NowPlayingAsync(Guid userId, BaseItem item)
+    {
+        try
+        {
+            var tracking = await _store.GetAsync(userId).ConfigureAwait(false);
+            foreach (var tracker in _trackers)
+            {
+                if (tracker is INowPlaying playing && tracker.Account(tracking) is { Scrobble: true })
+                {
+                    try
+                    {
+                        var token = await TokenAsync(userId, tracker, TimeSpan.FromDays(1)).ConfigureAwait(false);
+                        if (token is not null)
+                        {
+                            await playing.NowPlayingAsync(item, token, CancellationToken.None).ConfigureAwait(false);
+                        }
+                    }
+                    catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or TrackerException or SignedOutException)
+                    {
+                        // "Now playing" is only a nicety: not retried, and a sign-out shows up on the scrobble.
+                        _log.LogDebug("Aster Tracking: now playing on {Service} failed: {Error}", tracker.Service, ex.Message);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Aster Tracking: now playing {Item} for {User} failed", item.Name, userId);
+        }
+    }
+
+    private void Watched(Guid userId, BaseItem item, DateTimeOffset watchedAt, TimeSpan repeat)
     {
         var now = DateTimeOffset.UtcNow;
-        if (_sent.TryGetValue((userId, item.Id), out var last) && now - last < Repeat)
+        if (_sent.TryGetValue((userId, item.Id), out var last) && now - last < repeat)
         {
             return;
         }
@@ -121,7 +228,7 @@ public sealed class Scrobbler : IHostedService, IDisposable
         {
             try
             {
-                await SendAllAsync(userId, item, now).ConfigureAwait(false);
+                await SendAllAsync(userId, item, watchedAt).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

@@ -9,7 +9,7 @@ namespace Jellyfin.Plugin.AsterTracking.Tracking;
 /// </summary>
 public interface ITracker
 {
-    /// <summary>"simkl", "anilist", "myanimelist": the name in routes, the person's file and the log.</summary>
+    /// <summary>"simkl", "anilist", "myanimelist", "lastfm": the name in routes, the person's file and the log.</summary>
     string Service { get; }
 
     /// <summary>Whether the server has an app for this service to sign in with (built in, or its own).</summary>
@@ -26,6 +26,12 @@ public interface ITracker
 
     /// <summary>The account with fresh tokens, or null when the service has no way to refresh (AniList's year-long tokens).</summary>
     Task<LinkedAccount?> RefreshAsync(LinkedAccount account, CancellationToken cancellation);
+}
+
+/// <summary>A service that's told what's playing as it starts (Last.fm's "now playing"), as well as sent it afterwards.</summary>
+public interface INowPlaying
+{
+    Task NowPlayingAsync(BaseItem item, string token, CancellationToken cancellation);
 }
 
 public enum HistoryResult

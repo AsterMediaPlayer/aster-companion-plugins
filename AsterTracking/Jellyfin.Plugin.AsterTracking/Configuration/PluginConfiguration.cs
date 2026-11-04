@@ -34,4 +34,10 @@ public class PluginConfiguration : BasePluginConfiguration
     /// in place of Aster's. Blank uses Aster's.
     /// </summary>
     public string MyAnimeListClientId { get; set; } = string.Empty;
+
+    /// <summary>This server's own Last.fm API account, in place of Aster's. Blank uses Aster's; set both or neither.</summary>
+    public string LastFmApiKey { get; set; } = string.Empty;
+
+    /// <summary>The shared secret Last.fm gives with <see cref="LastFmApiKey"/>, which signs every request.</summary>
+    public string LastFmSharedSecret { get; set; } = string.Empty;
 }

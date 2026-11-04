@@ -1,6 +1,6 @@
 name: "Aster Tracking"
 guid: "023a7921-895e-40fb-b815-ab4462f68107"
-version: "0.3.0.0"
+version: "0.4.0.0"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -15,6 +15,8 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterTracking.dll"
 changelog: >
+  - 0.4.0.0: Last.fm. People link it on the dashboard by approving Aster at last.fm (no code to copy); songs they play
+    in any app show as now playing and are scrobbled once played half way or four minutes (longer than 30 seconds).
   - 0.3.0.0: AniList and MyAnimeList. People link them on the dashboard (sign in, then paste the code shown), and
     each anime episode they watch moves that season's progress on (Watching, or Completed at the last episode); Shokofin
     seasons are matched through their AniDB ids and the ARM id map. AniDB ids from other plugins no longer count as

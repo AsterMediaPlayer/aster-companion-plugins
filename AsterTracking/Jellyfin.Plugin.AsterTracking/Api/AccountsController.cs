@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Security.Claims;
 using Jellyfin.Plugin.AsterTracking.AniList;
+using Jellyfin.Plugin.AsterTracking.LastFm;
 using Jellyfin.Plugin.AsterTracking.MyAnimeList;
 using Jellyfin.Plugin.AsterTracking.Simkl;
 using Jellyfin.Plugin.AsterTracking.Tracking;
@@ -13,10 +14,10 @@ namespace Jellyfin.Plugin.AsterTracking.Api;
 
 /// <summary>
 /// Each person's linked accounts, for the apps' settings and the dashboard page (a signed-in person for themselves;
-/// an administrator may name anyone with <c>userId</c>). <c>{service}</c> is simkl, anilist or myanimelist.
+/// an administrator may name anyone with <c>userId</c>). <c>{service}</c> is simkl, anilist, myanimelist or lastfm.
 ///   GET    /AsterTracking/Accounts                           what's linked, and the last sends
 ///   POST   /AsterTracking/Accounts/{service}/Link            starts linking: { Url, and for Simkl Code to enter there; Paste when a code comes back to paste }
-///   POST   /AsterTracking/Accounts/{service}/Link/Complete   Simkl: 200 linked, 202 not entered yet. AniList, MyAnimeList: body { "Code": "…" } as pasted
+///   POST   /AsterTracking/Accounts/{service}/Link/Complete   Simkl, Last.fm: 200 linked, 202 not entered or approved yet. AniList, MyAnimeList: body { "Code": "…" } as pasted
 ///   PUT    /AsterTracking/Accounts/{service}/Settings        { "Scrobble": false } to stop sending without unlinking
 ///   DELETE /AsterTracking/Accounts/{service}                 unlinks
 /// A link that ran out or was refused is 410; a service the server has no app for yet is 409.
@@ -35,15 +36,17 @@ public class AccountsController : ControllerBase
     private readonly SimklClient _simkl;
     private readonly AniListClient _aniList;
     private readonly MyAnimeListClient _mal;
+    private readonly LastFmClient _lastFm;
     private readonly IReadOnlyList<ITracker> _trackers;
     private readonly IUserManager _users;
 
-    public AccountsController(AccountStore store, SimklClient simkl, AniListClient aniList, MyAnimeListClient mal, IEnumerable<ITracker> trackers, IUserManager users)
+    public AccountsController(AccountStore store, SimklClient simkl, AniListClient aniList, MyAnimeListClient mal, LastFmClient lastFm, IEnumerable<ITracker> trackers, IUserManager users)
     {
         _store = store;
         _simkl = simkl;
         _aniList = aniList;
         _mal = mal;
+        _lastFm = lastFm;
         _trackers = trackers.ToList();
         _users = users;
     }
@@ -63,6 +66,7 @@ public class AccountsController : ControllerBase
             Simkl = Describe(_simkl, tracking),
             AniList = Describe(_aniList, tracking),
             MyAnimeList = Describe(_mal, tracking),
+            LastFm = Describe(_lastFm, tracking),
             Waiting = tracking.Pending.Count,
             Log = Enumerable.Reverse(tracking.Log).ToList(),
         };
@@ -112,6 +116,21 @@ public class AccountsController : ControllerBase
                     ExpiresIn = (int)(code.Expires - DateTimeOffset.UtcNow).TotalSeconds,
                 };
 
+            case LastFmClient:
+                string token, approve;
+                try
+                {
+                    (token, approve) = await _lastFm.StartSignInAsync(cancellation).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is TrackerException or SignedOutException or HttpRequestException or TaskCanceledException)
+                {
+                    return Problem(ex.Message, statusCode: StatusCodes.Status502BadGateway);
+                }
+
+                // Last.fm's tokens are good for an hour.
+                Pending[(id, tracker.Service)] = new Linking(DateTimeOffset.UtcNow.AddMinutes(55), token);
+                return new LinkDto { Url = approve, Interval = 5, ExpiresIn = 55 * 60 };
+
             case MyAnimeListClient:
                 var (url, verifier) = MyAnimeListClient.StartSignIn();
                 Pending[(id, tracker.Service)] = new Linking(DateTimeOffset.UtcNow + PasteTime, verifier);
@@ -149,7 +168,7 @@ public class AccountsController : ControllerBase
         }
 
         var code = Pasted(pasted?.Code);
-        if (tracker is not SimklClient && code is null)
+        if (tracker is not (SimklClient or LastFmClient) && code is null)
         {
             return Problem("Paste the code the sign-in page showed.", statusCode: StatusCodes.Status400BadRequest);
         }
@@ -179,6 +198,20 @@ public class AccountsController : ControllerBase
                         Name = await _simkl.UserNameAsync(tokens.Access, cancellation).ConfigureAwait(false),
                         Linked = DateTimeOffset.UtcNow,
                     };
+                    break;
+
+                case LastFmClient:
+                    if (linking is null)
+                    {
+                        return StatusCode(StatusCodes.Status410Gone);
+                    }
+
+                    if (await _lastFm.PollAsync(linking.Secret, cancellation).ConfigureAwait(false) is not LinkedAccount approved)
+                    {
+                        return Accepted();
+                    }
+
+                    account = approved;
                     break;
 
                 case MyAnimeListClient:
@@ -322,6 +355,8 @@ public class AccountsDto
 
     public AccountDto MyAnimeList { get; set; } = new();
 
+    public AccountDto LastFm { get; set; } = new();
+
     /// <summary>Sends waiting to be retried.</summary>
     public int Waiting { get; set; }
 
@@ -361,7 +396,7 @@ public class LinkDto
     /// <summary>Where to go: the page to enter <see cref="Code"/> on, or the service's sign-in.</summary>
     public string Url { get; set; } = string.Empty;
 
-    /// <summary>Simkl's code to enter.</summary>
+    /// <summary>Simkl's code to enter (none for Last.fm, where the person only approves Aster at <see cref="Url"/>).</summary>
     public string? Code { get; set; }
 
     /// <summary>The address with the code in it, for a QR code, where the service gives one.</summary>
@@ -370,7 +405,7 @@ public class LinkDto
     /// <summary>Whether the sign-in ends with a code to paste back to Complete (AniList, MyAnimeList).</summary>
     public bool Paste { get; set; }
 
-    /// <summary>Seconds to wait between Complete calls (Simkl).</summary>
+    /// <summary>Seconds to wait between Complete calls (Simkl, Last.fm).</summary>
     public double Interval { get; set; }
 
     public int ExpiresIn { get; set; }

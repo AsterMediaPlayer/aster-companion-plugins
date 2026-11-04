@@ -97,6 +97,8 @@ public sealed class UserTracking
 
     public LinkedAccount? MyAnimeList { get; set; }
 
+    public LinkedAccount? LastFm { get; set; }
+
     /// <summary>Sends that failed while a service was down, retried later.</summary>
     public List<PendingSend> Pending { get; set; } = new();
 
