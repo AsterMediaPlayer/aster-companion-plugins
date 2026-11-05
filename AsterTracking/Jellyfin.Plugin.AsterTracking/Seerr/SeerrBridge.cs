@@ -127,7 +127,8 @@ public sealed partial class SeerrBridge
             return null;
         }
 
-        if (reply?["results"] is not JsonArray results)
+        // Only a list answer ({ results: [...] }); some answers are arrays (Seerr's sliders) or single titles.
+        if (reply is not JsonObject page || page["results"] is not JsonArray results)
         {
             return null;
         }
