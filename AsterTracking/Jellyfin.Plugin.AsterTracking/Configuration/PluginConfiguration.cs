@@ -59,14 +59,17 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>Tags and keywords kept out of Discover for everyone.</summary>
     public string BlockedTags { get; set; } = string.Empty;
 
-    /// <summary>Further blocks for particular people (a kids' account, say), on top of everyone's.</summary>
+    /// <summary>Further blocks for some people (kids' accounts, say), on top of everyone's.</summary>
     public List<PersonBlock> PersonBlocks { get; set; } = new();
 }
 
-/// <summary>One person's own blocks, besides everyone's.</summary>
+/// <summary>Further blocks for some people, besides everyone's.</summary>
 public class PersonBlock
 {
-    /// <summary>The Jellyfin user's id.</summary>
+    /// <summary>The Jellyfin users these apply to: ids, separated by commas.</summary>
+    public string UserIds { get; set; } = string.Empty;
+
+    /// <summary>One user's id, as the first version kept it (still honoured).</summary>
     public string UserId { get; set; } = string.Empty;
 
     public string Genres { get; set; } = string.Empty;

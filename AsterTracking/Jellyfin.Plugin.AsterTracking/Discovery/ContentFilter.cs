@@ -28,7 +28,7 @@ public sealed class ContentFilter
         var genres = new HashSet<string>(Names(config.BlockedGenres), StringComparer.OrdinalIgnoreCase);
         var tags = new HashSet<string>(Names(config.BlockedTags), StringComparer.OrdinalIgnoreCase);
         var adult = config.BlockAdult;
-        foreach (var own in config.PersonBlocks.Where(p => Guid.TryParse(p.UserId, out var id) && id == userId))
+        foreach (var own in config.PersonBlocks.Where(p => Names(p.UserIds).Append(p.UserId).Any(id => Guid.TryParse(id, out var who) && who == userId)))
         {
             genres.UnionWith(Names(own.Genres));
             tags.UnionWith(Names(own.Tags));

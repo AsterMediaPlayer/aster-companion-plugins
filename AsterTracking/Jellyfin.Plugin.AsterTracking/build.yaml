@@ -1,6 +1,6 @@
 name: "Aster Tracking"
 guid: "023a7921-895e-40fb-b815-ab4462f68107"
-version: "0.9.0.0"
+version: "0.9.1.0"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -15,6 +15,7 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterTracking.dll"
 changelog: >
+  - 0.9.1.0: Extra Discover blocks for several people at once: tick everyone they apply to.
   - 0.9.0.0: The admin can keep titles out of Discover: adult titles, and blocked genres and tags (AniList and
     MyAnimeList genres and tags, TMDB genres and keywords, the library's), for everyone and for particular people.
     Applied to the server's rows and to Seerr's lists, search and title pages passing through.

@@ -77,12 +77,11 @@
                         <label class="inputLabel inputLabelUnfocused" for="BlockedTags">Blocked tags and keywords, for everyone</label>
                         <textarea id="BlockedTags" is="emby-textarea" rows="2" placeholder="Nudity, Gore"></textarea>
                     </div>
-                    <div class="selectContainer">
-                        <label class="selectLabel" for="BlockUser">And for one person</label>
-                        <select id="BlockUser" is="emby-select"></select>
-                    </div>
+                    <h3 style="margin:1em 0 .3em">Extra blocks for some people</h3>
+                    <p class="fieldDescription">For the people ticked here (kids' accounts, say), on top of everyone's.</p>
+                    <div id="BlockPeople" class="checkboxList" style="display:flex;flex-wrap:wrap;gap:.2em 1.5em;margin:.5em 0 1em"></div>
                     <div class="checkboxContainer">
-                        <label><input id="PersonAdult" type="checkbox" is="emby-checkbox" /><span>Hide titles marked adult for this person</span></label>
+                        <label><input id="PersonAdult" type="checkbox" is="emby-checkbox" /><span>Hide titles marked adult for them</span></label>
                     </div>
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="PersonGenres">Their blocked genres, besides everyone's</label>
@@ -142,27 +141,36 @@
                   paste: 'Open your ListenBrainz settings (opens a new tab), copy your User token, and paste it here.' },
                 { id: 'hardcover', key: 'Hardcover', name: 'Hardcover', sends: 'Keep this person\'s audiobook progress on Hardcover' }
             ];
-            // Per person blocks, as the configuration keeps them; the one shown is edited in place.
-            var personBlocks = [];
-            var blockShown = null;
-
-            function keepPersonBlock() {
-                if (!blockShown) { return; }
+            // The extra blocks for some people: one set, for everyone ticked.
+            function showPersonBlocks(config, users) {
                 var view = page();
-                var block = personBlocks.find(function (b) { return b.UserId === blockShown; });
-                if (!block) { block = { UserId: blockShown }; personBlocks.push(block); }
-                block.Genres = view.querySelector('#PersonGenres').value.trim();
-                block.Tags = view.querySelector('#PersonTags').value.trim();
-                block.BlockAdult = view.querySelector('#PersonAdult').checked;
-            }
-
-            function showPersonBlock(userId) {
-                var view = page();
-                blockShown = userId;
-                var block = personBlocks.find(function (b) { return b.UserId === userId; }) || {};
+                var blocks = config.PersonBlocks || [];
+                var block = blocks[0] || {};
+                var ticked = {};
+                blocks.forEach(function (b) {
+                    (b.UserIds || '').split(/[,\s]+/).concat([b.UserId || '']).forEach(function (id) { if (id) { ticked[id.replace(/-/g, '').toLowerCase()] = true; } });
+                });
+                view.querySelector('#BlockPeople').innerHTML = users.map(function (u) {
+                    var id = u.Id.replace(/-/g, '').toLowerCase();
+                    return '<label style="display:inline-flex;align-items:center;gap:.4em;min-width:9em">'
+                        + '<input type="checkbox" class="blockPerson" value="' + id + '"' + (ticked[id] ? ' checked' : '') + ' />'
+                        + '<span>' + text(u.Name) + '</span></label>';
+                }).join('');
                 view.querySelector('#PersonGenres').value = block.Genres || '';
                 view.querySelector('#PersonTags').value = block.Tags || '';
                 view.querySelector('#PersonAdult').checked = !!block.BlockAdult;
+            }
+
+            function personBlocksToSave() {
+                var view = page();
+                var ids = Array.prototype.map.call(view.querySelectorAll('.blockPerson:checked'), function (box) { return box.value; });
+                var block = {
+                    UserIds: ids.join(','),
+                    Genres: view.querySelector('#PersonGenres').value.trim(),
+                    Tags: view.querySelector('#PersonTags').value.trim(),
+                    BlockAdult: view.querySelector('#PersonAdult').checked
+                };
+                return ids.length && (block.Genres || block.Tags || block.BlockAdult) ? [block] : [];
             }
 
             var configKeys = ['TmdbApiKey', 'SimklClientId', 'AniListClientId', 'MyAnimeListClientId', 'LastFmApiKey', 'LastFmSharedSecret', 'HardcoverClientId'];
@@ -338,7 +346,7 @@
             }
 
             build();
-            page().querySelector('#BlockUser').addEventListener('change', function () { keepPersonBlock(); showPersonBlock(this.value); });
+
             page().querySelector('#TrackingUser').addEventListener('change', function () { stopLinking(); showAccounts(); });
             page().addEventListener('pagehide', stopLinking);
 
@@ -353,12 +361,7 @@
                     view.querySelector('#BlockAdult').checked = config.BlockAdult !== false;
                     view.querySelector('#BlockedGenres').value = config.BlockedGenres || '';
                     view.querySelector('#BlockedTags').value = config.BlockedTags || '';
-                    personBlocks = (config.PersonBlocks || []).map(function (b) { return Object.assign({}, b); });
-                    ApiClient.getUsers().then(function (users) {
-                        var select = view.querySelector('#BlockUser');
-                        select.innerHTML = users.map(function (u) { return '<option value="' + u.Id.replace(/-/g, '') + '">' + text(u.Name) + '</option>'; }).join('');
-                        showPersonBlock(select.value);
-                    });
+                    ApiClient.getUsers().then(function (users) { showPersonBlocks(config, users); });
                     Dashboard.hideLoadingMsg();
                 });
                 var select = view.querySelector('#TrackingUser');
@@ -391,11 +394,10 @@
                     config.SeerrUrl = url;
                     config.SeerrApiKey = view.querySelector('#SeerrApiKey').value.trim();
                     configKeys.forEach(function (key) { config[key] = view.querySelector('#' + key).value.trim(); });
-                    keepPersonBlock();
                     config.BlockAdult = view.querySelector('#BlockAdult').checked;
                     config.BlockedGenres = view.querySelector('#BlockedGenres').value.trim();
                     config.BlockedTags = view.querySelector('#BlockedTags').value.trim();
-                    config.PersonBlocks = personBlocks.filter(function (b) { return b.Genres || b.Tags || b.BlockAdult; });
+                    config.PersonBlocks = personBlocksToSave();
                     ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);
                         showAccounts();
