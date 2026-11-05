@@ -60,6 +60,10 @@ public sealed class LibraryIndex
             if (item.InLibrary is null && Find(item) is { } found)
             {
                 item.InLibrary = new LibraryMatchDto { ItemId = found.Id, Name = found.Name, Type = found is Movie ? "Movie" : "Series" };
+
+                // The library's genres and tags count too, for titles their source said little about.
+                item.Genres = item.Genres.Union(found.Genres, StringComparer.OrdinalIgnoreCase).ToList();
+                item.Tags = item.Tags.Union(found.Tags, StringComparer.OrdinalIgnoreCase).ToList();
             }
         }
     }

@@ -50,6 +50,12 @@ public sealed class HomeService
         _users = users;
         _userData = userData;
         _index = index;
+
+        // The admin's blocks changed: pages are built again with them.
+        if (Plugin.Instance is { } plugin)
+        {
+            plugin.ConfigurationChanged += (_, _) => _homes.Clear();
+        }
         _log = log;
     }
 
@@ -195,8 +201,15 @@ public sealed class HomeService
             Match(profile, item);
         }
 
+        // What the server's admin keeps out of Discover, for this person.
+        var rules = ContentFilter.For(user.Id);
+        if (rules.Tags.Count > 0)
+        {
+            await _tmdb.FillKeywordsAsync(all, cancellation).ConfigureAwait(false);
+        }
+
         var recommended = candidates.Values
-            .Where(c => !profile.Watched(c.Item))
+            .Where(c => !profile.Watched(c.Item) && !rules.Blocks(c.Item))
             .Select(c => (c.Item, Score: c.Score * (c.Item.InLibrary is not null ? 1.6 : 1.0) + profile.Affinity(c.Item) * 0.3))
             .OrderByDescending(c => c.Score)
             .Select(c => c.Item)
@@ -223,7 +236,7 @@ public sealed class HomeService
             Row($"because-{seed.Source.Id}", "because", $"Because You Watched {seed.Source.Name}", null, items);
         }
 
-        Row("library", "library", "On Your Server, Not Yet Watched", "Picked for you from what's here", Unwatched(profile, candidates));
+        Row("library", "library", "On Your Server, Not Yet Watched", "Picked for you from what's here", Unwatched(profile, candidates).Where(i => !rules.Blocks(i)));
         var watchlist = await watchlists.ConfigureAwait(false);
         Row("watchlist", "watchlist", "Your Watchlists", null, watchlist);
         Row("trending", "trending", "Trending", null, await trending.ConfigureAwait(false));
@@ -233,6 +246,22 @@ public sealed class HomeService
         foreach (var item in rows.SelectMany(r => r.Items).Where(i => i.InLibrary is null))
         {
             Match(profile, item);
+        }
+
+        // The blocks over every row, then rows left empty dropped.
+        if (rules.Any)
+        {
+            if (rules.Tags.Count > 0)
+            {
+                await _tmdb.FillKeywordsAsync(rows.SelectMany(r => r.Items), cancellation).ConfigureAwait(false);
+            }
+
+            foreach (var row in rows)
+            {
+                row.Items.RemoveAll(rules.Blocks);
+            }
+
+            rows.RemoveAll(r => r.Items.Count == 0);
         }
 
         return new DiscoverHomeDto { Rows = rows, Built = DateTimeOffset.UtcNow };
@@ -379,7 +408,7 @@ public sealed class HomeService
         return new Seed(source, weight, []);
     }
 
-    private const string AniListMedia = "id idMal title { english romaji } seasonYear format episodes coverImage { large } description(asHtml:false) isAdult";
+    private const string AniListMedia = DiscoveryService.AniListMedia;
 
     private async Task<List<DiscoverItemDto>> AniListRecommendationsAsync(int id, CancellationToken cancellation)
     {
@@ -497,6 +526,8 @@ public sealed class HomeService
             Poster = $"/Items/{item.Id:N}/Images/Primary?maxHeight=450",
             Overview = item.Overview,
             Anime = !string.IsNullOrEmpty(item.GetProviderId("Shoko Series")),
+            Genres = item.Genres.ToList(),
+            Tags = item.Tags.ToList(),
             InLibrary = new LibraryMatchDto { ItemId = item.Id, Name = item.Name, Type = movie ? "Movie" : "Series" },
         };
         foreach (var (provider, name) in new[] { ("Tmdb", "tmdb"), ("Tvdb", "tvdb"), ("Imdb", "imdb"), ("AniDB", "anidb") })

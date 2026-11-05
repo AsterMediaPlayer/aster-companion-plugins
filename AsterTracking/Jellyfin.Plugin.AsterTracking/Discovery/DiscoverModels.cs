@@ -57,6 +57,15 @@ public class DiscoverItemDto
     /// <summary>Anime, as the lists' services keep it apart.</summary>
     public bool Anime { get; set; }
 
+    /// <summary>Its genres, from whichever source knew them (and the library's, when it's here).</summary>
+    public List<string> Genres { get; set; } = new();
+
+    /// <summary>Its tags and keywords: AniList's tags, TMDB's keywords, the library's tags.</summary>
+    public List<string> Tags { get; set; } = new();
+
+    /// <summary>Marked adult by its source.</summary>
+    public bool Adult { get; set; }
+
     /// <summary>The title on this server for this person, to play instead of request; null when it isn't here.</summary>
     public LibraryMatchDto? InLibrary { get; set; }
 }

@@ -49,4 +49,29 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>This server's own TMDB key (a v4 read access token or a v3 key) for Discover's recommendations, in place of Aster's.</summary>
     public string TmdbApiKey { get; set; } = string.Empty;
+
+    /// <summary>Whether titles their source marks adult are kept out of Discover, for everyone. On unless turned off.</summary>
+    public bool BlockAdult { get; set; } = true;
+
+    /// <summary>Genres kept out of Discover for everyone: names, separated by commas or new lines.</summary>
+    public string BlockedGenres { get; set; } = string.Empty;
+
+    /// <summary>Tags and keywords kept out of Discover for everyone.</summary>
+    public string BlockedTags { get; set; } = string.Empty;
+
+    /// <summary>Further blocks for particular people (a kids' account, say), on top of everyone's.</summary>
+    public List<PersonBlock> PersonBlocks { get; set; } = new();
+}
+
+/// <summary>One person's own blocks, besides everyone's.</summary>
+public class PersonBlock
+{
+    /// <summary>The Jellyfin user's id.</summary>
+    public string UserId { get; set; } = string.Empty;
+
+    public string Genres { get; set; } = string.Empty;
+
+    public string Tags { get; set; } = string.Empty;
+
+    public bool BlockAdult { get; set; }
 }

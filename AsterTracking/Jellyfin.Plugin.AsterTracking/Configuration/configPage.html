@@ -4,7 +4,7 @@
     <title>Aster Tracking</title>
 </head>
 <body>
-    <div id="AsterTrackingConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox,emby-select">
+    <div id="AsterTrackingConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox,emby-select,emby-textarea">
         <div data-role="content">
             <div class="content-primary">
                 <form id="AsterTrackingConfigForm">
@@ -58,6 +58,41 @@
                         </div>
                     </div>
 
+                    <h3 style="margin:1.5em 0 .5em">Kept out of Discover</h3>
+                    <p class="fieldDescription">
+                        Titles with any of these never show in Aster's Discover, in the server's rows or in Seerr's rows and
+                        search, and their Seerr pages won't open. Genres and tags are matched by name, ignoring case:
+                        AniList's and MyAnimeList's genres and tags, TMDB's genres and keywords, and your library's genres and
+                        tags. Seerr's own rows and search can only be checked by genre and the adult flag; keywords count there
+                        once a title's page opens. Separate names with commas or new lines.
+                    </p>
+                    <div class="checkboxContainer">
+                        <label><input id="BlockAdult" type="checkbox" is="emby-checkbox" /><span>Hide titles marked adult</span></label>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="BlockedGenres">Blocked genres, for everyone</label>
+                        <textarea id="BlockedGenres" is="emby-textarea" rows="2" placeholder="Hentai, Ecchi"></textarea>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="BlockedTags">Blocked tags and keywords, for everyone</label>
+                        <textarea id="BlockedTags" is="emby-textarea" rows="2" placeholder="Nudity, Gore"></textarea>
+                    </div>
+                    <div class="selectContainer">
+                        <label class="selectLabel" for="BlockUser">And for one person</label>
+                        <select id="BlockUser" is="emby-select"></select>
+                    </div>
+                    <div class="checkboxContainer">
+                        <label><input id="PersonAdult" type="checkbox" is="emby-checkbox" /><span>Hide titles marked adult for this person</span></label>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="PersonGenres">Their blocked genres, besides everyone's</label>
+                        <textarea id="PersonGenres" is="emby-textarea" rows="2" placeholder="Horror"></textarea>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="PersonTags">Their blocked tags and keywords, besides everyone's</label>
+                        <textarea id="PersonTags" is="emby-textarea" rows="2"></textarea>
+                    </div>
+
                     <h2 class="sectionTitle" style="margin-top:2em">Developer apps</h2>
                     <p class="fieldDescription">Blank uses Aster's own apps. Changing one means everyone links that service again.</p>
                     <div class="inputContainer">
@@ -107,6 +142,29 @@
                   paste: 'Open your ListenBrainz settings (opens a new tab), copy your User token, and paste it here.' },
                 { id: 'hardcover', key: 'Hardcover', name: 'Hardcover', sends: 'Keep this person\'s audiobook progress on Hardcover' }
             ];
+            // Per person blocks, as the configuration keeps them; the one shown is edited in place.
+            var personBlocks = [];
+            var blockShown = null;
+
+            function keepPersonBlock() {
+                if (!blockShown) { return; }
+                var view = page();
+                var block = personBlocks.find(function (b) { return b.UserId === blockShown; });
+                if (!block) { block = { UserId: blockShown }; personBlocks.push(block); }
+                block.Genres = view.querySelector('#PersonGenres').value.trim();
+                block.Tags = view.querySelector('#PersonTags').value.trim();
+                block.BlockAdult = view.querySelector('#PersonAdult').checked;
+            }
+
+            function showPersonBlock(userId) {
+                var view = page();
+                blockShown = userId;
+                var block = personBlocks.find(function (b) { return b.UserId === userId; }) || {};
+                view.querySelector('#PersonGenres').value = block.Genres || '';
+                view.querySelector('#PersonTags').value = block.Tags || '';
+                view.querySelector('#PersonAdult').checked = !!block.BlockAdult;
+            }
+
             var configKeys = ['TmdbApiKey', 'SimklClientId', 'AniListClientId', 'MyAnimeListClientId', 'LastFmApiKey', 'LastFmSharedSecret', 'HardcoverClientId'];
             var linkTimer = null;
             var waiting = null;   // the service whose code or approval is awaited, checked again on coming back to the tab
@@ -280,6 +338,7 @@
             }
 
             build();
+            page().querySelector('#BlockUser').addEventListener('change', function () { keepPersonBlock(); showPersonBlock(this.value); });
             page().querySelector('#TrackingUser').addEventListener('change', function () { stopLinking(); showAccounts(); });
             page().addEventListener('pagehide', stopLinking);
 
@@ -291,6 +350,15 @@
                     view.querySelector('#SeerrUrl').value = config.SeerrUrl || '';
                     view.querySelector('#SeerrApiKey').value = config.SeerrApiKey || '';
                     configKeys.forEach(function (key) { view.querySelector('#' + key).value = config[key] || ''; });
+                    view.querySelector('#BlockAdult').checked = config.BlockAdult !== false;
+                    view.querySelector('#BlockedGenres').value = config.BlockedGenres || '';
+                    view.querySelector('#BlockedTags').value = config.BlockedTags || '';
+                    personBlocks = (config.PersonBlocks || []).map(function (b) { return Object.assign({}, b); });
+                    ApiClient.getUsers().then(function (users) {
+                        var select = view.querySelector('#BlockUser');
+                        select.innerHTML = users.map(function (u) { return '<option value="' + u.Id.replace(/-/g, '') + '">' + text(u.Name) + '</option>'; }).join('');
+                        showPersonBlock(select.value);
+                    });
                     Dashboard.hideLoadingMsg();
                 });
                 var select = view.querySelector('#TrackingUser');
@@ -323,6 +391,11 @@
                     config.SeerrUrl = url;
                     config.SeerrApiKey = view.querySelector('#SeerrApiKey').value.trim();
                     configKeys.forEach(function (key) { config[key] = view.querySelector('#' + key).value.trim(); });
+                    keepPersonBlock();
+                    config.BlockAdult = view.querySelector('#BlockAdult').checked;
+                    config.BlockedGenres = view.querySelector('#BlockedGenres').value.trim();
+                    config.BlockedTags = view.querySelector('#BlockedTags').value.trim();
+                    config.PersonBlocks = personBlocks.filter(function (b) { return b.Genres || b.Tags || b.BlockAdult; });
                     ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);
                         showAccounts();

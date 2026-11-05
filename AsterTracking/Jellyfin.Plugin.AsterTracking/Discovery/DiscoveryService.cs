@@ -34,9 +34,10 @@ public sealed class DiscoveryService
     private readonly ILibraryManager _library;
     private readonly IUserManager _users;
     private readonly LibraryIndex _index;
+    private readonly TmdbClient _tmdb;
     private readonly ConcurrentDictionary<(Guid User, string Service, string List), (List<DiscoverItemDto> Items, DateTimeOffset At)> _lists = new();
 
-    public DiscoveryService(AccountStore store, TokenService tokens, SimklClient simkl, AniListClient aniList, MyAnimeListClient mal, AnimeIds anime, ILibraryManager library, IUserManager users, LibraryIndex index)
+    public DiscoveryService(AccountStore store, TokenService tokens, SimklClient simkl, AniListClient aniList, MyAnimeListClient mal, AnimeIds anime, ILibraryManager library, IUserManager users, LibraryIndex index, TmdbClient tmdb)
     {
         _store = store;
         _tokens = tokens;
@@ -47,6 +48,7 @@ public sealed class DiscoveryService
         _library = library;
         _users = users;
         _index = index;
+        _tmdb = tmdb;
     }
 
     /// <summary>Every list, by service, in the order the apps show them.</summary>
@@ -122,6 +124,15 @@ public sealed class DiscoveryService
 
         var slice = cached.Items.Skip((page - 1) * pageSize).Take(pageSize).Select(Copy).ToList();
         MatchLibrary(userId, slice);
+
+        // What the server's admin keeps out of Discover.
+        var rules = ContentFilter.For(userId);
+        if (rules.Tags.Count > 0)
+        {
+            await _tmdb.FillKeywordsAsync(slice, cancellation).ConfigureAwait(false);
+        }
+
+        slice.RemoveAll(rules.Blocks);
         return new DiscoverPageDto
         {
             Items = slice,
@@ -207,6 +218,7 @@ public sealed class DiscoveryService
             Poster = SimklClient.Poster(media["poster"]?.ToString()),
             Overview = media["overview"]?.ToString(),
         };
+        item.Genres.AddRange((media["genres"]?.AsArray() ?? []).Select(g => g?.ToString()).OfType<string>());
         foreach (var (from, to) in new[] { ("tmdb", "tmdb"), ("tvdb", "tvdb"), ("imdb", "imdb"), ("anilist", "anilist"), ("mal", "mal"), ("anidb", "anidb"), ("simkl", "simkl"), ("simkl_id", "simkl") })
         {
             if (media["ids"]?[from] is JsonValue v && v.ToString() is { Length: > 0 } id)
@@ -220,7 +232,7 @@ public sealed class DiscoveryService
 
     // ---- AniList ----
 
-    private const string AniListMedia = "id idMal title { english romaji } seasonYear format episodes coverImage { large } description(asHtml:false)";
+    internal const string AniListMedia = "id idMal title { english romaji } seasonYear format episodes coverImage { large } description(asHtml:false) genres tags { name isMediaSpoiler } isAdult";
 
     private async Task<List<DiscoverItemDto>> AniListAsync(Guid userId, string list, CancellationToken cancellation)
     {
@@ -306,6 +318,9 @@ public sealed class DiscoveryService
             Overview = media["description"]?.ToString(),
         };
         item.Ids["anilist"] = media["id"]!.ToString();
+        item.Genres.AddRange((media["genres"]?.AsArray() ?? []).Select(g => g?.ToString()).OfType<string>());
+        item.Tags.AddRange((media["tags"]?.AsArray() ?? []).Select(t => t?["name"]?.ToString()).OfType<string>());
+        item.Adult = media["isAdult"] is JsonValue adult && adult.TryGetValue<bool>(out var isAdult) && isAdult;
         if (media["idMal"] is JsonValue mal && mal.TryGetValue<int>(out var malId))
         {
             item.Ids["mal"] = malId.ToString(CultureInfo.InvariantCulture);
@@ -316,7 +331,7 @@ public sealed class DiscoveryService
 
     // ---- MyAnimeList ----
 
-    private const string MalFields = "fields=alternative_titles,start_season,media_type,num_episodes,synopsis,list_status,my_list_status";
+    private const string MalFields = "fields=alternative_titles,start_season,media_type,num_episodes,synopsis,list_status,my_list_status,genres,nsfw";
 
     private async Task<List<DiscoverItemDto>> MyAnimeListAsync(Guid userId, string list, CancellationToken cancellation)
     {
@@ -355,6 +370,8 @@ public sealed class DiscoveryService
                 Overview = node["synopsis"]?.ToString(),
             };
             item.Ids["mal"] = node["id"]!.ToString();
+            item.Genres.AddRange((node["genres"]?.AsArray() ?? []).Select(g => g?["name"]?.ToString()).OfType<string>());
+            item.Adult = node["nsfw"]?.ToString() == "black";
             if (list == "watching" && entry["list_status"]?["num_episodes_watched"] is JsonValue w && w.TryGetValue<int>(out var watched))
             {
                 var total = node["num_episodes"] is JsonValue t && t.TryGetValue<int>(out var all) && all > 0 ? all : (int?)null;
@@ -432,6 +449,7 @@ public sealed class DiscoveryService
     {
         Title = item.Title, Year = item.Year, MediaType = item.MediaType, Ids = new Dictionary<string, string>(item.Ids), Poster = item.Poster,
         Overview = item.Overview, Progress = item.Progress, Anime = item.Anime,
+        Genres = new List<string>(item.Genres), Tags = new List<string>(item.Tags), Adult = item.Adult,
     };
 
     private static int? YearOf(string? date) =>

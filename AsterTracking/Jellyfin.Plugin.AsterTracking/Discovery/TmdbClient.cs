@@ -53,13 +53,45 @@ public sealed class TmdbClient
         return items;
     }
 
+    /// <summary>
+    /// TMDB's keywords for titles that have a TMDB id and no tags yet (not AniList's, which bring their own), for the
+    /// admin's blocked tags. Each title's are kept a day; eight asked at a time.
+    /// </summary>
+    public async Task FillKeywordsAsync(IEnumerable<DiscoverItemDto> items, CancellationToken cancellation)
+    {
+        if (!Available)
+        {
+            return;
+        }
+
+        using var gate = new SemaphoreSlim(8);
+        await Task.WhenAll(items.Where(i => i.Tags.Count == 0 && i.Ids.ContainsKey("tmdb")).Select(async item =>
+        {
+            await gate.WaitAsync(cancellation).ConfigureAwait(false);
+            try
+            {
+                var movie = item.MediaType == "movie";
+                var reply = await GetAsync($"{(movie ? "movie" : "tv")}/{item.Ids["tmdb"]}/keywords?x=1", TimeSpan.FromDays(1), cancellation).ConfigureAwait(false);
+                item.Tags.AddRange((reply?[movie ? "keywords" : "results"]?.AsArray() ?? []).Select(k => k?["name"]?.ToString()).OfType<string>());
+            }
+            catch (Exception ex) when (ex is TrackerException or HttpRequestException or TaskCanceledException)
+            {
+                // Left without: genres and the adult flag still count.
+            }
+            finally
+            {
+                gate.Release();
+            }
+        })).ConfigureAwait(false);
+    }
+
     private static List<DiscoverItemDto> Items(JsonNode? reply, string? mediaType)
     {
         var items = new List<DiscoverItemDto>();
         foreach (var result in reply?["results"]?.AsArray() ?? [])
         {
             var type = mediaType ?? result?["media_type"]?.ToString();
-            if (result is null || type is not ("movie" or "tv") || result["adult"]?.GetValue<bool>() == true)
+            if (result is null || type is not ("movie" or "tv"))
             {
                 continue;
             }
@@ -74,8 +106,17 @@ public sealed class TmdbClient
                 Overview = result["overview"]?.ToString(),
                 // Animation from Japan, as Seerr's Anime filter has it.
                 Anime = result["original_language"]?.ToString() == "ja" && (result["genre_ids"]?.AsArray().Any(g => g?.GetValue<int>() == 16) ?? false),
+                Adult = result["adult"]?.GetValue<bool>() == true,
             };
             item.Ids["tmdb"] = result["id"]!.ToString();
+            foreach (var genre in result["genre_ids"]?.AsArray() ?? [])
+            {
+                if (genre is JsonValue g && g.TryGetValue<int>(out var id) && ContentFilter.TmdbGenres.TryGetValue(id, out var name))
+                {
+                    item.Genres.Add(name);
+                }
+            }
+
             items.Add(item);
         }
 

@@ -146,6 +146,20 @@ browsing, titles, search and requests pass: `auth/me`, `movie|tv|person|collecti
 else is 403. `Features.Seerr` is now `{ Enabled, Proxy }`: on only with Seerr's address (as this server reaches it)
 and its API key set on the dashboard.
 
+## 0.9: Kept out of Discover
+
+The admin decides what never shows in Discover (dashboard: Discover > Kept out of Discover):
+
+- **Adult titles**, as their source marks them (AniList `isAdult`, MyAnimeList `nsfw: black`, TMDB `adult`). On by default.
+- **Blocked genres** and **blocked tags and keywords**, for everyone, plus further blocks **per person** (a kids'
+  account, say). Names match whole, ignoring case, and a name blocks whether a source calls it a genre or a tag.
+- **What's checked:** AniList's and MyAnimeList's genres and tags, TMDB's genres, TMDB's keywords (when a tag is
+  blocked and the server has a TMDB key; kept a day), and the library's genres and tags for titles on the server.
+
+Applied to the plugin's lists and Discover page, and to Seerr's answers through the plugin. Lists lose their blocked
+titles; a blocked title's Seerr page answers 404. Seerr's lists and search only carry genre ids and the adult flag, so
+keyword blocks apply there once a title's page is opened. Changing the blocks rebuilds everyone's Discover page.
+
 ## Building
 
     dotnet build AsterTracking/Jellyfin.Plugin.AsterTracking -c Release

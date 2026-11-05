@@ -92,6 +92,19 @@ public sealed partial class SeerrBridge
 
         using var response = await Client().SendAsync(request, cancellation).ConfigureAwait(false);
         var text = await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false);
+
+        // What the server's admin keeps out of Discover: out of Seerr's lists too, and its title pages closed.
+        if (method == HttpMethod.Get && response.IsSuccessStatusCode)
+        {
+            var filtered = Discovery.ContentFilter.For(userId).Filter(path, text);
+            if (filtered is null)
+            {
+                return (HttpStatusCode.NotFound, "{\"message\":\"Not available on this server.\"}", "application/json");
+            }
+
+            text = filtered;
+        }
+
         return (response.StatusCode, text, response.Content.Headers.ContentType?.MediaType ?? "application/json");
     }
 
