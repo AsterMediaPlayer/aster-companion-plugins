@@ -12,10 +12,13 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool SeerrEnabled { get; set; }
 
     /// <summary>
-    /// The Seerr server's address as the apps reach it, e.g. https://requests.example.com. The apps sign each person in
-    /// to Seerr with their own Jellyfin login, so no key is kept here.
+    /// Where this server reaches Seerr, e.g. http://192.168.1.10:5055. The apps never use it: they reach Seerr through
+    /// the plugin (/AsterTracking/Seerr/api/v1/…), which calls Seerr as each person.
     /// </summary>
     public string SeerrUrl { get; set; } = string.Empty;
+
+    /// <summary>Seerr's API key (Seerr: Settings › General), with which the plugin calls Seerr as each person.</summary>
+    public string SeerrApiKey { get; set; } = string.Empty;
 
     /// <summary>
     /// This server's own Simkl app (a "TV, devices &amp; command line" app's client id), in place of Aster's built-in

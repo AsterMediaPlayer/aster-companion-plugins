@@ -11,8 +11,8 @@ Dashboard ▸ Plugins ▸ Aster Tracking ▸ **Requests (Seerr)**: turn requests
     GET /AsterTracking/Features      (any signed-in user)
     → { "Seerr": { "Enabled": true, "Url": "https://requests.example.com" }, "Services": [] }
 
-before showing their Seerr features. Seerr counts as on only with an http(s) address; without the plugin the call is a
-404, which the apps take as off. People sign in to Seerr with their own Jellyfin login, so no Seerr key is kept here.
+before showing their Seerr features; without the plugin the call is a 404, which the apps take as off. (From 0.8 the
+apps reach Seerr through the plugin, below.)
 
 ## 0.2: Simkl
 
@@ -130,6 +130,21 @@ and takes a few seconds to build.
 **TMDB needs the server admin's own key** (Discover › TMDB API key on the dashboard, free from themoviedb.org for
 personal use). Aster has none built in: an app-wide key is a paid commercial licence. Without one, the TMDB parts are
 left out.
+
+## 0.8: Seerr through the server
+
+The apps never sign in to Seerr. They call Seerr's own API through the plugin, with their Jellyfin sign-in:
+
+    {GET|POST|PUT|DELETE} /AsterTracking/Seerr/api/v1/{Seerr's path}
+
+The plugin calls Seerr with its API key **as the signed-in person** (`X-Api-User`), matched by the Jellyfin id Seerr
+keeps for each user, so Seerr's own permissions, quotas and auto-approval apply. Someone without a Seerr account is
+imported from Jellyfin on first use (Seerr's `user/import-from-jellyfin`), with Seerr's defaults for new users. Only
+browsing, titles, search and requests pass: `auth/me`, `movie|tv|person|collection/…`, `discover/…`, `search`,
+`request…` (create, edit, delete, approve, decline, retry: Seerr checks the person may), `genres`, `studio`,
+`network`, `settings/discover`, `service/radarr|sonarr`, and `user/{own id}/quota|requests|watchlist`. Everything
+else is 403. `Features.Seerr` is now `{ Enabled, Proxy }`: on only with Seerr's address (as this server reaches it)
+and its API key set on the dashboard.
 
 ## Building
 

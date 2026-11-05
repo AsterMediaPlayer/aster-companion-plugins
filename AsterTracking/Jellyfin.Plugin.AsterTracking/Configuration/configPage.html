@@ -11,16 +11,23 @@
                     <h2 class="sectionTitle">Requests (Seerr)</h2>
                     <p>
                         Aster's request features (requesting a film or show, and seeing a request's progress) stay off
-                        unless they're turned on here. Each person signs in to Seerr with their own Jellyfin login, so no
-                        Seerr key is needed.
+                        unless they're turned on here. Nobody signs in to Seerr in the apps: this server talks to Seerr for
+                        them, as each person's own Seerr user, so Seerr's permissions, quotas and auto-approval still apply.
+                        Someone without a Seerr account gets one from Jellyfin the first time they use requests, with
+                        Seerr's defaults for new users.
                     </p>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label><input id="SeerrEnabled" type="checkbox" is="emby-checkbox" /><span>Turn on requests in Aster</span></label>
                     </div>
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="SeerrUrl">Seerr address</label>
-                        <input id="SeerrUrl" type="url" is="emby-input" placeholder="https://requests.example.com" />
-                        <div class="fieldDescription">The address the apps use to reach Seerr, as you'd type it in a browser.</div>
+                        <input id="SeerrUrl" type="url" is="emby-input" placeholder="http://192.168.1.10:5055" />
+                        <div class="fieldDescription">Where this server reaches Seerr: its local address is best. The apps never use it.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="SeerrApiKey">Seerr API key</label>
+                        <input id="SeerrApiKey" type="password" is="emby-input" autocomplete="off" />
+                        <div class="fieldDescription">From Seerr: Settings › General › API Key.</div>
                     </div>
 
                     <h2 class="sectionTitle">Tracking</h2>
@@ -282,6 +289,7 @@
                 ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                     view.querySelector('#SeerrEnabled').checked = !!config.SeerrEnabled;
                     view.querySelector('#SeerrUrl').value = config.SeerrUrl || '';
+                    view.querySelector('#SeerrApiKey').value = config.SeerrApiKey || '';
                     configKeys.forEach(function (key) { view.querySelector('#' + key).value = config[key] || ''; });
                     Dashboard.hideLoadingMsg();
                 });
@@ -305,10 +313,15 @@
                     Dashboard.alert('To turn requests on, give Seerr\'s address, starting with https:// or http://.');
                     return false;
                 }
+                if (enabled && !view.querySelector('#SeerrApiKey').value.trim()) {
+                    Dashboard.alert('To turn requests on, give Seerr\'s API key (Seerr: Settings › General).');
+                    return false;
+                }
                 Dashboard.showLoadingMsg();
                 ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                     config.SeerrEnabled = enabled;
                     config.SeerrUrl = url;
+                    config.SeerrApiKey = view.querySelector('#SeerrApiKey').value.trim();
                     configKeys.forEach(function (key) { config[key] = view.querySelector('#' + key).value.trim(); });
                     ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);

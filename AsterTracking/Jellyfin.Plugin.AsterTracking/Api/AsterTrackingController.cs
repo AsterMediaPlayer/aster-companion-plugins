@@ -27,12 +27,11 @@ public class AsterTrackingController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<FeaturesDto> GetFeatures()
     {
-        var config = Plugin.Instance?.Configuration;
-        var url = SeerrAddress(config?.SeerrUrl);
-        var on = config?.SeerrEnabled == true && url is not null;
+        // On only with an address and a key: the apps reach Seerr through the plugin, never directly.
+        var on = Seerr.SeerrBridge.Connection is not null;
         return new FeaturesDto
         {
-            Seerr = new SeerrDto { Enabled = on, Url = on ? url : null },
+            Seerr = new SeerrDto { Enabled = on, Proxy = on ? "/AsterTracking/Seerr/api/v1" : null },
             Services = _trackers.Where(t => t.Available).Select(t => t.Service).ToList(),
         };
     }
@@ -60,10 +59,11 @@ public class FeaturesDto
     public List<string> Services { get; set; } = new();
 }
 
-/// <summary>Seerr: whether Aster's request features are on, and the server's address when they are.</summary>
+/// <summary>Seerr: whether Aster's request features are on, and where the apps reach Seerr's API (through this server).</summary>
 public class SeerrDto
 {
     public bool Enabled { get; set; }
 
-    public string? Url { get; set; }
+    /// <summary>Seerr's API through this server, as the signed-in person: the apps call {server}{Proxy}/{Seerr's own path}.</summary>
+    public string? Proxy { get; set; }
 }

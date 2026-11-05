@@ -4,6 +4,7 @@ using Jellyfin.Plugin.AsterTracking.Hardcover;
 using Jellyfin.Plugin.AsterTracking.LastFm;
 using Jellyfin.Plugin.AsterTracking.ListenBrainz;
 using Jellyfin.Plugin.AsterTracking.MyAnimeList;
+using Jellyfin.Plugin.AsterTracking.Seerr;
 using Jellyfin.Plugin.AsterTracking.Simkl;
 using Jellyfin.Plugin.AsterTracking.Tracking;
 using MediaBrowser.Controller;
@@ -23,6 +24,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<DiscoveryService>();
         serviceCollection.AddSingleton<TmdbClient>();
         serviceCollection.AddSingleton<HomeService>();
+        serviceCollection.AddSingleton<SeerrBridge>();
         serviceCollection.AddSingleton<SimklClient>();
         serviceCollection.AddSingleton<AniListClient>();
         serviceCollection.AddSingleton<MyAnimeListClient>();

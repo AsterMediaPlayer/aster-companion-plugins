@@ -1,6 +1,6 @@
 name: "Aster Tracking"
 guid: "023a7921-895e-40fb-b815-ab4462f68107"
-version: "0.7.0.0"
+version: "0.8.0.0"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -15,6 +15,10 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterTracking.dll"
 changelog: >
+  - 0.8.0.0: Seerr through the server. The apps no longer sign in to Seerr: they call Seerr's API through the plugin
+    (/AsterTracking/Seerr/api/v1/...), which calls Seerr as each person with its API key, so Seerr's permissions
+    still apply. People without a Seerr account are imported from Jellyfin on first use. Requests needs Seerr's
+    address and API key on this page.
   - 0.7.0.0: Discover built on the server. GET /AsterTracking/Discover/Home sends each person their whole Discover
     page: Recommended for You (from what they watch here, their favourites and their services), Because You Watched,
     On Your Server Not Yet Watched, their watchlists, trending and this season's anime.
