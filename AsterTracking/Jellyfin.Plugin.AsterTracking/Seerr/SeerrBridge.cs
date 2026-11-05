@@ -93,10 +93,13 @@ public sealed partial class SeerrBridge
         using var response = await Client().SendAsync(request, cancellation).ConfigureAwait(false);
         var text = await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false);
 
-        // What the server's admin keeps out of Discover: out of Seerr's lists too, and its title pages closed.
+        // What the server's admin keeps out of Discover: out of Seerr's lists too, and its title pages closed. Lists
+        // carry only TMDB genre ids, so with genre or tag blocks each title's names (genres and keywords) are looked up.
         if (method == HttpMethod.Get && response.IsSuccessStatusCode)
         {
-            var filtered = Discovery.ContentFilter.For(userId).Filter(path, text);
+            var rules = Discovery.ContentFilter.For(userId);
+            var known = rules.Genres.Count + rules.Tags.Count > 0 ? await NamesAsync(seerr, text, cancellation).ConfigureAwait(false) : null;
+            var filtered = rules.Filter(path, text, known);
             if (filtered is null)
             {
                 return (HttpStatusCode.NotFound, "{\"message\":\"Not available on this server.\"}", "application/json");
@@ -106,6 +109,59 @@ public sealed partial class SeerrBridge
         }
 
         return (response.StatusCode, text, response.Content.Headers.ContentType?.MediaType ?? "application/json");
+    }
+
+    /// <summary>Each title's genres and keywords from its Seerr page ("movie:603"), kept a day.</summary>
+    private readonly ConcurrentDictionary<string, (IReadOnlyList<string> Names, DateTimeOffset At)> _names = new();
+
+    /// <summary>The genres and keywords of every title in a Seerr list answer, eight looked up at a time; none for other answers.</summary>
+    private async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>?> NamesAsync((Uri Url, string Key) seerr, string json, CancellationToken cancellation)
+    {
+        JsonNode? reply;
+        try
+        {
+            reply = JsonNode.Parse(json);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+
+        if (reply?["results"] is not JsonArray results)
+        {
+            return null;
+        }
+
+        var keys = results.OfType<JsonObject>().Select(Discovery.ContentFilter.Rules.SeerrKey).OfType<string>().Distinct().ToList();
+        using var gate = new SemaphoreSlim(8);
+        await Task.WhenAll(keys.Where(k => !_names.TryGetValue(k, out var known) || DateTimeOffset.UtcNow - known.At > TimeSpan.FromDays(1)).Select(async key =>
+        {
+            await gate.WaitAsync(cancellation).ConfigureAwait(false);
+            try
+            {
+                var (type, id) = (key.Split(':')[0], key.Split(':')[1]);
+                using var request = Request(seerr, HttpMethod.Get, $"{type}/{id}", null);
+                using var response = await Client().SendAsync(request, cancellation).ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                {
+                    return;
+                }
+
+                var page = JsonNode.Parse(await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false));
+                var names = (page?["genres"]?.AsArray() ?? []).Concat(page?["keywords"]?.AsArray() ?? [])
+                    .Select(n => n?["name"]?.ToString()).OfType<string>().ToList();
+                _names[key] = (names, DateTimeOffset.UtcNow);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+            {
+                // Unknown: the list's genre ids still count.
+            }
+            finally
+            {
+                gate.Release();
+            }
+        })).ConfigureAwait(false);
+        return keys.Where(_names.ContainsKey).ToDictionary(k => k, k => _names[k].Names);
     }
 
     [GeneratedRegex(@"^user/(\d+)/")]

@@ -159,8 +159,9 @@ The admin decides what never shows in Discover (dashboard: Discover > Kept out o
   count separately: MyAnimeList calls some Ecchi titles Erotica.
 
 Applied to the plugin's lists and Discover page, and to Seerr's answers through the plugin. Lists lose their blocked
-titles; a blocked title's Seerr page answers 404. Seerr's lists and search only carry genre ids and the adult flag, so
-keyword blocks apply there once a title's page is opened. Changing the blocks rebuilds everyone's Discover page.
+titles; a blocked title's Seerr page answers 404. Seerr's lists and search carry only genre ids, so with genre or tag
+blocks each title's genres and keywords are looked up from Seerr (eight at a time, kept a day): about 0.2–0.7 s the
+first time a page is seen, nothing after. Changing the blocks rebuilds everyone's Discover page.
 
 ## Building
 
