@@ -54,8 +54,8 @@ public sealed class TmdbClient
     }
 
     /// <summary>
-    /// TMDB's keywords for titles that have a TMDB id and no tags yet (not AniList's, which bring their own), for the
-    /// admin's blocked tags. Each title's are kept a day; eight asked at a time.
+    /// TMDB's genres and keywords for titles that have a TMDB id and lack them (AniList's bring their own), for the
+    /// admin's blocks. Each title's are kept a day; eight asked at a time.
     /// </summary>
     public async Task FillKeywordsAsync(IEnumerable<DiscoverItemDto> items, CancellationToken cancellation)
     {
@@ -65,14 +65,25 @@ public sealed class TmdbClient
         }
 
         using var gate = new SemaphoreSlim(8);
-        await Task.WhenAll(items.Where(i => i.Tags.Count == 0 && i.Ids.ContainsKey("tmdb")).Select(async item =>
+        await Task.WhenAll(items.Where(i => (i.Tags.Count == 0 || i.Genres.Count == 0) && i.Ids.ContainsKey("tmdb")).Select(async item =>
         {
             await gate.WaitAsync(cancellation).ConfigureAwait(false);
             try
             {
+                // The title's genres and keywords in one request: for titles a list gave neither (Simkl's).
                 var movie = item.MediaType == "movie";
-                var reply = await GetAsync($"{(movie ? "movie" : "tv")}/{item.Ids["tmdb"]}/keywords?x=1", TimeSpan.FromDays(1), cancellation).ConfigureAwait(false);
-                item.Tags.AddRange((reply?[movie ? "keywords" : "results"]?.AsArray() ?? []).Select(k => k?["name"]?.ToString()).OfType<string>());
+                var reply = await GetAsync($"{(movie ? "movie" : "tv")}/{item.Ids["tmdb"]}?append_to_response=keywords", TimeSpan.FromDays(1), cancellation).ConfigureAwait(false);
+                if (item.Genres.Count == 0)
+                {
+                    item.Genres.AddRange((reply?["genres"]?.AsArray() ?? []).Select(g => g?["name"]?.ToString()).OfType<string>());
+                }
+
+                if (item.Tags.Count == 0)
+                {
+                    item.Tags.AddRange((reply?["keywords"]?[movie ? "keywords" : "results"]?.AsArray() ?? []).Select(k => k?["name"]?.ToString()).OfType<string>());
+                }
+
+                item.Adult |= reply?["adult"] is JsonValue a && a.TryGetValue<bool>(out var adult) && adult;
             }
             catch (Exception ex) when (ex is TrackerException or HttpRequestException or TaskCanceledException)
             {

@@ -116,8 +116,9 @@ public sealed class DiscoveryService
         if (!_lists.TryGetValue(key, out var cached) || DateTimeOffset.UtcNow - cached.At > Keep)
         {
             var items = await FetchAsync(userId, service, list, cancellation).ConfigureAwait(false);
-            // Ids once for the whole list (ARM in batches), not on every page.
+            // Ids once for the whole list (ARM in batches), not on every page, and genres where the service gave none.
             await FillIdsAsync(items, cancellation).ConfigureAwait(false);
+            await FillAnimeGenresAsync(items, cancellation).ConfigureAwait(false);
             cached = (items, DateTimeOffset.UtcNow);
             _lists[key] = cached;
         }
@@ -127,7 +128,7 @@ public sealed class DiscoveryService
 
         // What the server's admin keeps out of Discover.
         var rules = ContentFilter.For(userId);
-        if (rules.Tags.Count > 0)
+        if (rules.Any)
         {
             await _tmdb.FillKeywordsAsync(slice, cancellation).ConfigureAwait(false);
         }
@@ -426,6 +427,40 @@ public sealed class DiscoveryService
             if (ids.Media is "MOVIE" or "Movie" or "movie")
             {
                 item.MediaType = "movie";
+            }
+        }
+    }
+
+    /// <summary>
+    /// AniList's genres, tags and adult flag for anime that came without them (Simkl's lists give none), by AniList id,
+    /// 50 to a request. So a block on Ecchi or Nudity holds whichever service listed the title.
+    /// </summary>
+    internal async Task FillAnimeGenresAsync(IEnumerable<DiscoverItemDto> items, CancellationToken cancellation)
+    {
+        var bare = items.Where(i => i.Anime && i.Genres.Count == 0 && i.Tags.Count == 0 && i.Ids.ContainsKey("anilist"))
+            .GroupBy(i => i.Ids["anilist"]).ToList();
+        foreach (var chunk in bare.Chunk(50))
+        {
+            try
+            {
+                var ids = new JsonArray(chunk.Select(g => (JsonNode)JsonValue.Create(int.Parse(g.Key, CultureInfo.InvariantCulture))).ToArray());
+                var reply = await _aniList.GraphAsync(
+                    "query($ids:[Int]){ Page(perPage:50) { media(id_in:$ids) { id genres tags { name } isAdult } } }",
+                    new JsonObject { ["ids"] = ids }, null, cancellation).ConfigureAwait(false);
+                foreach (var media in reply?["data"]?["Page"]?["media"]?.AsArray() ?? [])
+                {
+                    var group = chunk.FirstOrDefault(g => g.Key == media?["id"]?.ToString());
+                    foreach (var item in group ?? Enumerable.Empty<DiscoverItemDto>())
+                    {
+                        item.Genres.AddRange((media!["genres"]?.AsArray() ?? []).Select(g => g?.ToString()).OfType<string>());
+                        item.Tags.AddRange((media["tags"]?.AsArray() ?? []).Select(t => t?["name"]?.ToString()).OfType<string>());
+                        item.Adult |= media["isAdult"] is JsonValue a && a.TryGetValue<bool>(out var adult) && adult;
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is TrackerException or SignedOutException or HttpRequestException or TaskCanceledException or FormatException)
+            {
+                // Left as they were: the other checks still apply.
             }
         }
     }

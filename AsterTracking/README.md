@@ -153,8 +153,10 @@ The admin decides what never shows in Discover (dashboard: Discover > Kept out o
 - **Adult titles**, as their source marks them (AniList `isAdult`, MyAnimeList `nsfw: black`, TMDB `adult`). On by default.
 - **Blocked genres** and **blocked tags and keywords**, for everyone, plus extra blocks for **the people the admin
   ticks** (kids' accounts, say). Names match whole, ignoring case, and a name blocks whether a source calls it a genre or a tag.
-- **What's checked:** AniList's and MyAnimeList's genres and tags, TMDB's genres, TMDB's keywords (when a tag is
-  blocked and the server has a TMDB key; kept a day), and the library's genres and tags for titles on the server.
+- **What's checked:** AniList's and MyAnimeList's genres and tags, TMDB's genres and keywords, and the library's genres
+  and tags for titles on the server. A title listed by several services carries what all of them know. Titles that
+  came without genres (Simkl's) get AniList's (anime) or TMDB's (with a TMDB key; kept a day). Each source's names
+  count separately: MyAnimeList calls some Ecchi titles Erotica.
 
 Applied to the plugin's lists and Discover page, and to Seerr's answers through the plugin. Lists lose their blocked
 titles; a blocked title's Seerr page answers 404. Seerr's lists and search only carry genre ids and the adult flag, so

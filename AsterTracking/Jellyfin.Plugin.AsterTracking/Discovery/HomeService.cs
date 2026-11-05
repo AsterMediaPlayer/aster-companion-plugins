@@ -203,8 +203,9 @@ public sealed class HomeService
 
         // What the server's admin keeps out of Discover, for this person.
         var rules = ContentFilter.For(user.Id);
-        if (rules.Tags.Count > 0)
+        if (rules.Any)
         {
+            await _discovery.FillAnimeGenresAsync(all, cancellation).ConfigureAwait(false);
             await _tmdb.FillKeywordsAsync(all, cancellation).ConfigureAwait(false);
         }
 
@@ -248,13 +249,11 @@ public sealed class HomeService
             Match(profile, item);
         }
 
-        // The blocks over every row, then rows left empty dropped.
+        // The blocks over every row, then rows left empty dropped: genres looked up first for titles that came without.
         if (rules.Any)
         {
-            if (rules.Tags.Count > 0)
-            {
-                await _tmdb.FillKeywordsAsync(rows.SelectMany(r => r.Items), cancellation).ConfigureAwait(false);
-            }
+            await _discovery.FillAnimeGenresAsync(rows.SelectMany(r => r.Items), cancellation).ConfigureAwait(false);
+            await _tmdb.FillKeywordsAsync(rows.SelectMany(r => r.Items), cancellation).ConfigureAwait(false);
 
             foreach (var row in rows)
             {
@@ -554,13 +553,39 @@ public sealed class HomeService
     /// <summary>Lists one after another, each title once (the first it appears in).</summary>
     private static List<DiscoverItemDto> Merge(IEnumerable<List<DiscoverItemDto>> lists)
     {
-        var seen = new HashSet<string>();
+        // The same title from several services is kept once, the first, with what the others know of it too: Simkl's copy
+        // has no genres, AniList's says Ecchi.
+        var kept = new Dictionary<string, DiscoverItemDto>();
         var merged = new List<DiscoverItemDto>();
         foreach (var item in lists.SelectMany(l => l))
         {
-            if (seen.Add(Key(item)) && (!item.Ids.TryGetValue("anilist", out var a) || seen.Add($"anilist:{a}")))
+            var keys = new List<string> { Key(item) };
+            if (item.Ids.TryGetValue("anilist", out var a))
+            {
+                keys.Add($"anilist:{a}");
+            }
+
+            if (item.Ids.TryGetValue("tmdb", out var t))
+            {
+                keys.Add($"tmdb:{item.MediaType}:{t}");
+            }
+
+            var first = keys.Select(k => kept.GetValueOrDefault(k)).FirstOrDefault(k => k is not null);
+            if (first is null)
             {
                 merged.Add(item);
+                first = item;
+            }
+            else
+            {
+                first.Genres = first.Genres.Union(item.Genres, StringComparer.OrdinalIgnoreCase).ToList();
+                first.Tags = first.Tags.Union(item.Tags, StringComparer.OrdinalIgnoreCase).ToList();
+                first.Adult |= item.Adult;
+            }
+
+            foreach (var key in keys)
+            {
+                kept.TryAdd(key, first);
             }
         }
 
