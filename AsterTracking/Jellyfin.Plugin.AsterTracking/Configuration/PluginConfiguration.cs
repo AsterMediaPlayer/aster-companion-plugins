@@ -43,4 +43,7 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>This server's own Hardcover app (device grant on), in place of Aster's. Blank uses Aster's.</summary>
     public string HardcoverClientId { get; set; } = string.Empty;
+
+    /// <summary>This server's own TMDB key (a v4 read access token or a v3 key) for Discover's recommendations, in place of Aster's.</summary>
+    public string TmdbApiKey { get; set; } = string.Empty;
 }

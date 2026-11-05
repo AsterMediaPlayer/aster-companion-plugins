@@ -21,6 +21,8 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<AnimeIds>();
         serviceCollection.AddSingleton<TokenService>();
         serviceCollection.AddSingleton<DiscoveryService>();
+        serviceCollection.AddSingleton<TmdbClient>();
+        serviceCollection.AddSingleton<HomeService>();
         serviceCollection.AddSingleton<SimklClient>();
         serviceCollection.AddSingleton<AniListClient>();
         serviceCollection.AddSingleton<MyAnimeListClient>();

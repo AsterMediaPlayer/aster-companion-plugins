@@ -1,6 +1,6 @@
 name: "Aster Tracking"
 guid: "023a7921-895e-40fb-b815-ab4462f68107"
-version: "0.6.0.0"
+version: "0.7.0.0"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -15,6 +15,9 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterTracking.dll"
 changelog: >
+  - 0.7.0.0: Discover built on the server. GET /AsterTracking/Discover/Home sends each person their whole Discover
+    page: Recommended for You (from what they watch here, their favourites and their services), Because You Watched,
+    On Your Server Not Yet Watched, their watchlists, trending and this season's anime.
   - 0.6.0.0: Discovery. The apps can show each person's Simkl, AniList and MyAnimeList lists (watchlists,
     watching, recommendations, trending, this anime season) in one shape, with TMDB ids (anime through ARM) and the
     title on this server when it's here.

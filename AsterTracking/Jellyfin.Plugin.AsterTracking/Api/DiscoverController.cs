@@ -9,6 +9,7 @@ namespace Jellyfin.Plugin.AsterTracking.Api;
 
 /// <summary>
 /// Lists from the signed-in person's linked services, for the Aster apps' Discover:
+///   GET /AsterTracking/Discover/Home                          the whole Discover page, built for this person
 ///   GET /AsterTracking/Discover                               the lists there are, given what they've linked
 ///   GET /AsterTracking/Discover/{service}/{list}?page=&amp;pageSize=  a page of one, each title with its ids and, when
 ///                                                             it's on this server, the item to play
@@ -20,10 +21,28 @@ namespace Jellyfin.Plugin.AsterTracking.Api;
 public class DiscoverController : ControllerBase
 {
     private readonly DiscoveryService _discovery;
+    private readonly HomeService _home;
 
-    public DiscoverController(DiscoveryService discovery)
+    public DiscoverController(DiscoveryService discovery, HomeService home)
     {
         _discovery = discovery;
+        _home = home;
+    }
+
+    /// <summary>
+    /// The whole Discover page for the signed-in person, built here: rows in order, each of titles in the same shape
+    /// as the lists. Kept 30 minutes; <c>fresh=true</c> builds it again (pull to refresh).
+    /// </summary>
+    [HttpGet("Home")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<DiscoverHomeDto>> GetHome([FromQuery] bool fresh = false, CancellationToken cancellation = default)
+    {
+        if (Caller() is not Guid id)
+        {
+            return Forbid();
+        }
+
+        return await _home.HomeAsync(id, fresh, cancellation).ConfigureAwait(false) is { } home ? home : NotFound();
     }
 
     [HttpGet]

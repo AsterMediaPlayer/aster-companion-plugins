@@ -70,3 +70,29 @@ public class LibraryMatchDto
     /// <summary>"Movie" or "Series".</summary>
     public string Type { get; set; } = string.Empty;
 }
+
+/// <summary>The whole Discover page for one person, built on the server.</summary>
+public class DiscoverHomeDto
+{
+    /// <summary>The rows in the order to show them; empty rows are left out.</summary>
+    public List<DiscoverRowDto> Rows { get; set; } = new();
+
+    public DateTimeOffset Built { get; set; }
+}
+
+/// <summary>One row of the Discover page.</summary>
+public class DiscoverRowDto
+{
+    /// <summary>Stable for a row's kind and source: "recommended", "because-&lt;itemId&gt;", "library", …</summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>"continue", "recommended", "because", "library", "watchlist", "trending", "season".</summary>
+    public string Kind { get; set; } = string.Empty;
+
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>Why it's there, when that helps: "From what you watch and your linked services".</summary>
+    public string? Subtitle { get; set; }
+
+    public List<DiscoverItemDto> Items { get; set; } = new();
+}

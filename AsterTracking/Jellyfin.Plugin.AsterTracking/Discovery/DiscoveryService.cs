@@ -291,7 +291,7 @@ public sealed class DiscoveryService
         return items;
     }
 
-    private static DiscoverItemDto AniListItem(JsonNode media)
+    internal static DiscoverItemDto AniListItem(JsonNode media)
     {
         var item = new DiscoverItemDto
         {
@@ -367,7 +367,7 @@ public sealed class DiscoveryService
     // ---- Ids and the library ----
 
     /// <summary>TMDB, TVDB, IMDb and AniDB ids for anime that came with only AniList or MyAnimeList's, from ARM.</summary>
-    private async Task FillIdsAsync(List<DiscoverItemDto> items, CancellationToken cancellation)
+    internal async Task FillIdsAsync(List<DiscoverItemDto> items, CancellationToken cancellation)
     {
         static (string Source, int Id)? Key(DiscoverItemDto item) =>
             item.Ids.TryGetValue("anilist", out var a) && int.TryParse(a, out var anilist) ? ("anilist", anilist)

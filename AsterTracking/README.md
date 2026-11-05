@@ -108,6 +108,29 @@ MyAnimeList get the others through ARM in one batch per page, so the apps can op
 TMDB/TVDB/IMDb), so the app can play it instead of requesting it. A later anime season matches the whole show. Lists
 are kept 10 minutes per person; a signed-out service answers 410.
 
+## 0.7: Discover built on the server
+
+    GET /AsterTracking/Discover/Home[?fresh=true]   → { Rows: [{ Id, Kind, Title, Subtitle, Items }], Built }
+
+The whole Discover page for the signed-in person, from **their own** plays, favourites and linked accounts only:
+
+| Row (Kind) | Built from |
+|---|---|
+| Continue Watching on Your Services (`continue`) | the Watching lists |
+| Recommended for You (`recommended`) | recommendations for what they've watched recently and their favourites (AniList for Shokofin anime, TMDB for the rest), plus their services' recommendations, scored together. Titles several sources suggest rank higher, server titles count 1.6×, and their genres add a little. Nothing they've watched or started, in any copy |
+| Because You Watched *X* (`because`) | the three most recent titles that have recommendations |
+| On Your Server, Not Yet Watched (`library`) | unstarted films and shows, by genre affinity, rating, and whether the recommendations suggested them. One per title |
+| Your Watchlists (`watchlist`) | the Watchlist lists, merged |
+| Trending (`trending`) | TMDB's week, with AniList's trending anime woven in (Simkl's without a TMDB key) |
+| This Season's Anime (`season`) | AniList |
+
+Server titles' `Poster` is server-relative (`/Items/{id}/Images/Primary`). The page is kept 30 minutes per person,
+and takes a few seconds to build.
+
+**TMDB needs the server admin's own key** (Discover › TMDB API key on the dashboard, free from themoviedb.org for
+personal use). Aster has none built in: an app-wide key is a paid commercial licence. Without one, the TMDB parts are
+left out.
+
 ## Building
 
     dotnet build AsterTracking/Jellyfin.Plugin.AsterTracking -c Release

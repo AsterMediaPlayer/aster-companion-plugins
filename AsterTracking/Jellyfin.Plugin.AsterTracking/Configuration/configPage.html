@@ -39,6 +39,18 @@
                     <h3 style="margin:.5em 0">Recent sends</h3>
                     <div id="TrackingLog" class="fieldDescription">Nothing sent yet.</div>
 
+                    <h2 class="sectionTitle" style="margin-top:2em">Discover</h2>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="TmdbApiKey">TMDB API key</label>
+                        <input id="TmdbApiKey" type="password" is="emby-input" autocomplete="off" />
+                        <div class="fieldDescription">
+                            Your own key from themoviedb.org (Settings › API: free for personal use). Aster's Discover uses it for
+                            films and shows like the ones each person watches, and for what's trending. Paste the API Read Access
+                            Token or the API Key. Without one, Discover still shows anime recommendations, your server's
+                            unwatched picks, and everyone's linked lists.
+                        </div>
+                    </div>
+
                     <h2 class="sectionTitle" style="margin-top:2em">Developer apps</h2>
                     <p class="fieldDescription">Blank uses Aster's own apps. Changing one means everyone links that service again.</p>
                     <div class="inputContainer">
@@ -88,7 +100,7 @@
                   paste: 'Open your ListenBrainz settings (opens a new tab), copy your User token, and paste it here.' },
                 { id: 'hardcover', key: 'Hardcover', name: 'Hardcover', sends: 'Keep this person\'s audiobook progress on Hardcover' }
             ];
-            var configKeys = ['SimklClientId', 'AniListClientId', 'MyAnimeListClientId', 'LastFmApiKey', 'LastFmSharedSecret', 'HardcoverClientId'];
+            var configKeys = ['TmdbApiKey', 'SimklClientId', 'AniListClientId', 'MyAnimeListClientId', 'LastFmApiKey', 'LastFmSharedSecret', 'HardcoverClientId'];
             var linkTimer = null;
             var waiting = null;   // the service whose code or approval is awaited, checked again on coming back to the tab
 
