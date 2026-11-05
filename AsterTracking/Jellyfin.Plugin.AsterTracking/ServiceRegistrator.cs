@@ -1,4 +1,5 @@
 using Jellyfin.Plugin.AsterTracking.AniList;
+using Jellyfin.Plugin.AsterTracking.Discovery;
 using Jellyfin.Plugin.AsterTracking.Hardcover;
 using Jellyfin.Plugin.AsterTracking.LastFm;
 using Jellyfin.Plugin.AsterTracking.ListenBrainz;
@@ -18,6 +19,8 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         // One store shared by the API and the scrobbler, so their writes to a person's file don't cross.
         serviceCollection.AddSingleton<AccountStore>();
         serviceCollection.AddSingleton<AnimeIds>();
+        serviceCollection.AddSingleton<TokenService>();
+        serviceCollection.AddSingleton<DiscoveryService>();
         serviceCollection.AddSingleton<SimklClient>();
         serviceCollection.AddSingleton<AniListClient>();
         serviceCollection.AddSingleton<MyAnimeListClient>();

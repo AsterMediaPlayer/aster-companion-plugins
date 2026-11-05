@@ -160,6 +160,23 @@ public sealed class SimklClient : ITracker
             : HistoryResult.Unchanged;
     }
 
+    /// <summary>A GET for the discovery lists (<c>/sync/all-items/…</c>, <c>/tv/trending/…</c>), with the person's token.</summary>
+    internal async Task<JsonNode?> GetAsync(string pathAndQuery, string token, CancellationToken cancellation)
+    {
+        var query = pathAndQuery.Split('?', 2);
+        var address = Address(query[0]);
+        using var request = new HttpRequestMessage(HttpMethod.Get, query.Length > 1 ? new Uri(address + "&" + query[1]) : address);
+        Name(request);
+        request.Headers.Add("simkl-api-key", ClientId);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var (status, reply) = await SendAsync(request, cancellation).ConfigureAwait(false);
+        Check(status);
+        return reply;
+    }
+
+    /// <summary>Simkl's poster address for one of its image paths ("18/18596b9282c2fd1").</summary>
+    internal static string? Poster(string? path) => string.IsNullOrEmpty(path) ? null : $"https://simkl.in/posters/{path}_m.jpg";
+
     private static void Check(HttpStatusCode status)
     {
         if (status == HttpStatusCode.Unauthorized)

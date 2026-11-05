@@ -109,6 +109,10 @@ public sealed class AniListClient : ITracker
     /// <summary>AniList's tokens can't be refreshed: they last a year, then the person links again.</summary>
     public Task<LinkedAccount?> RefreshAsync(LinkedAccount account, CancellationToken cancellation) => Task.FromResult<LinkedAccount?>(null);
 
+    /// <summary>A GraphQL query for the discovery lists.</summary>
+    internal Task<JsonNode?> GraphAsync(string query, JsonObject variables, string token, CancellationToken cancellation) =>
+        RequestAsync(query, variables, token, cancellation);
+
     private async Task<JsonNode?> RequestAsync(string query, JsonObject variables, string token, CancellationToken cancellation)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, new Uri("https://graphql.anilist.co"));

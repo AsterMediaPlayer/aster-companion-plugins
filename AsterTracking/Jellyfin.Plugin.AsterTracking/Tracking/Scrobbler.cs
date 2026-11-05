@@ -35,6 +35,7 @@ public sealed class Scrobbler : IHostedService, IDisposable
     private readonly IUserDataManager _userData;
     private readonly ILibraryManager _library;
     private readonly AccountStore _store;
+    private readonly TokenService _tokens;
     private readonly IReadOnlyList<ITracker> _trackers;
     private readonly ILogger<Scrobbler> _log;
     private readonly ConcurrentDictionary<(Guid User, Guid Item), DateTimeOffset> _sent = new();
@@ -47,12 +48,13 @@ public sealed class Scrobbler : IHostedService, IDisposable
     private readonly SemaphoreSlim _sweeping = new(1, 1);
     private Timer? _retry;
 
-    public Scrobbler(ISessionManager sessions, IUserDataManager userData, ILibraryManager library, AccountStore store, IEnumerable<ITracker> trackers, ILogger<Scrobbler> log)
+    public Scrobbler(ISessionManager sessions, IUserDataManager userData, ILibraryManager library, AccountStore store, TokenService tokens, IEnumerable<ITracker> trackers, ILogger<Scrobbler> log)
     {
         _sessions = sessions;
         _userData = userData;
         _library = library;
         _store = store;
+        _tokens = tokens;
         _trackers = trackers.ToList();
         _log = log;
     }
@@ -419,31 +421,7 @@ public sealed class Scrobbler : IHostedService, IDisposable
     }
 
     /// <summary>The account's token, refreshed first when it has less than <paramref name="ahead"/> left.</summary>
-    private async Task<string?> TokenAsync(Guid userId, ITracker tracker, TimeSpan ahead)
-    {
-        var account = tracker.Account(await _store.GetAsync(userId).ConfigureAwait(false));
-        if (account is null)
-        {
-            return null;
-        }
-
-        if (account.Expires is DateTimeOffset expires && expires - DateTimeOffset.UtcNow < ahead
-            && await tracker.RefreshAsync(account, CancellationToken.None).ConfigureAwait(false) is LinkedAccount fresh)
-        {
-            await _store.UpdateAsync(userId, t =>
-            {
-                // Kept only if the account wasn't unlinked meanwhile; its settings as they are now.
-                if (tracker.Account(t) is LinkedAccount now)
-                {
-                    fresh.Scrobble = now.Scrobble;
-                    tracker.SetAccount(t, fresh);
-                }
-            }).ConfigureAwait(false);
-            return fresh.AccessToken;
-        }
-
-        return account.AccessToken;
-    }
+    private Task<string?> TokenAsync(Guid userId, ITracker tracker, TimeSpan ahead) => _tokens.TokenAsync(userId, tracker, ahead);
 
     /// <summary>Retries waiting sends and refreshes tokens about to run out, for everyone.</summary>
     private async Task SweepAsync()

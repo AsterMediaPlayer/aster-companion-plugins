@@ -20,6 +20,7 @@ public sealed class AnimeIds
     private readonly IHttpClientFactory _http;
     private readonly ILogger<AnimeIds> _log;
     private readonly ConcurrentDictionary<string, (AnimeEntry? Entry, DateTimeOffset At)> _found = new();
+    private readonly ConcurrentDictionary<(string Source, int Id), (ArmIds? Ids, DateTimeOffset At)> _full = new();
 
     public AnimeIds(IHttpClientFactory http, ILogger<AnimeIds> log)
     {
@@ -107,6 +108,69 @@ public sealed class AnimeIds
     }
 
     private static int? Number(string? text) => int.TryParse(text, out var n) ? n : null;
+
+    /// <summary>
+    /// Every id ARM knows for many entries at once ("anilist", "myanimelist", "anidb"), for a page of a discovery
+    /// list: one request for those not already known, at most 100 at a time. Entries ARM doesn't know come back null.
+    /// </summary>
+    public async Task<Dictionary<(string Source, int Id), ArmIds?>> LookupAsync(IEnumerable<(string Source, int Id)> wanted, CancellationToken cancellation)
+    {
+        var result = new Dictionary<(string Source, int Id), ArmIds?>();
+        var missing = new List<(string Source, int Id)>();
+        foreach (var key in wanted.Distinct())
+        {
+            if (_full.TryGetValue(key, out var known) && DateTimeOffset.UtcNow - known.At < Keep)
+            {
+                result[key] = known.Ids;
+            }
+            else if (key.Id > 0 && key.Id <= 50_000_000)
+            {
+                missing.Add(key);
+            }
+        }
+
+        foreach (var chunk in missing.Chunk(100))
+        {
+            try
+            {
+                var body = new JsonArray(chunk.Select(k => (JsonNode)new JsonObject { [k.Source] = k.Id }).ToArray());
+                var client = _http.CreateClient("AsterTracking.Arm");
+                client.Timeout = TimeSpan.FromSeconds(20);
+                using var content = new StringContent(body.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
+                using var response = await client.PostAsync(new Uri("https://arm.haglund.dev/api/v2/ids"), content, cancellation).ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                {
+                    continue;
+                }
+
+                var replies = JsonNode.Parse(await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false)) as JsonArray;
+                for (var i = 0; i < chunk.Length; i++)
+                {
+                    var ids = replies is not null && i < replies.Count && replies[i] is JsonObject found ? ArmIds.From(found) : null;
+                    result[chunk[i]] = ids;
+                    _full[chunk[i]] = (ids, DateTimeOffset.UtcNow);
+                }
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+            {
+                _log.LogWarning("Aster Tracking: ARM batch lookup failed: {Error}", ex.Message);
+            }
+        }
+
+        return result;
+    }
+}
+
+/// <summary>An anime entry's ids across the sites, as ARM maps them.</summary>
+public sealed record ArmIds(int? AniList, int? MyAnimeList, int? AniDb, int? Tmdb, int? TmdbSeason, int? Tvdb, string? Imdb, string? Media)
+{
+    public static ArmIds From(JsonObject o)
+    {
+        static int? Int(JsonNode? n) => n is JsonValue v && v.TryGetValue<int>(out var i) ? i : null;
+        static string? Str(JsonNode? n) => n is JsonValue v && v.TryGetValue<string>(out var s) && !string.IsNullOrEmpty(s) ? s : null;
+        return new ArmIds(Int(o["anilist"]), Int(o["myanimelist"]), Int(o["anidb"]), Int(o["themoviedb"]), Int(o["themoviedb-season"]),
+            Int(o["thetvdb"]), Str(o["imdb"]), Str(o["media"]));
+    }
 }
 
 /// <summary>An entry on the anime sites.</summary>

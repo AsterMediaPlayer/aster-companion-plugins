@@ -171,6 +171,10 @@ public sealed class MyAnimeListClient : ITracker
         };
     }
 
+    /// <summary>A GET for the discovery lists (<c>/users/@me/animelist</c>, <c>/anime/ranking</c>, …).</summary>
+    internal Task<JsonNode?> GetAsync(string pathAndQuery, string token, CancellationToken cancellation) =>
+        ApiAsync(pathAndQuery, HttpMethod.Get, null, token, cancellation);
+
     private async Task<JsonNode?> ApiAsync(string path, HttpMethod method, Dictionary<string, string>? form, string token, CancellationToken cancellation)
     {
         using var request = new HttpRequestMessage(method, new Uri("https://api.myanimelist.net/v2" + path));

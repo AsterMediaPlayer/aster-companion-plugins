@@ -86,6 +86,28 @@ Linking is Hardcover's OAuth device flow, a code entered at hardcover.app like S
 unlinking revokes them. It needs Aster's Hardcover app (type "Mobile, desktop, or CLI", device grant on, scopes
 `read:me read:catalog:search read:library write:library`), or the server's own under Developer apps.
 
+## 0.6: Discovery
+
+The lists of each person's linked services, for the Aster apps' Discover, in one shape:
+
+    GET /AsterTracking/Discover                                → [{ Service, List, Kind, Title, Personal }]
+    GET /AsterTracking/Discover/{service}/{list}?page=&pageSize=  → { Items, Page, TotalItems, HasMore }
+
+| Kind | Simkl | AniList | MyAnimeList |
+|---|---|---|---|
+| Watchlist | Plan to Watch (shows, films, anime) | Planning | Plan to Watch |
+| Watching | Watching, with episode progress | Current and rewatching | Watching |
+| Recommended | | recommendations for titles on the list | suggestions |
+| Trending | today's films, shows and anime | trending anime | top airing |
+| This Season | | this season's anime (MyAnimeList's for someone without AniList) | |
+
+Each item has `Title`, `Year`, `MediaType` (`movie`/`tv`), `Poster`, `Overview`, `Progress` for Watching, `Anime`, and
+`Ids`: `tmdb`, `tvdb`, `imdb`, and for anime `anilist`, `mal`, `anidb` and `tmdbSeason`. Anime from AniList and
+MyAnimeList get the others through ARM in one batch per page, so the apps can open Seerr's page by TMDB id.
+`InLibrary` is the film or show on this server for this person (anime by Shokofin's AniDB season first, else
+TMDB/TVDB/IMDb), so the app can play it instead of requesting it. A later anime season matches the whole show. Lists
+are kept 10 minutes per person; a signed-out service answers 410.
+
 ## Building
 
     dotnet build AsterTracking/Jellyfin.Plugin.AsterTracking -c Release
