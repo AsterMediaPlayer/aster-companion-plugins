@@ -17,6 +17,7 @@ jobs:
       disc: ${{ steps.filter.outputs.disc }}
       oped: ${{ steps.filter.outputs.oped }}
       aurora: ${{ steps.filter.outputs.aurora }}
+      tracking: ${{ steps.filter.outputs.tracking }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -27,6 +28,7 @@ jobs:
             disc: ["AsterDisc/**", "tools/**", ".github/workflows/ci.yml"]
             oped: ["AsterOpEd/**", "tools/**", ".github/workflows/ci.yml"]
             aurora: ["AsterAurora/**", "tools/**", ".github/workflows/ci.yml"]
+            tracking: ["AsterTracking/**", "tools/**", ".github/workflows/ci.yml"]
 
   # ---- Aster Channels ----------------------------------------------------------
 
@@ -189,3 +191,18 @@ jobs:
             jprm repo add -U "https://example.invalid/$(basename "$zip")" repo "$zip"
           done
           python3 -c 'import json; m = json.load(open("repo/manifest.json")); print([(p["name"], p["versions"][0]["version"]) for p in m])'
+
+  # ---- Aster Discovery and Tracking ------------------------------------------------------------
+
+  tracking:
+    name: "Aster Discovery and Tracking: build"
+    needs: changes
+    if: needs.changes.outputs.tracking == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet build AsterTracking/Jellyfin.Plugin.AsterTracking -c Release
+      - run: python3 tools/check_versions.py AsterTracking/Jellyfin.Plugin.AsterTracking

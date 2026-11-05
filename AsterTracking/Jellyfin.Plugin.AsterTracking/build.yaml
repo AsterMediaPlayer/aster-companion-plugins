@@ -1,0 +1,57 @@
+name: "Aster Discovery and Tracking"
+guid: "023a7921-895e-40fb-b815-ab4462f68107"
+version: "0.9.6.0"
+targetAbi: "12.1.0.0"
+framework: "net10.0"
+owner: "AsterMediaPlayer"
+overview: "Discovery and tracking for Aster Media Player: each person's Discover page, scrobbling to their own accounts, and requests through Seerr."
+description: >
+  Aster Media Player's tracking plugin. Each person links their own Trakt, Simkl,
+  AniList, MyAnimeList, Last.fm, ListenBrainz and Hardcover accounts, and what they
+  play is scrobbled there from any app; Aster also shows those services' lists for
+  discovery. It's also where requests are turned on: Aster's Seerr features stay off
+  unless they're enabled here, with the Seerr server's address.
+category: "General"
+artifacts:
+  - "Jellyfin.Plugin.AsterTracking.dll"
+changelog: >
+  - 0.9.6.0: Renamed Aster Discovery and Tracking (routes, settings and saved accounts unchanged).
+  - 0.9.5.0: The server's rows check titles against Seerr's genres and keywords too, as Seerr's pages are, so a title
+    blocked by a TMDB keyword (The Great Jahy, Ecchi) is out of the rows as well as its page.
+  - 0.9.4.0: Fixes 0.9.3 breaking Seerr's Discover rows (500) when genre or tag blocks are set.
+  - 0.9.3.0: Seerr's lists and search are checked against each title's genres and keywords too (looked up from
+    Seerr, kept a day), so a blocked title no longer shows as a card that won't open.
+  - 0.9.2.0: Blocks hold whichever service lists a title: duplicates share their genres and tags, anime without
+    them (Simkl's) get AniList's, and films and shows without them get TMDB's.
+  - 0.9.1.0: Extra Discover blocks for several people at once: tick everyone they apply to.
+  - 0.9.0.0: The admin can keep titles out of Discover: adult titles, and blocked genres and tags (AniList and
+    MyAnimeList genres and tags, TMDB genres and keywords, the library's), for everyone and for particular people.
+    Applied to the server's rows and to Seerr's lists, search and title pages passing through.
+  - 0.8.1.0: Faster Discover. Titles are matched to the library from an index kept in memory (a list went from
+    about 3 s to milliseconds), a list's ids are filled once, and each person's Discover page is rebuilt in the
+    background so it comes back at once.
+  - 0.8.0.0: Seerr through the server. The apps no longer sign in to Seerr: they call Seerr's API through the plugin
+    (/AsterTracking/Seerr/api/v1/...), which calls Seerr as each person with its API key, so Seerr's permissions
+    still apply. People without a Seerr account are imported from Jellyfin on first use. Requests needs Seerr's
+    address and API key on this page.
+  - 0.7.0.0: Discover built on the server. GET /AsterTracking/Discover/Home sends each person their whole Discover
+    page: Recommended for You (from what they watch here, their favourites and their services), Because You Watched,
+    On Your Server Not Yet Watched, their watchlists, trending and this season's anime.
+  - 0.6.0.0: Discovery. The apps can show each person's Simkl, AniList and MyAnimeList lists (watchlists,
+    watching, recommendations, trending, this anime season) in one shape, with TMDB ids (anime through ARM) and the
+    title on this server when it's here.
+  - 0.5.0.0: ListenBrainz and Hardcover. ListenBrainz takes the songs people play (linked by pasting their user
+    token), with MusicBrainz ids; Hardcover follows audiobook progress (linked with a code at hardcover.app):
+    Currently Reading while listening, progress every 15 minutes and on stopping, and Read at the end.
+  - 0.4.0.0: Last.fm. People link it on the dashboard by approving Aster at last.fm (no code to copy); songs they play
+    in any app show as now playing and are scrobbled once played half way or four minutes (longer than 30 seconds).
+  - 0.3.0.0: AniList and MyAnimeList. People link them on the dashboard (sign in, then paste the code shown), and
+    each anime episode they watch moves that season's progress on (Watching, or Completed at the last episode); Shokofin
+    seasons are matched through their AniDB ids and the ARM id map. AniDB ids from other plugins no longer count as
+    anime for Simkl. Tokens about to run out are refreshed in the background.
+  - 0.2.0.0: Simkl. Each person links their Simkl account (a code entered at simkl.com/pin, from Aster's settings or
+    the dashboard), and films and episodes they watch in any app are added to their Simkl history once stopped past
+    85% or marked played; anime from Shokofin goes by its season's AniDB id. Sends that fail while Simkl is down are
+    retried.
+  - 0.1.0.0: First release: the switch for Aster's requests. A Requests (Seerr) setting with Seerr's address, which
+    the apps read before showing their Seerr features. Tracking services follow in the next releases.
