@@ -35,11 +35,12 @@ public sealed class HomeService
     private readonly ILibraryManager _library;
     private readonly IUserManager _users;
     private readonly IUserDataManager _userData;
+    private readonly LibraryIndex _index;
     private readonly ILogger<HomeService> _log;
     private readonly ConcurrentDictionary<Guid, (DiscoverHomeDto Home, DateTimeOffset At)> _homes = new();
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _building = new();
 
-    public HomeService(DiscoveryService discovery, TmdbClient tmdb, AniListClient aniList, AnimeIds anime, ILibraryManager library, IUserManager users, IUserDataManager userData, ILogger<HomeService> log)
+    public HomeService(DiscoveryService discovery, TmdbClient tmdb, AniListClient aniList, AnimeIds anime, ILibraryManager library, IUserManager users, IUserDataManager userData, LibraryIndex index, ILogger<HomeService> log)
     {
         _discovery = discovery;
         _tmdb = tmdb;
@@ -48,9 +49,17 @@ public sealed class HomeService
         _library = library;
         _users = users;
         _userData = userData;
+        _index = index;
         _log = log;
     }
 
+    /// <summary>When each person last asked, so their page is kept warm (see <see cref="WarmAsync"/>).</summary>
+    private readonly ConcurrentDictionary<Guid, DateTimeOffset> _asked = new();
+
+    /// <summary>
+    /// The person's page. A page older than half an hour comes back at once and is built again in the background, so
+    /// nobody waits for a build once they've had a page; only the very first (or <paramref name="fresh"/>) waits.
+    /// </summary>
     public async Task<DiscoverHomeDto?> HomeAsync(Guid userId, bool fresh, CancellationToken cancellation)
     {
         if (_users.GetUserById(userId) is not { } user)
@@ -58,17 +67,68 @@ public sealed class HomeService
             return null;
         }
 
-        var gate = _building.GetOrAdd(userId, _ => new SemaphoreSlim(1, 1));
+        _asked[userId] = DateTimeOffset.UtcNow;
+        if (!fresh && _homes.TryGetValue(userId, out var cached))
+        {
+            if (DateTimeOffset.UtcNow - cached.At >= Keep)
+            {
+                _ = RebuildAsync(user);
+            }
+
+            return cached.Home;
+        }
+
+        return await BuildLockedAsync(user, fresh, cancellation).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Builds again the pages of everyone who's asked in the last day and whose page is getting old, so the next look is
+    /// instant. Run every quarter of an hour by <see cref="DiscoverWarmer"/>.
+    /// </summary>
+    public async Task WarmAsync()
+    {
+        foreach (var (userId, asked) in _asked.ToList())
+        {
+            if (DateTimeOffset.UtcNow - asked > TimeSpan.FromDays(1))
+            {
+                _asked.TryRemove(userId, out _);
+                continue;
+            }
+
+            if ((!_homes.TryGetValue(userId, out var home) || DateTimeOffset.UtcNow - home.At > Keep - TimeSpan.FromMinutes(10))
+                && _users.GetUserById(userId) is { } user)
+            {
+                await RebuildAsync(user).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task RebuildAsync(User user)
+    {
+        try
+        {
+            await BuildLockedAsync(user, true, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Aster Tracking: building {User}'s Discover page failed", user.Username);
+        }
+    }
+
+    private async Task<DiscoverHomeDto> BuildLockedAsync(User user, bool fresh, CancellationToken cancellation)
+    {
+        var gate = _building.GetOrAdd(user.Id, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellation).ConfigureAwait(false);
         try
         {
-            if (!fresh && _homes.TryGetValue(userId, out var cached) && DateTimeOffset.UtcNow - cached.At < Keep)
+            // Built meanwhile by another request: that one will do.
+            if (_homes.TryGetValue(user.Id, out var cached) && DateTimeOffset.UtcNow - cached.At < (fresh ? TimeSpan.FromSeconds(30) : Keep))
             {
                 return cached.Home;
             }
 
             var home = await BuildAsync(user, cancellation).ConfigureAwait(false);
-            _homes[userId] = (home, DateTimeOffset.UtcNow);
+            _homes[user.Id] = (home, DateTimeOffset.UtcNow);
             return home;
         }
         finally
@@ -188,10 +248,10 @@ public sealed class HomeService
 
         public Dictionary<string, double> Genres { get; } = new(StringComparer.OrdinalIgnoreCase);
 
-        /// <summary>The library's films and shows by provider id ("tmdb:movie:603", "tvdb:…", "imdb:…", "anidb:…").</summary>
-        public Dictionary<string, BaseItem> Index { get; } = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>The library's films and shows by their ids, shared with the lists (<see cref="LibraryIndex"/>).</summary>
+        public LibraryIndex.Index Library { get; set; } = new();
 
-        public List<BaseItem> Catalog { get; } = new();
+        public List<BaseItem> Catalog => Library.Catalog;
 
         public bool Watched(DiscoverItemDto item) =>
             (item.InLibrary is { } here && WatchedIds.Contains(here.ItemId))
@@ -213,36 +273,7 @@ public sealed class HomeService
     {
         var profile = new ViewerProfile();
 
-        foreach (var item in _library.GetItemList(new InternalItemsQuery(user)
-        {
-            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series],
-            Recursive = true,
-        }))
-        {
-            profile.Catalog.Add(item);
-            var type = item is Movie ? "movie" : "tv";
-            foreach (var (provider, name) in new[] { ("Tmdb", "tmdb:" + type), ("Tvdb", "tvdb:" + type), ("Imdb", "imdb") })
-            {
-                if (item.GetProviderId(provider) is { Length: > 0 } id)
-                {
-                    profile.Index.TryAdd($"{name}:{id}", item);
-                }
-            }
-
-            // Shokofin's shows: the AniDB entry, and each season's (the exact anime entry) below.
-            if (!string.IsNullOrEmpty(item.GetProviderId("Shoko Series")) && item.GetProviderId("AniDB") is { Length: > 0 } aniDb)
-            {
-                profile.Index.TryAdd($"anidb:{aniDb}", item);
-            }
-        }
-
-        foreach (var season in _library.GetItemList(new InternalItemsQuery(user) { IncludeItemTypes = [BaseItemKind.Season], Recursive = true }).OfType<Season>())
-        {
-            if (AnimeIds.ShokoAniDb(season) is { } aniDb && season.Series is { } series)
-            {
-                profile.Index.TryAdd($"anidb:{aniDb}", series);
-            }
-        }
+        profile.Library = _index.For(user);
 
         // What they've watched, newest first: films, and shows through their episodes.
         var played = _library.GetItemList(new InternalItemsQuery(user)
@@ -479,34 +510,8 @@ public sealed class HomeService
         return dto;
     }
 
-    /// <summary>The item's film or show on the server, through the library's provider ids.</summary>
-    private static void Match(ViewerProfile profile, DiscoverItemDto item)
-    {
-        if (item.InLibrary is not null)
-        {
-            return;
-        }
-
-        var type = item.MediaType == "movie" ? "movie" : "tv";
-        BaseItem? found = null;
-        if (item.Anime && item.Ids.TryGetValue("anidb", out var aniDb))
-        {
-            profile.Index.TryGetValue($"anidb:{aniDb}", out found);
-        }
-
-        foreach (var (key, name) in new[] { ("tmdb", "tmdb:" + type), ("tvdb", "tvdb:" + type), ("imdb", "imdb") })
-        {
-            if (found is null && item.Ids.TryGetValue(key, out var id))
-            {
-                profile.Index.TryGetValue($"{name}:{id}", out found);
-            }
-        }
-
-        if (found is not null)
-        {
-            item.InLibrary = new LibraryMatchDto { ItemId = found.Id, Name = found.Name, Type = found is Movie ? "Movie" : "Series" };
-        }
-    }
+    /// <summary>The item's film or show on the server, through the library index.</summary>
+    private static void Match(ViewerProfile profile, DiscoverItemDto item) => profile.Library.Match(item);
 
     /// <summary>A title's identity across sources: its TMDB id, else its AniList or MyAnimeList id, else its name and year.</summary>
     private static string Key(DiscoverItemDto item) =>

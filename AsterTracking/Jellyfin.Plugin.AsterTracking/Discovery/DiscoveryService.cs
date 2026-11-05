@@ -33,9 +33,10 @@ public sealed class DiscoveryService
     private readonly AnimeIds _anime;
     private readonly ILibraryManager _library;
     private readonly IUserManager _users;
+    private readonly LibraryIndex _index;
     private readonly ConcurrentDictionary<(Guid User, string Service, string List), (List<DiscoverItemDto> Items, DateTimeOffset At)> _lists = new();
 
-    public DiscoveryService(AccountStore store, TokenService tokens, SimklClient simkl, AniListClient aniList, MyAnimeListClient mal, AnimeIds anime, ILibraryManager library, IUserManager users)
+    public DiscoveryService(AccountStore store, TokenService tokens, SimklClient simkl, AniListClient aniList, MyAnimeListClient mal, AnimeIds anime, ILibraryManager library, IUserManager users, LibraryIndex index)
     {
         _store = store;
         _tokens = tokens;
@@ -45,6 +46,7 @@ public sealed class DiscoveryService
         _anime = anime;
         _library = library;
         _users = users;
+        _index = index;
     }
 
     /// <summary>Every list, by service, in the order the apps show them.</summary>
@@ -112,12 +114,13 @@ public sealed class DiscoveryService
         if (!_lists.TryGetValue(key, out var cached) || DateTimeOffset.UtcNow - cached.At > Keep)
         {
             var items = await FetchAsync(userId, service, list, cancellation).ConfigureAwait(false);
+            // Ids once for the whole list (ARM in batches), not on every page.
+            await FillIdsAsync(items, cancellation).ConfigureAwait(false);
             cached = (items, DateTimeOffset.UtcNow);
             _lists[key] = cached;
         }
 
         var slice = cached.Items.Skip((page - 1) * pageSize).Take(pageSize).Select(Copy).ToList();
-        await FillIdsAsync(slice, cancellation).ConfigureAwait(false);
         MatchLibrary(userId, slice);
         return new DiscoverPageDto
         {
@@ -410,7 +413,7 @@ public sealed class DiscoveryService
         }
     }
 
-    /// <summary>Each title's film or show on this server, among what this person may see.</summary>
+    /// <summary>Each title's film or show on this server, among what this person may see (from the library index).</summary>
     private void MatchLibrary(Guid userId, List<DiscoverItemDto> items)
     {
         if (_users.GetUserById(userId) is not { } user)
@@ -418,52 +421,10 @@ public sealed class DiscoveryService
             return;
         }
 
+        var index = _index.For(user);
         foreach (var item in items)
         {
-            var movie = item.MediaType == "movie";
-            var ids = new Dictionary<string, string>();
-            foreach (var (from, provider) in new[] { ("tmdb", "Tmdb"), ("tvdb", "Tvdb"), ("imdb", "Imdb") })
-            {
-                // An anime's TMDB and TVDB ids are the whole show's; a film's TVDB id isn't Jellyfin's to match.
-                if (item.Ids.TryGetValue(from, out var id) && !(movie && from == "tvdb"))
-                {
-                    ids[provider] = id;
-                }
-            }
-
-            BaseItem? match = null;
-            if (item.Anime && item.Ids.TryGetValue("anidb", out var aniDb))
-            {
-                // Shokofin's seasons carry the AniDB entry, which is the exact season; other plugins' AniDB guesses don't count.
-                match = _library.GetItemList(new InternalItemsQuery(user)
-                {
-                    IncludeItemTypes = movie ? [BaseItemKind.Movie] : [BaseItemKind.Season, BaseItemKind.Series],
-                    HasAnyProviderId = new Dictionary<string, string> { ["AniDB"] = aniDb },
-                    Recursive = true,
-                    Limit = 5,
-                }).FirstOrDefault(i => !string.IsNullOrEmpty(i.GetProviderId("Shoko Series")) || !string.IsNullOrEmpty(i.GetProviderId("Shoko")));
-            }
-
-            if (match is null && ids.Count > 0)
-            {
-                match = _library.GetItemList(new InternalItemsQuery(user)
-                {
-                    IncludeItemTypes = movie ? [BaseItemKind.Movie] : [BaseItemKind.Series],
-                    HasAnyProviderId = ids,
-                    Recursive = true,
-                    Limit = 1,
-                }).FirstOrDefault();
-            }
-
-            if (match is Season season && season.Series is { } series)
-            {
-                match = series;
-            }
-
-            if (match is not null)
-            {
-                item.InLibrary = new LibraryMatchDto { ItemId = match.Id, Name = match.Name, Type = match is MediaBrowser.Controller.Entities.Movies.Movie ? "Movie" : "Series" };
-            }
+            index.Match(item);
         }
     }
 

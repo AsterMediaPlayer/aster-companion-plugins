@@ -23,7 +23,9 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<TokenService>();
         serviceCollection.AddSingleton<DiscoveryService>();
         serviceCollection.AddSingleton<TmdbClient>();
+        serviceCollection.AddSingleton<LibraryIndex>();
         serviceCollection.AddSingleton<HomeService>();
+        serviceCollection.AddHostedService<DiscoverWarmer>();
         serviceCollection.AddSingleton<SeerrBridge>();
         serviceCollection.AddSingleton<SimklClient>();
         serviceCollection.AddSingleton<AniListClient>();
