@@ -136,7 +136,7 @@ public sealed class Scrobbler : IHostedService, IDisposable
             }
             catch (Exception ex)
             {
-                _log.LogError(ex, "Aster Tracking: progress of {Item} for {User} failed", item.Name, userId);
+                _log.LogError(ex, "Aster Discovery and Tracking: progress of {Item} for {User} failed", item.Name, userId);
             }
         });
     }
@@ -293,14 +293,14 @@ public sealed class Scrobbler : IHostedService, IDisposable
                     catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or TrackerException or SignedOutException)
                     {
                         // "Now playing" is only a nicety: not retried, and a sign-out shows up on the scrobble.
-                        _log.LogDebug("Aster Tracking: now playing on {Service} failed: {Error}", tracker.Service, ex.Message);
+                        _log.LogDebug("Aster Discovery and Tracking: now playing on {Service} failed: {Error}", tracker.Service, ex.Message);
                     }
                 }
             }
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "Aster Tracking: now playing {Item} for {User} failed", item.Name, userId);
+            _log.LogError(ex, "Aster Discovery and Tracking: now playing {Item} for {User} failed", item.Name, userId);
         }
     }
 
@@ -326,7 +326,7 @@ public sealed class Scrobbler : IHostedService, IDisposable
             }
             catch (Exception ex)
             {
-                _log.LogError(ex, "Aster Tracking: sending {Item} for {User} failed", item.Name, userId);
+                _log.LogError(ex, "Aster Discovery and Tracking: sending {Item} for {User} failed", item.Name, userId);
             }
         });
     }
@@ -356,7 +356,7 @@ public sealed class Scrobbler : IHostedService, IDisposable
 
             if (body is null)
             {
-                _log.LogDebug("Aster Tracking: {Item} has nothing to match it by on {Service}", item.Name, tracker.Service);
+                _log.LogDebug("Aster Discovery and Tracking: {Item} has nothing to match it by on {Service}", item.Name, tracker.Service);
                 continue;
             }
 
@@ -394,7 +394,7 @@ public sealed class Scrobbler : IHostedService, IDisposable
             }
 
             var result = await tracker.SendAsync(body, token, CancellationToken.None).ConfigureAwait(false);
-            _log.LogInformation("Aster Tracking: {Title} to {Service} for {User}: {Result}", label, tracker.Service, userId, result);
+            _log.LogInformation("Aster Discovery and Tracking: {Title} to {Service} for {User}: {Result}", label, tracker.Service, userId, result);
             return result switch
             {
                 HistoryResult.Added => Outcome.Added,
@@ -404,18 +404,18 @@ public sealed class Scrobbler : IHostedService, IDisposable
         }
         catch (SignedOutException)
         {
-            _log.LogWarning("Aster Tracking: {Service} no longer takes {User}'s sign-in; it needs linking again", tracker.Service, userId);
+            _log.LogWarning("Aster Discovery and Tracking: {Service} no longer takes {User}'s sign-in; it needs linking again", tracker.Service, userId);
             await _store.UpdateAsync(userId, t => tracker.SetAccount(t, null)).ConfigureAwait(false);
             return Outcome.SignedOut;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException || ex is TrackerException { Transient: true })
         {
-            _log.LogWarning("Aster Tracking: {Service} unreachable for {Title} ({Error}); will retry", tracker.Service, label, ex.Message);
+            _log.LogWarning("Aster Discovery and Tracking: {Service} unreachable for {Title} ({Error}); will retry", tracker.Service, label, ex.Message);
             return Outcome.Retry;
         }
         catch (TrackerException ex)
         {
-            _log.LogWarning("Aster Tracking: {Service} refused {Title}: {Error}", tracker.Service, label, ex.Message);
+            _log.LogWarning("Aster Discovery and Tracking: {Service} refused {Title}: {Error}", tracker.Service, label, ex.Message);
             return Outcome.Failed;
         }
     }
@@ -442,7 +442,7 @@ public sealed class Scrobbler : IHostedService, IDisposable
                 }
                 catch (Exception ex)
                 {
-                    _log.LogError(ex, "Aster Tracking: the sweep for {User} failed", userId);
+                    _log.LogError(ex, "Aster Discovery and Tracking: the sweep for {User} failed", userId);
                 }
             }
         }
@@ -462,7 +462,7 @@ public sealed class Scrobbler : IHostedService, IDisposable
             }
             catch (SignedOutException)
             {
-                _log.LogWarning("Aster Tracking: {Service} refused to refresh {User}'s sign-in; it needs linking again", tracker.Service, userId);
+                _log.LogWarning("Aster Discovery and Tracking: {Service} refused to refresh {User}'s sign-in; it needs linking again", tracker.Service, userId);
                 await _store.UpdateAsync(userId, t => tracker.SetAccount(t, null)).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or TrackerException)

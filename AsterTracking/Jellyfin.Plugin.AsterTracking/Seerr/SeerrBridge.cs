@@ -216,11 +216,11 @@ public sealed partial class SeerrBridge
             var text = await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                _log.LogWarning("Aster Tracking: Seerr wouldn't import {User} from Jellyfin: {Status} {Body}", userName, (int)response.StatusCode, text.Length > 200 ? text[..200] : text);
+                _log.LogWarning("Aster Discovery and Tracking: Seerr wouldn't import {User} from Jellyfin: {Status} {Body}", userName, (int)response.StatusCode, text.Length > 200 ? text[..200] : text);
                 return null;
             }
 
-            _log.LogInformation("Aster Tracking: imported {User} into Seerr from Jellyfin", userName);
+            _log.LogInformation("Aster Discovery and Tracking: imported {User} into Seerr from Jellyfin", userName);
             if (await FindAsync(seerr, jellyfinId, cancellation).ConfigureAwait(false) is int made)
             {
                 _users[userId] = (made, DateTimeOffset.UtcNow);

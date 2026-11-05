@@ -21,7 +21,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
     public static Plugin? Instance { get; private set; }
 
-    public override string Name => "Aster Tracking";
+    public override string Name => "Aster Discovery and Tracking";
 
     /// <summary>
     /// Must match build.yaml's guid: Jellyfin rewrites the plugin's meta.json with this on every start.
@@ -29,8 +29,9 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     public override Guid Id => Guid.Parse("023a7921-895e-40fb-b815-ab4462f68107");
 
     public override string Description =>
-        "Tracking, scrobbling and discovery for Aster Media Player through each person's own accounts, and the "
-        + "switch that turns Aster's Seerr requests on.";
+        "Discovery and tracking for Aster Media Player: each person's Discover page, built from what they watch and "
+        + "their own Trakt, Simkl, AniList, MyAnimeList, Last.fm, ListenBrainz and Hardcover accounts; scrobbling to "
+        + "those accounts; and requests through Seerr.";
 
     public IEnumerable<PluginPageInfo> GetPages() =>
     [
@@ -38,7 +39,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         {
             Name = "AsterTracking",
             EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.configPage.html",
-            DisplayName = "Aster Tracking",
+            DisplayName = "Aster Discovery and Tracking",
         }
     ];
 }

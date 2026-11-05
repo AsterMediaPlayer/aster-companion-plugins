@@ -117,7 +117,7 @@ public sealed class HomeService
         }
         catch (Exception ex)
         {
-            _log.LogWarning(ex, "Aster Tracking: building {User}'s Discover page failed", user.Username);
+            _log.LogWarning(ex, "Aster Discovery and Tracking: building {User}'s Discover page failed", user.Username);
         }
     }
 
@@ -399,7 +399,7 @@ public sealed class HomeService
         }
         catch (Exception ex) when (ex is TrackerException or HttpRequestException or TaskCanceledException)
         {
-            _log.LogDebug("Aster Tracking: recommendations for {Title} failed: {Error}", source.Name, ex.Message);
+            _log.LogDebug("Aster Discovery and Tracking: recommendations for {Title} failed: {Error}", source.Name, ex.Message);
         }
 
         return new Seed(source, weight, []);
@@ -437,7 +437,7 @@ public sealed class HomeService
         }
         catch (Exception ex) when (ex is TrackerException or SignedOutException or HttpRequestException or TaskCanceledException)
         {
-            _log.LogDebug("Aster Tracking: trending failed: {Error}", ex.Message);
+            _log.LogDebug("Aster Discovery and Tracking: trending failed: {Error}", ex.Message);
         }
 
         var anime = new List<DiscoverItemDto>();
@@ -449,7 +449,7 @@ public sealed class HomeService
         }
         catch (Exception ex) when (ex is TrackerException or SignedOutException or HttpRequestException or TaskCanceledException)
         {
-            _log.LogDebug("Aster Tracking: trending anime failed: {Error}", ex.Message);
+            _log.LogDebug("Aster Discovery and Tracking: trending anime failed: {Error}", ex.Message);
         }
 
         // Two of everyone's, then one anime.

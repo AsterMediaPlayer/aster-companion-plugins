@@ -111,7 +111,7 @@ public sealed class ListenBrainzClient : ITracker, INowPlaying
         var info = new JsonObject
         {
             ["media_player"] = "Jellyfin",
-            ["submission_client"] = "Aster Tracking",
+            ["submission_client"] = "Aster Discovery and Tracking",
             ["submission_client_version"] = Version,
         };
         if (audio.RunTimeTicks is long ticks && ticks > 0)

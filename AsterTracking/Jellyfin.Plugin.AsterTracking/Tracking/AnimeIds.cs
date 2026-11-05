@@ -102,7 +102,7 @@ public sealed class AnimeIds
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
-            _log.LogWarning("Aster Tracking: ARM lookup {Key} failed: {Error}", key, ex.Message);
+            _log.LogWarning("Aster Discovery and Tracking: ARM lookup {Key} failed: {Error}", key, ex.Message);
             throw new TrackerException("ARM", 0);
         }
     }
@@ -153,7 +153,7 @@ public sealed class AnimeIds
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
             {
-                _log.LogWarning("Aster Tracking: ARM batch lookup failed: {Error}", ex.Message);
+                _log.LogWarning("Aster Discovery and Tracking: ARM batch lookup failed: {Error}", ex.Message);
             }
         }
 

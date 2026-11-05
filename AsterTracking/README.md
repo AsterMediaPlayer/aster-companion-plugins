@@ -1,4 +1,4 @@
-# Aster Tracking
+# Aster Discovery and Tracking
 
 Aster Media Player's tracking plugin for Jellyfin: scrobbling and discovery through each person's own Trakt, Simkl,
 AniList, MyAnimeList, Last.fm, ListenBrainz and Hardcover accounts, and the switch that turns Aster's Seerr requests on.
@@ -6,7 +6,7 @@ The design, and the phases it's built in, are in [SPEC.md](SPEC.md).
 
 ## 0.1: the Seerr switch
 
-Dashboard ▸ Plugins ▸ Aster Tracking ▸ **Requests (Seerr)**: turn requests on and give Seerr's address. The apps read
+Dashboard ▸ Plugins ▸ Aster Discovery and Tracking ▸ **Requests (Seerr)**: turn requests on and give Seerr's address. The apps read
 
     GET /AsterTracking/Features      (any signed-in user)
     → { "Seerr": { "Enabled": true, "Url": "https://requests.example.com" }, "Services": [] }

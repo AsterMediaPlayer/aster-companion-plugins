@@ -1,4 +1,4 @@
-# Aster Tracking: design spec (draft, 2026-11-03)
+# Aster Discovery and Tracking: design spec (draft, 2026-11-03)
 
 A Jellyfin plugin in `aster-companion-plugins/AsterTracking/` that:
 

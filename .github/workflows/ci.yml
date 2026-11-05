@@ -192,10 +192,10 @@ jobs:
           done
           python3 -c 'import json; m = json.load(open("repo/manifest.json")); print([(p["name"], p["versions"][0]["version"]) for p in m])'
 
-  # ---- Aster Tracking ------------------------------------------------------------
+  # ---- Aster Discovery and Tracking ------------------------------------------------------------
 
   tracking:
-    name: "Aster Tracking: build"
+    name: "Aster Discovery and Tracking: build"
     needs: changes
     if: needs.changes.outputs.tracking == 'true'
     runs-on: ubuntu-latest

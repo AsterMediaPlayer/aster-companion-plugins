@@ -1,10 +1,10 @@
-name: "Aster Tracking"
+name: "Aster Discovery and Tracking"
 guid: "023a7921-895e-40fb-b815-ab4462f68107"
-version: "0.9.5.0"
+version: "0.9.6.0"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
-overview: "Tracking, scrobbling and discovery for Aster Media Player, and the switch for its Seerr requests."
+overview: "Discovery and tracking for Aster Media Player: each person's Discover page, scrobbling to their own accounts, and requests through Seerr."
 description: >
   Aster Media Player's tracking plugin. Each person links their own Trakt, Simkl,
   AniList, MyAnimeList, Last.fm, ListenBrainz and Hardcover accounts, and what they
@@ -15,6 +15,7 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterTracking.dll"
 changelog: >
+  - 0.9.6.0: Renamed Aster Discovery and Tracking (routes, settings and saved accounts unchanged).
   - 0.9.5.0: The server's rows check titles against Seerr's genres and keywords too, as Seerr's pages are, so a title
     blocked by a TMDB keyword (The Great Jahy, Ecchi) is out of the rows as well as its page.
   - 0.9.4.0: Fixes 0.9.3 breaking Seerr's Discover rows (500) when genre or tag blocks are set.

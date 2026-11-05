@@ -9,7 +9,7 @@ plugin repository:
 | [**Aster Disc**](AsterDisc/README.md) | Shareable disc menus for special features, with a menu editor and a community catalogue. (Formerly Disc Menus.) |
 | [**Aster OP-ED**](AsterOpEd/README.md) | Anime openings and endings matched to your shows, with song details, playable copies for every client, and Jellyfin libraries of them. (Formerly OP/ED.) |
 | [**Aster Aurora**](AsterAurora/README.md) | Apple TV style behaviour for the Jellyfin web client: home hero banner, trailer backgrounds, Up Next rows, quality badges, an Episodes row. (Formerly Aurora.) |
-| [**Aster Tracking**](AsterTracking/README.md) | Tracking and discovery through each person's own Trakt, Simkl, AniList, MyAnimeList, Last.fm, ListenBrainz and Hardcover accounts, and the switch that turns Aster's Seerr requests on. |
+| [**Aster Discovery and Tracking**](AsterTracking/README.md) | Discovery and tracking through each person's own Trakt, Simkl, AniList, MyAnimeList, Last.fm, ListenBrainz and Hardcover accounts, and the switch that turns Aster's Seerr requests on. |
 
 ## Install
 
