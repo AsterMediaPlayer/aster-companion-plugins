@@ -1,6 +1,6 @@
 name: "Aster Tracking"
 guid: "023a7921-895e-40fb-b815-ab4462f68107"
-version: "0.9.4.0"
+version: "0.9.5.0"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -15,6 +15,8 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterTracking.dll"
 changelog: >
+  - 0.9.5.0: The server's rows check titles against Seerr's genres and keywords too, as Seerr's pages are, so a title
+    blocked by a TMDB keyword (The Great Jahy, Ecchi) is out of the rows as well as its page.
   - 0.9.4.0: Fixes 0.9.3 breaking Seerr's Discover rows (500) when genre or tag blocks are set.
   - 0.9.3.0: Seerr's lists and search are checked against each title's genres and keywords too (looked up from
     Seerr, kept a day), so a blocked title no longer shows as a card that won't open.

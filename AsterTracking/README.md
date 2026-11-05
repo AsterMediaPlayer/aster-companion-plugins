@@ -156,7 +156,9 @@ The admin decides what never shows in Discover (dashboard: Discover > Kept out o
 - **What's checked:** AniList's and MyAnimeList's genres and tags, TMDB's genres and keywords, and the library's genres
   and tags for titles on the server. A title listed by several services carries what all of them know. Titles that
   came without genres (Simkl's) get AniList's (anime) or TMDB's (with a TMDB key; kept a day). Each source's names
-  count separately: MyAnimeList calls some Ecchi titles Erotica.
+  count separately: MyAnimeList calls some Ecchi titles Erotica. With requests on, each title's Seerr page (its
+  genres and TMDB keywords) counts as well, so the rows and Seerr's pages agree: AniList doesn't call The Great Jahy
+  Ecchi, TMDB's keywords do.
 
 Applied to the plugin's lists and Discover page, and to Seerr's answers through the plugin. Lists lose their blocked
 titles; a blocked title's Seerr page answers 404. Seerr's lists and search carry only genre ids, so with genre or tag

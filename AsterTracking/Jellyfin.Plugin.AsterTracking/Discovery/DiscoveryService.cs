@@ -35,9 +35,10 @@ public sealed class DiscoveryService
     private readonly IUserManager _users;
     private readonly LibraryIndex _index;
     private readonly TmdbClient _tmdb;
+    private readonly Seerr.SeerrBridge _seerr;
     private readonly ConcurrentDictionary<(Guid User, string Service, string List), (List<DiscoverItemDto> Items, DateTimeOffset At)> _lists = new();
 
-    public DiscoveryService(AccountStore store, TokenService tokens, SimklClient simkl, AniListClient aniList, MyAnimeListClient mal, AnimeIds anime, ILibraryManager library, IUserManager users, LibraryIndex index, TmdbClient tmdb)
+    public DiscoveryService(AccountStore store, TokenService tokens, SimklClient simkl, AniListClient aniList, MyAnimeListClient mal, AnimeIds anime, ILibraryManager library, IUserManager users, LibraryIndex index, TmdbClient tmdb, Seerr.SeerrBridge seerr)
     {
         _store = store;
         _tokens = tokens;
@@ -49,6 +50,7 @@ public sealed class DiscoveryService
         _users = users;
         _index = index;
         _tmdb = tmdb;
+        _seerr = seerr;
     }
 
     /// <summary>Every list, by service, in the order the apps show them.</summary>
@@ -130,7 +132,7 @@ public sealed class DiscoveryService
         var rules = ContentFilter.For(userId);
         if (rules.Any)
         {
-            await _tmdb.FillKeywordsAsync(slice, cancellation).ConfigureAwait(false);
+            await FillNamesAsync(slice, cancellation).ConfigureAwait(false);
         }
 
         slice.RemoveAll(rules.Blocks);
@@ -461,6 +463,27 @@ public sealed class DiscoveryService
             catch (Exception ex) when (ex is TrackerException or SignedOutException or HttpRequestException or TaskCanceledException or FormatException)
             {
                 // Left as they were: the other checks still apply.
+            }
+        }
+    }
+
+    /// <summary>
+    /// Everything that can be known of each title's genres and tags, for the admin's blocks: AniList's for anime without
+    /// any, TMDB's (with the server's key), and Seerr's page (its genres and TMDB keywords, with requests on), since the
+    /// sources disagree: AniList doesn't call The Great Jahy Ecchi, TMDB's keywords do.
+    /// </summary>
+    internal async Task FillNamesAsync(IEnumerable<DiscoverItemDto> items, CancellationToken cancellation)
+    {
+        var all = items.ToList();
+        await FillAnimeGenresAsync(all, cancellation).ConfigureAwait(false);
+        await _tmdb.FillKeywordsAsync(all, cancellation).ConfigureAwait(false);
+        static string? Key(DiscoverItemDto i) => i.Ids.TryGetValue("tmdb", out var id) ? $"{(i.MediaType == "movie" ? "movie" : "tv")}:{id}" : null;
+        var names = await _seerr.TitleNamesAsync(all.Select(Key).OfType<string>(), cancellation).ConfigureAwait(false);
+        foreach (var item in all)
+        {
+            if (Key(item) is { } key && names.TryGetValue(key, out var more))
+            {
+                item.Tags = item.Tags.Union(more, StringComparer.OrdinalIgnoreCase).ToList();
             }
         }
     }

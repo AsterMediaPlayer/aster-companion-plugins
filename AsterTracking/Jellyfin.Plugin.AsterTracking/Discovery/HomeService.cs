@@ -205,8 +205,7 @@ public sealed class HomeService
         var rules = ContentFilter.For(user.Id);
         if (rules.Any)
         {
-            await _discovery.FillAnimeGenresAsync(all, cancellation).ConfigureAwait(false);
-            await _tmdb.FillKeywordsAsync(all, cancellation).ConfigureAwait(false);
+            await _discovery.FillNamesAsync(all, cancellation).ConfigureAwait(false);
         }
 
         var recommended = candidates.Values
@@ -252,8 +251,7 @@ public sealed class HomeService
         // The blocks over every row, then rows left empty dropped: genres looked up first for titles that came without.
         if (rules.Any)
         {
-            await _discovery.FillAnimeGenresAsync(rows.SelectMany(r => r.Items), cancellation).ConfigureAwait(false);
-            await _tmdb.FillKeywordsAsync(rows.SelectMany(r => r.Items), cancellation).ConfigureAwait(false);
+            await _discovery.FillNamesAsync(rows.SelectMany(r => r.Items), cancellation).ConfigureAwait(false);
 
             foreach (var row in rows)
             {

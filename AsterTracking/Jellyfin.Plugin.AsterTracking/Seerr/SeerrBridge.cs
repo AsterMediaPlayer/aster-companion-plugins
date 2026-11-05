@@ -134,6 +134,20 @@ public sealed partial class SeerrBridge
         }
 
         var keys = results.OfType<JsonObject>().Select(Discovery.ContentFilter.Rules.SeerrKey).OfType<string>().Distinct().ToList();
+        return await LookUpAsync(seerr, keys, cancellation).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Genres and keywords of titles by key ("movie:603", "tv:1399") from their Seerr pages, for the plugin's own rows
+    /// too; empty when requests are off. Kept a day, eight looked up at a time.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> TitleNamesAsync(IEnumerable<string> keys, CancellationToken cancellation) =>
+        Connection is { } seerr
+            ? await LookUpAsync(seerr, keys.Distinct().ToList(), cancellation).ConfigureAwait(false)
+            : new Dictionary<string, IReadOnlyList<string>>();
+
+    private async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> LookUpAsync((Uri Url, string Key) seerr, List<string> keys, CancellationToken cancellation)
+    {
         using var gate = new SemaphoreSlim(8);
         await Task.WhenAll(keys.Where(k => !_names.TryGetValue(k, out var known) || DateTimeOffset.UtcNow - known.At > TimeSpan.FromDays(1)).Select(async key =>
         {
@@ -155,7 +169,7 @@ public sealed partial class SeerrBridge
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
             {
-                // Unknown: the list's genre ids still count.
+                // Unknown: the other checks still count.
             }
             finally
             {
