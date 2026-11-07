@@ -165,6 +165,22 @@ titles; a blocked title's Seerr page answers 404. Seerr's lists and search carry
 blocks each title's genres and keywords are looked up from Seerr (eight at a time, kept a day): about 0.2–0.7 s the
 first time a page is seen, nothing after. Changing the blocks rebuilds everyone's Discover page.
 
+## 0.10: Add to Watchlist
+
+The apps put a title on the signed-in person's watchlist on a linked service, from Discover and from a title's page:
+
+    GET    /AsterTracking/Watchlist?mediaType=movie&tmdb=…&imdb=…   → { Services: [{ Service, Linked, On }] }
+    POST   /AsterTracking/Watchlist/{service}   { MediaType, Anime, Ids, Title, Year }   → { Service, On: true }
+    DELETE /AsterTracking/Watchlist/{service}   the same body                            → { Service, On: false }
+
+Simkl first (Plan to Watch, by any of tmdb, imdb, tvdb, mal, anidb or simkl ids: films as movies, shows and anime as
+shows); AniList's Planning and MyAnimeList's Plan to Watch can follow under the same routes. `Features` lists the
+services in `Watchlist` (`["simkl"]`), so an app shows its button only where the server can do it. Taking a title off
+goes through Simkl's history removal, which takes a title off every list, so the plugin only does it for a title on
+Plan to Watch. After a change the person's lists are asked again and their Discover page is rebuilt in the background.
+400: no kind or no id the service knows; 404: a service it can't add to yet; 409: not linked; 410: signed out;
+422: the service doesn't know the title; 502: it couldn't be reached.
+
 ## Building
 
     dotnet build AsterTracking/Jellyfin.Plugin.AsterTracking -c Release

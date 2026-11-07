@@ -160,6 +160,49 @@ public sealed class SimklClient : ITracker
             : HistoryResult.Unchanged;
     }
 
+    /// <summary>
+    /// Puts a title on the person's Plan to Watch (<c>/sync/add-to-list</c>): films under "movies", shows and anime under
+    /// "shows". <paramref name="title"/> is <c>{ title, year, ids }</c>. False when Simkl couldn't find it by any of its ids.
+    /// </summary>
+    public async Task<bool> AddToWatchlistAsync(JsonObject title, bool movie, string token, CancellationToken cancellation)
+    {
+        title["to"] = "plantowatch";
+        var body = new JsonObject { [movie ? "movies" : "shows"] = new JsonArray(title) };
+        var (status, reply) = await RequestAsync("/sync/add-to-list", HttpMethod.Post, body.ToJsonString(), token, cancellation).ConfigureAwait(false);
+        Check(status);
+        return !NotFound(reply);
+    }
+
+    /// <summary>
+    /// Takes a title off the person's lists (<c>/sync/history/remove</c>, which is how Simkl takes something off Plan to
+    /// Watch). Only for a title on Plan to Watch: on a list of things watched it would take the history away too.
+    /// </summary>
+    public async Task<bool> RemoveFromListsAsync(JsonObject title, bool movie, string token, CancellationToken cancellation)
+    {
+        var body = new JsonObject { [movie ? "movies" : "shows"] = new JsonArray(title) };
+        var (status, reply) = await RequestAsync("/sync/history/remove", HttpMethod.Post, body.ToJsonString(), token, cancellation).ConfigureAwait(false);
+        Check(status);
+        return !NotFound(reply);
+    }
+
+    /// <summary>The ids Simkl takes, out of a title's ("tmdb", "imdb", "tvdb", "mal", "anidb", "anilist", "simkl"); the rest left out.</summary>
+    public static JsonObject Ids(IReadOnlyDictionary<string, string> ids)
+    {
+        var known = new JsonObject();
+        foreach (var key in new[] { "simkl", "tmdb", "imdb", "tvdb", "mal", "anidb", "anilist" })
+        {
+            if (ids.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+            {
+                known[key] = int.TryParse(value, out var number) && key != "imdb" ? JsonValue.Create(number) : JsonValue.Create(value.Trim());
+            }
+        }
+
+        return known;
+    }
+
+    private static bool NotFound(JsonNode? reply) =>
+        reply?["not_found"] is JsonObject missing && missing.Any(kind => kind.Value is JsonArray { Count: > 0 });
+
     /// <summary>A GET for the discovery lists (<c>/sync/all-items/…</c>, <c>/tv/trending/…</c>), with the person's token.</summary>
     internal async Task<JsonNode?> GetAsync(string pathAndQuery, string token, CancellationToken cancellation)
     {

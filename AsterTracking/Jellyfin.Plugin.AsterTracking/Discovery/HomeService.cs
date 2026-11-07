@@ -109,6 +109,15 @@ public sealed class HomeService
         }
     }
 
+    /// <summary>Builds the person's page again in the background (their watchlist changed); the old one serves meanwhile.</summary>
+    public void Refresh(Guid userId)
+    {
+        if (_homes.ContainsKey(userId) && _users.GetUserById(userId) is { } user)
+        {
+            _ = RebuildAsync(user);
+        }
+    }
+
     private async Task RebuildAsync(User user)
     {
         try
