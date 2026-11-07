@@ -31,8 +31,9 @@ connection lives in the plugin**.
 | ListenBrainz | music | the **user's token** pasted | no | playing now; listens |
 | Hardcover | audiobooks | the **user's API token** pasted (GraphQL) | no | reading progress (%), status Reading/Read |
 
-**Developer apps (decided):** Aster's own registrations on Trakt, Simkl, AniList, MyAnimeList and Last.fm are
-**built into the plugin**, so users just link; the admin page has fields to override them with the server's own.
+**Developer apps (decided):** Aster's own registrations on Simkl, AniList, MyAnimeList, Hardcover and Last.fm are
+**built into official releases** (from the repository's Actions secrets, never the source), so users just link; the
+admin page has fields to override them with the server's own, and a build from the source needs them.
 
 No public write API (export only, not in scope): Letterboxd, IMDb, TV Time, Serializd, Goodreads, StoryGraph.
 

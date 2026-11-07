@@ -80,8 +80,26 @@ jobs:
               dotnet build "$PROJECT" -c Release ;;
           esac
 
+      # Aster Tracking's own apps on each service go into the release build from Actions secrets, never into the source
+      # (see AsterTracking/.../BuiltInKeys.cs). Only this step sees them, and only on a pushed tag.
       - name: Build the plugin package
+        env:
+          ASTER_SIMKL_CLIENT_ID: ${{ secrets.ASTER_SIMKL_CLIENT_ID }}
+          ASTER_ANILIST_CLIENT_ID: ${{ secrets.ASTER_ANILIST_CLIENT_ID }}
+          ASTER_MAL_CLIENT_ID: ${{ secrets.ASTER_MAL_CLIENT_ID }}
+          ASTER_HARDCOVER_CLIENT_ID: ${{ secrets.ASTER_HARDCOVER_CLIENT_ID }}
+          ASTER_LASTFM_API_KEY: ${{ secrets.ASTER_LASTFM_API_KEY }}
+          ASTER_LASTFM_SHARED_SECRET: ${{ secrets.ASTER_LASTFM_SHARED_SECRET }}
         run: |
+          if [ "$DIR" = AsterTracking ]; then
+            for name in ASTER_SIMKL_CLIENT_ID ASTER_ANILIST_CLIENT_ID ASTER_MAL_CLIENT_ID ASTER_HARDCOVER_CLIENT_ID \
+                        ASTER_LASTFM_API_KEY ASTER_LASTFM_SHARED_SECRET; do
+              if [ -z "${!name}" ]; then
+                echo "The $name secret isn't set; refusing to release Aster Tracking without Aster's apps." >&2
+                exit 1
+              fi
+            done
+          fi
           mkdir -p dist
           jprm plugin build "$PROJECT" --output "$PWD/dist"
           ls -l dist

@@ -30,8 +30,8 @@ Linking, for the apps' settings (a signed-in person for themselves; an administr
     PUT    /AsterTracking/Accounts/Simkl/Settings        { "Scrobble": false }
     DELETE /AsterTracking/Accounts/Simkl
 
-The dashboard page can do the same for any person. Aster's own Simkl app is built in; Developer apps ▸ Simkl client id
-swaps in the server's own. Apps that scrobble to Simkl themselves should stop once `Features.Services` lists `simkl`
+The dashboard page can do the same for any person. Official releases carry Aster's own Simkl app; Developer apps ▸ Simkl client
+id swaps in the server's own. Apps that scrobble to Simkl themselves should stop once `Features.Services` lists `simkl`
 and the person is linked here, or each watch is sent twice.
 
 ## 0.3: AniList and MyAnimeList
@@ -54,8 +54,8 @@ opens, then paste back the code it shows.
     POST /AsterTracking/Accounts/{anilist|myanimelist}/Link            → { "Url", "Paste": true }
     POST /AsterTracking/Accounts/{anilist|myanimelist}/Link/Complete   { "Code": "…" } → 200 linked
 
-A whole pasted address works as well as the code. Until the server has an app for a service (built in, or under
-Developer apps) the service is left out of `Features.Services` and linking it is a 409.
+A whole pasted address works as well as the code. Until the server has an app for a service (in an official release,
+or under Developer apps) the service is left out of `Features.Services` and linking it is a 409.
 
 ## 0.4: Last.fm
 
@@ -171,3 +171,10 @@ first time a page is seen, nothing after. Changing the blocks rebuilds everyone'
     python3 tools/check_versions.py AsterTracking/Jellyfin.Plugin.AsterTracking
 
 Released by pushing a tag `astertracking-vX.Y.Z`.
+
+**Aster's own apps aren't in the source.** Official releases get Aster's registrations on Simkl, AniList,
+MyAnimeList, Hardcover and Last.fm from the repository's Actions secrets (`ASTER_SIMKL_CLIENT_ID`,
+`ASTER_ANILIST_CLIENT_ID`, `ASTER_MAL_CLIENT_ID`, `ASTER_HARDCOVER_CLIENT_ID`, `ASTER_LASTFM_API_KEY`,
+`ASTER_LASTFM_SHARED_SECRET`), which the release workflow passes to the build; it refuses to release without them. A
+build from the source has none: fill in Developer apps on the dashboard with your own, or set the same environment
+variables when you build. If you publish a build of your own, register your own apps rather than reusing Aster's.

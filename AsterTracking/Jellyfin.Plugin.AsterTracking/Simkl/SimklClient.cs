@@ -17,7 +17,7 @@ namespace Jellyfin.Plugin.AsterTracking.Simkl;
 public sealed class SimklClient : ITracker
 {
     /// <summary>Aster's own Simkl app ("TV, devices &amp; command line": device sign-in, no secret).</summary>
-    public const string BuiltInClientId = "ebd388547e0ade13dad9e3196e820dcbc4b86ebb47d84d838b142a83b31bd71d";
+    public static string BuiltInClientId => BuiltInKeys.SimklClientId;
 
     private readonly IHttpClientFactory _http;
 
