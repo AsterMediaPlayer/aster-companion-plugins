@@ -145,6 +145,45 @@ public sealed class DiscoveryService
         };
     }
 
+    /// <summary>
+    /// The person's whole Watchlist on a service, as the lists keep it (10 minutes), for asking whether a title is on it;
+    /// null when they haven't linked the service.
+    /// </summary>
+    public async Task<List<DiscoverItemDto>?> WatchlistAsync(Guid userId, string service, CancellationToken cancellation)
+    {
+        service = service.ToLowerInvariant();
+        if (!(await ListsAsync(userId).ConfigureAwait(false)).Any(l => l.Service == service && l.List == "watchlist"))
+        {
+            return null;
+        }
+
+        var key = (userId, service, "watchlist");
+        if (!_lists.TryGetValue(key, out var cached) || DateTimeOffset.UtcNow - cached.At > Keep)
+        {
+            var items = await FetchAsync(userId, service, "watchlist", cancellation).ConfigureAwait(false);
+            await FillIdsAsync(items, cancellation).ConfigureAwait(false);
+            await FillAnimeGenresAsync(items, cancellation).ConfigureAwait(false);
+            cached = (items, DateTimeOffset.UtcNow);
+            _lists[key] = cached;
+        }
+
+        return cached.Items;
+    }
+
+    /// <summary>Forgets a person's lists from a service (after a change to them), so the next look asks again.</summary>
+    public void Forget(Guid userId, string service)
+    {
+        foreach (var key in _lists.Keys.Where(k => k.User == userId && k.Service == service).ToList())
+        {
+            _lists.TryRemove(key, out _);
+        }
+    }
+
+    /// <summary>Whether two titles are the same: a film or a show alike, sharing any id.</summary>
+    internal static bool SameTitle(DiscoverItemDto item, string mediaType, IReadOnlyDictionary<string, string> ids) =>
+        string.Equals(item.MediaType, mediaType, StringComparison.OrdinalIgnoreCase)
+        && ids.Any(id => id.Key != "tmdbSeason" && item.Ids.TryGetValue(id.Key, out var mine) && string.Equals(mine, id.Value, StringComparison.OrdinalIgnoreCase));
+
     private async Task<List<DiscoverItemDto>> FetchAsync(Guid userId, string service, string list, CancellationToken cancellation)
     {
         return service switch
