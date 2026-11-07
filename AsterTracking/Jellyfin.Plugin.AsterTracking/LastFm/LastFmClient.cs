@@ -19,9 +19,9 @@ namespace Jellyfin.Plugin.AsterTracking.LastFm;
 public sealed class LastFmClient : ITracker, INowPlaying
 {
     /// <summary>Aster's Last.fm API account ("Aster Media Plugin"). A server can set its own.</summary>
-    public const string BuiltInApiKey = "86cd7e3d1ef3be723e3c3443f8cef02c";
+    public static string BuiltInApiKey => BuiltInKeys.LastFmApiKey;
 
-    public const string BuiltInSharedSecret = "a2671ed2f993f157efe9aee9ae8e12d6";
+    public static string BuiltInSharedSecret => BuiltInKeys.LastFmSharedSecret;
 
     private static readonly Uri Api = new("https://ws.audioscrobbler.com/2.0/");
 

@@ -1,6 +1,6 @@
 name: "Aster Discovery and Tracking"
 guid: "023a7921-895e-40fb-b815-ab4462f68107"
-version: "0.9.6.0"
+version: "0.9.7.0"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -15,6 +15,8 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterTracking.dll"
 changelog: >
+  - 0.9.7.0: Aster's own apps on Simkl, AniList, MyAnimeList, Hardcover and Last.fm come from the release build, not the
+    source; a build from the source uses Developer apps. Nothing changes for linked accounts.
   - 0.9.6.0: Renamed Aster Discovery and Tracking (routes, settings and saved accounts unchanged).
   - 0.9.5.0: The server's rows check titles against Seerr's genres and keywords too, as Seerr's pages are, so a title
     blocked by a TMDB keyword (The Great Jahy, Ecchi) is out of the rows as well as its page.

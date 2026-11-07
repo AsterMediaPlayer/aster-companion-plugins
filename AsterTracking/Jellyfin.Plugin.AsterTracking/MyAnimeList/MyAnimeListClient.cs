@@ -20,7 +20,7 @@ public sealed class MyAnimeListClient : ITracker
     /// Aster's MyAnimeList app for servers (type "other", no secret), with <see cref="Redirect"/> as its redirect. A
     /// server can set its own.
     /// </summary>
-    public const string BuiltInClientId = "c714c89f9ba3e4281a8090df255153a1";
+    public static string BuiltInClientId => BuiltInKeys.MyAnimeListClientId;
 
     /// <summary>The page that shows the code to paste.</summary>
     public const string Redirect = "https://astermediaplayer.com/link/myanimelist/";
