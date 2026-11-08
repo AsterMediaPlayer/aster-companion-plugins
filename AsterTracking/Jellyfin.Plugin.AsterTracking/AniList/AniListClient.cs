@@ -106,6 +106,63 @@ public sealed class AniListClient : ITracker
         return HistoryResult.Added;
     }
 
+    /// <summary>
+    /// Puts the title on the person's Planning list, or takes it off. An entry on another list (Watching, Completed,
+    /// …) is never changed or deleted: taking off only deletes a Planning entry.
+    /// </summary>
+    public async Task<WatchlistOutcome> SetPlanningAsync(int mediaId, bool add, string token, CancellationToken cancellation)
+    {
+        var lookup = await RequestAsync(
+            "query($id:Int){Media(id:$id,type:ANIME){mediaListEntry{id status}}}",
+            new JsonObject { ["id"] = mediaId }, token, cancellation).ConfigureAwait(false);
+        var media = lookup?["data"]?["Media"];
+        if (media is null)
+        {
+            return new(WatchlistChange.NotFound);
+        }
+
+        var entry = media["mediaListEntry"];
+        var status = entry?["status"] is JsonValue s && s.TryGetValue<string>(out var st) ? st : null;
+        if (add)
+        {
+            if (status == "PLANNING")
+            {
+                return new(WatchlistChange.On);
+            }
+
+            if (status is not null)
+            {
+                return new(WatchlistChange.Elsewhere, ListName(status));
+            }
+
+            await RequestAsync(
+                "mutation($id:Int){SaveMediaListEntry(mediaId:$id,status:PLANNING){id}}",
+                new JsonObject { ["id"] = mediaId }, token, cancellation).ConfigureAwait(false);
+            return new(WatchlistChange.On);
+        }
+
+        if (status != "PLANNING" || entry?["id"] is not JsonValue i || !i.TryGetValue<int>(out var entryId))
+        {
+            return new(WatchlistChange.Off);
+        }
+
+        await RequestAsync(
+            "mutation($id:Int){DeleteMediaListEntry(id:$id){deleted}}",
+            new JsonObject { ["id"] = entryId }, token, cancellation).ConfigureAwait(false);
+        return new(WatchlistChange.Off);
+    }
+
+    /// <summary>AniList's list statuses as the site names them.</summary>
+    private static string ListName(string status) => status switch
+    {
+        "CURRENT" => "Watching",
+        "REPEATING" => "Rewatching",
+        "COMPLETED" => "Completed",
+        "PAUSED" => "Paused",
+        "DROPPED" => "Dropped",
+        _ => status,
+    };
+
     /// <summary>AniList's tokens can't be refreshed: they last a year, then the person links again.</summary>
     public Task<LinkedAccount?> RefreshAsync(LinkedAccount account, CancellationToken cancellation) => Task.FromResult<LinkedAccount?>(null);
 

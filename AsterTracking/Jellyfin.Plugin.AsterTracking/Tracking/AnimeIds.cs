@@ -68,6 +68,34 @@ public sealed class AnimeIds
         return entry is null ? null : (entry, last);
     }
 
+    /// <summary>
+    /// The AniList and MyAnimeList entry for a title the apps describe by its ids ("anilist", "mal", "anidb"), mapped
+    /// through ARM for whichever is missing; null when it has none of them (not anime the sites can be matched to).
+    /// </summary>
+    public async Task<AnimeEntry?> EntryForAsync(IReadOnlyDictionary<string, string> ids, CancellationToken cancellation)
+    {
+        var aniList = ids.TryGetValue("anilist", out var a) ? Number(a) : null;
+        var mal = ids.TryGetValue("mal", out var m) ? Number(m) : null;
+        if (aniList is not null && mal is not null)
+        {
+            return new AnimeEntry(aniList, mal);
+        }
+
+        if (aniList is not null || mal is not null)
+        {
+            var mapped = await MapAsync(aniList is not null ? "anilist" : "myanimelist", (aniList ?? mal)!.Value, cancellation).ConfigureAwait(false);
+            return new AnimeEntry(aniList ?? mapped?.AniList, mal ?? mapped?.MyAnimeList);
+        }
+
+        return ids.TryGetValue("anidb", out var d) && Number(d) is int aniDb
+            ? await MapAsync("anidb", aniDb, cancellation).ConfigureAwait(false)
+            : null;
+    }
+
+    /// <summary>Whether the ids name an anime entry the sites can be matched to.</summary>
+    public static bool HasAnimeIds(IReadOnlyDictionary<string, string> ids) =>
+        ids.Keys.Any(k => k is "anilist" or "mal" or "anidb");
+
     /// <summary>ARM's AniList and MyAnimeList ids for one site's id.</summary>
     private async Task<AnimeEntry?> MapAsync(string source, int id, CancellationToken cancellation)
     {

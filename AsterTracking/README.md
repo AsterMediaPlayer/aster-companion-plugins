@@ -169,17 +169,25 @@ first time a page is seen, nothing after. Changing the blocks rebuilds everyone'
 
 The apps put a title on the signed-in person's watchlist on a linked service, from Discover and from a title's page:
 
-    GET    /AsterTracking/Watchlist?mediaType=movie&tmdb=…&imdb=…   → { Services: [{ Service, Linked, On }] }
+    GET    /AsterTracking/Watchlist?mediaType=movie&tmdb=…&imdb=…   → { Services: [{ Service, Linked, Fits, On }] }
     POST   /AsterTracking/Watchlist/{service}   { MediaType, Anime, Ids, Title, Year }   → { Service, On: true }
     DELETE /AsterTracking/Watchlist/{service}   the same body                            → { Service, On: false }
 
-Simkl first (Plan to Watch, by any of tmdb, imdb, tvdb, mal, anidb or simkl ids: films as movies, shows and anime as
-shows); AniList's Planning and MyAnimeList's Plan to Watch can follow under the same routes. `Features` lists the
-services in `Watchlist` (`["simkl"]`), so an app shows its button only where the server can do it. Taking a title off
-goes through Simkl's history removal, which takes a title off every list, so the plugin only does it for a title on
-Plan to Watch. After a change the person's lists are asked again and their Discover page is rebuilt in the background.
-400: no kind or no id the service knows; 404: a service it can't add to yet; 409: not linked; 410: signed out;
-422: the service doesn't know the title; 502: it couldn't be reached.
+- **Simkl** (`simkl`): Plan to Watch, by any of tmdb, imdb, tvdb, mal, anidb or simkl ids: films as movies, shows and
+  anime as shows. Taking a title off goes through Simkl's history removal, which takes a title off every list, so the
+  plugin only does it for a title on Plan to Watch.
+- **AniList** (`anilist`, 0.9.9): Planning. **MyAnimeList** (`myanimelist`, 0.9.9): Plan to Watch. Anime only: the
+  title's AniList or MyAnimeList id, or one mapped through ARM from the other site's or its AniDB id. A title already
+  on another of the person's lists there (Watching, Completed, …) is never changed: adding answers 422 with the list
+  it's on, and taking off only deletes a Planning or Plan to Watch entry.
+
+`Features` lists the services in `Watchlist` (`["simkl", "anilist", "myanimelist"]`, those set up on the server), so an
+app shows its button only where the server can do it. In the state, `Fits` is whether the service can hold the title
+at all (AniList and MyAnimeList: only with an AniList, MyAnimeList or AniDB id); an app offers a service only where it's
+`Linked` and `Fits`. After a change the person's lists are asked again and their Discover page is rebuilt in the
+background. 400: no kind or no id the service knows; 404: a service it can't add to yet; 409: not linked; 410: signed
+out; 422: the service doesn't know the title, or (AniList, MyAnimeList) it's on another list, with the reason in the
+problem's `detail`; 502: it couldn't be reached.
 
 ## Building
 
