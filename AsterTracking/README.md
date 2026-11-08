@@ -165,6 +165,20 @@ titles; a blocked title's Seerr page answers 404. Seerr's lists and search carry
 blocks each title's genres and keywords are looked up from Seerr (eight at a time, kept a day): about 0.2–0.7 s the
 first time a page is seen, nothing after. Changing the blocks rebuilds everyone's Discover page.
 
+## 0.10: Everyone links their own accounts
+
+Jellyfin shows a plugin's settings page to administrators only, so the plugin also serves a page for everyone:
+
+    GET /AsterTracking/Link        (on the server's own address, base path included)
+
+Each person signs in to it with their Jellyfin account (the Jellyfin web app's sign-in in that browser is used when
+there is one) and links, unlinks and pauses their own Simkl, AniList, MyAnimeList, Last.fm, ListenBrainz and Hardcover
+accounts, with their recent sends. The page is static and open; everything it does goes through
+`/AsterTracking/Accounts` as the signed-in person and never names another user, so it can only ever show and change their
+own accounts. It isn't shown in another site's frame and loads nothing from anywhere else. The dashboard page links to
+it for the admin to share, and `/AsterTracking/Features` gives its address as `LinkPage`, so an app can show it (a QR
+code on a TV, say). Aster's apps keep their own Settings ▸ Tracking.
+
 ## 0.10: Add to Watchlist
 
 The apps put a title on the signed-in person's watchlist on a linked service, from Discover and from a title's page:

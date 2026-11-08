@@ -38,6 +38,11 @@
                         way or four minutes, and audiobook progress to Hardcover. People link their own accounts from
                         Aster's settings, or here for anyone. Trakt follows.
                     </p>
+                    <p>
+                        Anyone on the server can link their own accounts in a browser at
+                        <a id="LinkPageUrl" target="_blank" rel="noopener" class="button-link"></a>: share it with them. It uses
+                        their Jellyfin sign-in, and they only ever see and change their own accounts there.
+                    </p>
                     <div class="selectContainer">
                         <label class="selectLabel" for="TrackingUser">Person</label>
                         <select id="TrackingUser" is="emby-select"></select>
@@ -346,6 +351,10 @@
             }
 
             build();
+
+            var linkPage = ApiClient.getUrl('AsterTracking/Link');
+            page().querySelector('#LinkPageUrl').href = linkPage;
+            page().querySelector('#LinkPageUrl').textContent = linkPage;
 
             page().querySelector('#TrackingUser').addEventListener('change', function () { stopLinking(); showAccounts(); });
             page().addEventListener('pagehide', stopLinking);
