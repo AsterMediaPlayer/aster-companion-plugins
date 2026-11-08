@@ -1,6 +1,6 @@
 name: "Aster Discovery and Tracking"
 guid: "023a7921-895e-40fb-b815-ab4462f68107"
-version: "0.9.9.0"
+version: "0.10.0.0"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -15,6 +15,10 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterTracking.dll"
 changelog: >
+  - 0.10.0.0: Everyone links their own accounts in a browser, at /AsterTracking/Link on the server: a page for anyone
+    (Jellyfin shows plugin settings to administrators only). It uses their Jellyfin web sign-in in that browser, or a
+    sign-in on the page, and only ever shows and changes their own accounts. The dashboard links to it, and Features
+    gives its address (LinkPage) for the apps.
   - 0.9.9.0: Add to Watchlist for anime on AniList (Planning) and MyAnimeList (Plan to Watch), under the same routes
     (POST and DELETE /AsterTracking/Watchlist/anilist and /myanimelist). A title on another of the person's lists there
     is left as it is. The state says which services fit a title (Fits: AniList and MyAnimeList only for anime).

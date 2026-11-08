@@ -34,6 +34,7 @@ public class AsterTrackingController : ControllerBase
             Seerr = new SeerrDto { Enabled = on, Proxy = on ? "/AsterTracking/Seerr/api/v1" : null },
             Services = _trackers.Where(t => t.Available).Select(t => t.Service).ToList(),
             Watchlist = WatchlistController.Services.Where(s => _trackers.Any(t => t.Service == s && t.Available)).ToList(),
+            LinkPage = "/AsterTracking/Link",
         };
     }
 
@@ -61,6 +62,9 @@ public class FeaturesDto
 
     /// <summary>The services the apps can put titles on the watchlist of (<c>/AsterTracking/Watchlist</c>): "simkl" for now.</summary>
     public List<string> Watchlist { get; set; } = new();
+
+    /// <summary>The page where anyone links their own accounts in a browser, on this server's address (0.10).</summary>
+    public string LinkPage { get; set; } = string.Empty;
 }
 
 /// <summary>Seerr: whether Aster's request features are on, and where the apps reach Seerr's API (through this server).</summary>

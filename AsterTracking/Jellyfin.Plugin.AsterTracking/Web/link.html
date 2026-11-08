@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Your tracking accounts</title>
+    <style>
+        :root { color-scheme: dark; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #101010; color: #eee; }
+        main { max-width: 44em; margin: 0 auto; padding: 1.5em 1.2em 4em; }
+        h1 { font-size: 1.7em; margin: .2em 0 .1em; }
+        h2 { font-size: 1.15em; margin: 0 0 .2em; }
+        p, .note { color: #aaa; }
+        .note { font-size: .9em; }
+        a { color: #00a4dc; }
+        .card { background: #1c1c1c; border-radius: 10px; padding: 1em 1.1em; margin: 1em 0; }
+        .row { display: flex; flex-wrap: wrap; gap: .6em; align-items: center; margin-top: .7em; }
+        button { font: inherit; border: 0; border-radius: 6px; padding: .5em 1em; background: #333; color: #fff; cursor: pointer; }
+        button.primary { background: #00a4dc; }
+        button:disabled { opacity: .5; cursor: default; }
+        input[type=text], input[type=password] { font: inherit; width: 100%; padding: .55em .7em; border-radius: 6px; border: 1px solid #444; background: #111; color: #eee; }
+        label.check { display: flex; gap: .5em; align-items: center; margin-top: .7em; color: #ccc; }
+        .code { font-size: 1.6em; letter-spacing: .15em; font-weight: 700; }
+        .error { color: #ff6b6b; margin-top: .6em; }
+        .hidden { display: none !important; }
+        #log { font-size: .9em; color: #aaa; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Your tracking accounts</h1>
+    <p id="who">Link your own accounts once, and what you watch, read and listen to on this server is sent to them, from any
+        app. Only you see and change your accounts here.</p>
+
+    <div id="signin" class="card hidden">
+        <h2>Sign in to Jellyfin</h2>
+        <p class="note">With the account you watch with on this server. You stay signed in until you close this tab.</p>
+        <div class="row"><input id="username" type="text" autocomplete="username" placeholder="User name" /></div>
+        <div class="row"><input id="password" type="password" autocomplete="current-password" placeholder="Password" /></div>
+        <div class="row"><button id="signinButton" class="primary">Sign in</button></div>
+        <div id="signinError" class="error hidden"></div>
+    </div>
+
+    <div id="accounts" class="hidden"></div>
+
+    <div id="logCard" class="card hidden">
+        <h2>Recent sends</h2>
+        <div id="log">Nothing sent yet.</div>
+    </div>
+
+    <div class="row"><button id="signout" class="hidden">Sign out of this page</button></div>
+</main>
+<script>
+(function () {
+    'use strict';
+
+    // Each service: its route name, its key in GET Accounts, and what sending does there.
+    var services = [
+        { id: 'simkl', key: 'Simkl', name: 'Simkl', sends: 'Add what I watch to my Simkl history' },
+        { id: 'anilist', key: 'AniList', name: 'AniList', sends: 'Move my anime progress on AniList' },
+        { id: 'myanimelist', key: 'MyAnimeList', name: 'MyAnimeList', sends: 'Move my anime progress on MyAnimeList' },
+        { id: 'lastfm', key: 'LastFm', name: 'Last.fm', sends: 'Scrobble the music I play to Last.fm' },
+        { id: 'listenbrainz', key: 'ListenBrainz', name: 'ListenBrainz', sends: 'Send the music I play to ListenBrainz',
+          paste: 'Open your ListenBrainz settings (opens a new tab), copy your User token, and paste it here.' },
+        { id: 'hardcover', key: 'Hardcover', name: 'Hardcover', sends: 'Keep my audiobook progress on Hardcover' }
+    ];
+
+    // The server's address as this page sees it, base path included ("/jellyfin/AsterTracking/Link" → "/jellyfin/").
+    var base = location.pathname.replace(/AsterTracking\/Link\/?$/i, '');
+    var token = null;
+    var linkTimer = null;
+    var waiting = null;
+
+    function $(id) { return document.getElementById(id); }
+
+    function text(value) {
+        var d = document.createElement('div'); d.textContent = value == null ? '' : String(value); return d.innerHTML;
+    }
+
+    function deviceId() {
+        var id = sessionStorage.getItem('asterLinkDevice');
+        if (!id) { id = 'aster-link-' + Math.random().toString(36).slice(2) + Date.now().toString(36); sessionStorage.setItem('asterLinkDevice', id); }
+        return id;
+    }
+
+    function authHeader() {
+        return 'MediaBrowser Client="Aster Link", Device="Browser", DeviceId="' + deviceId() + '", Version="0.10.0"'
+            + (token ? ', Token="' + token + '"' : '');
+    }
+
+    // Every call is the signed-in person's own: no user is ever named, so the server only answers for them.
+    function call(method, path, body) {
+        return fetch(base + path, {
+            method: method,
+            headers: Object.assign({ 'Authorization': authHeader(), 'Accept': 'application/json' }, body ? { 'Content-Type': 'application/json' } : {}),
+            body: body ? JSON.stringify(body) : undefined,
+            credentials: 'omit'
+        }).then(function (r) {
+            if (r.status === 401) { signedOut(); throw r; }
+            if (!r.ok) { throw r; }
+            return r;
+        });
+    }
+
+    function accounts(path, method, body) { return call(method || 'GET', 'AsterTracking/Accounts' + (path || ''), body); }
+
+    // The Jellyfin web app's sign-in for this server, when this browser has one; else this tab's own.
+    function findToken() {
+        var own = sessionStorage.getItem('asterLinkToken');
+        if (own) { return Promise.resolve(own); }
+        return fetch(base + 'System/Info/Public').then(function (r) { return r.json(); }).then(function (info) {
+            try {
+                var saved = JSON.parse(localStorage.getItem('jellyfin_credentials') || '{}');
+                var server = (saved.Servers || []).filter(function (s) { return s.Id === info.Id && s.AccessToken; })[0];
+                return server ? server.AccessToken : null;
+            } catch (e) { return null; }
+        }, function () { return null; });
+    }
+
+    function showSignIn() {
+        $('signin').classList.remove('hidden');
+        $('accounts').classList.add('hidden');
+        $('logCard').classList.add('hidden');
+        $('signout').classList.add('hidden');
+        $('username').focus();
+    }
+
+    function signedOut() {
+        token = null;
+        sessionStorage.removeItem('asterLinkToken');
+        stopLinking();
+        showSignIn();
+    }
+
+    function signIn() {
+        var name = $('username').value.trim();
+        $('signinError').classList.add('hidden');
+        if (!name) { return; }
+        $('signinButton').disabled = true;
+        fetch(base + 'Users/AuthenticateByName', {
+            method: 'POST',
+            headers: { 'Authorization': authHeader(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ Username: name, Pw: $('password').value }),
+            credentials: 'omit'
+        }).then(function (r) {
+            if (!r.ok) { throw r; }
+            return r.json();
+        }).then(function (result) {
+            token = result.AccessToken;
+            sessionStorage.setItem('asterLinkToken', token);
+            $('password').value = '';
+            start();
+        }, function () {
+            $('signinError').textContent = 'That user name and password didn\'t sign in.';
+            $('signinError').classList.remove('hidden');
+        }).then(function () { $('signinButton').disabled = false; });
+    }
+
+    function signOut() {
+        // Only this tab's own sign-in is ended on the server; the Jellyfin web app's stays as it is.
+        var own = sessionStorage.getItem('asterLinkToken');
+        (own ? call('POST', 'Sessions/Logout').catch(function () {}) : Promise.resolve()).then(signedOut);
+    }
+
+    function el(service, part) { return $(service.key + part); }
+
+    function failed(service, r) {
+        if (r && r.status === 410) { return 'That sign-in ran out or was refused. Link again.'; }
+        if (r && r.status === 409) { return 'This server can\'t link ' + service.name + ' yet: its admin needs to add an app for it.'; }
+        if (r && r.status === 400) { return 'Paste the code the sign-in page showed.'; }
+        return service.name + ' couldn\'t be reached, or didn\'t take the code. Try again.';
+    }
+
+    function problem(service, message) {
+        el(service, 'Error').textContent = message;
+        el(service, 'Error').classList.toggle('hidden', !message);
+    }
+
+    function build() {
+        $('accounts').innerHTML = services.map(function (s) {
+            return '<div class="card" id="' + s.key + 'Card">'
+                + '<h2>' + s.name + '</h2>'
+                + '<div id="' + s.key + 'Status" class="note">…</div>'
+                + '<div id="' + s.key + 'Device" class="hidden"><p><span id="' + s.key + 'DeviceText">Go to</span> <a id="' + s.key + 'DeviceUrl" target="_blank" rel="noopener"></a> '
+                + '<span id="' + s.key + 'DeviceAnd">and enter</span></p><div class="code" id="' + s.key + 'DeviceCode"></div>'
+                + '<p class="note" id="' + s.key + 'DeviceWait">Waiting for the code to be entered…</p></div>'
+                + '<div id="' + s.key + 'Paste" class="hidden">'
+                + (s.paste
+                    ? '<p>' + s.paste.replace(/^Open your (.*?) settings/, '<a id="' + s.key + 'PasteUrl" target="_blank" rel="noopener">Open your $1 settings</a>') + '</p>'
+                    : '<p><a id="' + s.key + 'PasteUrl" target="_blank" rel="noopener">Sign in to ' + s.name + '</a> (opens a new tab), approve Aster, then paste the code it shows here.</p>')
+                + '<div class="row"><input id="' + s.key + 'Code" type="text" autocomplete="off" placeholder="Code" /></div>'
+                + '<div class="row"><button id="' + s.key + 'Finish" class="primary">Finish linking</button></div></div>'
+                + '<label class="check hidden" id="' + s.key + 'ScrobbleBox"><input id="' + s.key + 'Scrobble" type="checkbox" /> ' + s.sends + '</label>'
+                + '<div class="row"><button id="' + s.key + 'Link" class="primary hidden">Link ' + s.name + '</button>'
+                + '<button id="' + s.key + 'Unlink" class="hidden">Unlink</button></div>'
+                + '<div id="' + s.key + 'Error" class="error hidden"></div>'
+                + '</div>';
+        }).join('');
+
+        services.forEach(function (s) {
+            el(s, 'Link').addEventListener('click', function () { startLink(s); });
+            el(s, 'Finish').addEventListener('click', function () { finishPaste(s); });
+            el(s, 'Unlink').addEventListener('click', function () {
+                if (!confirm('Unlink ' + s.name + '? Nothing more is sent to it until you link it again.')) { return; }
+                accounts('/' + s.id, 'DELETE').then(showAccounts, function (r) { problem(s, failed(s, r)); });
+            });
+            el(s, 'Scrobble').addEventListener('change', function () {
+                accounts('/' + s.id + '/Settings', 'PUT', { Scrobble: this.checked }).then(showAccounts, function (r) { problem(s, failed(s, r)); });
+            });
+        });
+    }
+
+    function stopLinking() {
+        if (linkTimer) { clearTimeout(linkTimer); linkTimer = null; }
+        waiting = null;
+        services.forEach(function (s) {
+            if (!el(s, 'Device')) { return; }
+            el(s, 'Device').classList.add('hidden');
+            el(s, 'Paste').classList.add('hidden');
+            el(s, 'Code').value = '';
+        });
+    }
+
+    function showAccounts() {
+        return accounts().then(function (r) { return r.json(); }).then(function (a) {
+            services.forEach(function (s) {
+                var account = a[s.key] || {};
+                // A service this server has no app for can't be linked: it isn't shown to people.
+                el(s, 'Card').classList.toggle('hidden', !account.Available && !account.Linked);
+                el(s, 'Status').innerHTML = account.Linked
+                    ? 'Linked to <strong>' + text(account.Name || 'your account') + '</strong> since ' + text(new Date(account.LinkedAt).toLocaleDateString())
+                      + (account.Expires ? '; link again by ' + text(new Date(account.Expires).toLocaleDateString()) : '')
+                    : 'Not linked.';
+                el(s, 'Link').classList.toggle('hidden', !!account.Linked);
+                el(s, 'Unlink').classList.toggle('hidden', !account.Linked);
+                el(s, 'ScrobbleBox').classList.toggle('hidden', !account.Linked);
+                el(s, 'Scrobble').checked = !!account.Scrobble;
+            });
+            var names = {};
+            services.forEach(function (s) { names[s.id] = s.name; });
+            var log = a.Log || [];
+            $('log').innerHTML = log.length
+                ? log.map(function (e) {
+                    return text(new Date(e.At).toLocaleString()) + ' · ' + text(names[e.Service] || e.Service) + ' · ' + text(e.Title) + ': ' + text(e.Result);
+                }).join('<br>') + (a.Waiting ? '<br>' + text(a.Waiting) + ' waiting to retry.' : '')
+                : 'Nothing sent yet.';
+        });
+    }
+
+    function startLink(s) {
+        stopLinking();
+        problem(s, '');
+        accounts('/' + s.id + '/Link', 'POST').then(function (r) { return r.json(); }).then(function (link) {
+            if (link.Paste) {
+                el(s, 'PasteUrl').href = link.Url;
+                el(s, 'Paste').classList.remove('hidden');
+                window.open(link.Url, '_blank', 'noopener');
+                return;
+            }
+            el(s, 'DeviceUrl').href = link.CompleteUrl || link.Url;
+            if (link.Code) {
+                el(s, 'DeviceText').textContent = 'Go to';
+                el(s, 'DeviceUrl').textContent = link.Url.replace(/^https?:\/\//, '');
+                el(s, 'DeviceAnd').textContent = 'and enter';
+                el(s, 'DeviceCode').textContent = link.Code;
+                el(s, 'DeviceWait').textContent = 'Waiting for the code to be entered…';
+            } else {
+                // Approve-only (Last.fm): no code; the page opens and the server waits for the approval.
+                el(s, 'DeviceText').textContent = '';
+                el(s, 'DeviceUrl').textContent = 'Approve Aster on ' + s.name;
+                el(s, 'DeviceAnd').textContent = '(opens a new tab).';
+                el(s, 'DeviceCode').textContent = '';
+                el(s, 'DeviceWait').textContent = 'Waiting for you to approve it… If ' + s.name + ' shows an error page after you allow access, the approval still counts: come back to this tab.';
+                window.open(link.Url, '_blank', 'noopener');
+            }
+            el(s, 'Device').classList.remove('hidden');
+            pollDevice(s, link.Interval || 5);
+        }, function (r) { problem(s, failed(s, r)); });
+    }
+
+    function pollDevice(s, interval, now) {
+        waiting = { service: s, interval: interval };
+        linkTimer = setTimeout(function () {
+            linkTimer = null;
+            accounts('/' + s.id + '/Link/Complete', 'POST').then(function (r) {
+                if (r.status === 202) { if (waiting && waiting.service === s && !linkTimer) { pollDevice(s, interval); } return; }
+                stopLinking();
+                showAccounts();
+            }, function (r) {
+                stopLinking();
+                problem(s, failed(s, r));
+                showAccounts();
+            });
+        }, now ? 0 : Math.max(interval, 3) * 1000);
+    }
+
+    // Phones pause a tab in the background, so its checks stop while the person is on the service's page:
+    // check at once on coming back.
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible' && waiting) {
+            if (linkTimer) { clearTimeout(linkTimer); linkTimer = null; }
+            pollDevice(waiting.service, waiting.interval, true);
+        }
+    });
+
+    function finishPaste(s) {
+        var code = el(s, 'Code').value.trim();
+        problem(s, '');
+        if (!code) { problem(s, failed(s, { status: 400 })); return; }
+        el(s, 'Finish').disabled = true;
+        accounts('/' + s.id + '/Link/Complete', 'POST', { Code: code }).then(function () {
+            stopLinking();
+            return showAccounts();
+        }, function (r) {
+            problem(s, failed(s, r));
+            showAccounts();
+        }).then(function () { el(s, 'Finish').disabled = false; });
+    }
+
+    function start() {
+        $('signin').classList.add('hidden');
+        call('GET', 'Users/Me').then(function (r) { return r.json(); }).then(function (me) {
+            $('who').innerHTML = 'Signed in as <strong>' + text(me.Name) + '</strong>. Link your own accounts once, and what you watch, read and listen '
+                + 'to on this server is sent to them, from any app. Only you see and change your accounts here.';
+            $('accounts').classList.remove('hidden');
+            $('logCard').classList.remove('hidden');
+            $('signout').classList.toggle('hidden', !sessionStorage.getItem('asterLinkToken'));
+            return showAccounts();
+        }).catch(function () { if (!token) { showSignIn(); } });
+    }
+
+    build();
+    $('signinButton').addEventListener('click', signIn);
+    $('password').addEventListener('keydown', function (e) { if (e.key === 'Enter') { signIn(); } });
+    $('signout').addEventListener('click', signOut);
+    window.addEventListener('pagehide', stopLinking);
+
+    findToken().then(function (found) {
+        token = found;
+        if (token) { start(); } else { showSignIn(); }
+    });
+})();
+</script>
+</body>
+</html>
