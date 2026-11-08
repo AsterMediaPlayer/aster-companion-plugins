@@ -126,6 +126,54 @@ public sealed class MyAnimeListClient : ITracker
         return HistoryResult.Added;
     }
 
+    /// <summary>
+    /// Puts the title on the person's Plan to Watch, or takes it off. An entry on another list (Watching, Completed,
+    /// …) is never changed or deleted: taking off only deletes a Plan to Watch entry.
+    /// </summary>
+    public async Task<WatchlistOutcome> SetPlanToWatchAsync(int id, bool add, string token, CancellationToken cancellation)
+    {
+        var reply = await ApiAsync($"/anime/{id}?fields=my_list_status", HttpMethod.Get, null, token, cancellation).ConfigureAwait(false);
+        if (reply is null)
+        {
+            return new(WatchlistChange.NotFound);
+        }
+
+        var listed = reply["my_list_status"]?["status"] is JsonValue s && s.TryGetValue<string>(out var st) ? st : null;
+        if (add)
+        {
+            if (listed == "plan_to_watch")
+            {
+                return new(WatchlistChange.On);
+            }
+
+            if (listed is not null)
+            {
+                return new(WatchlistChange.Elsewhere, ListName(listed));
+            }
+
+            await ApiAsync($"/anime/{id}/my_list_status", HttpMethod.Patch, new() { ["status"] = "plan_to_watch" }, token, cancellation).ConfigureAwait(false);
+            return new(WatchlistChange.On);
+        }
+
+        if (listed != "plan_to_watch")
+        {
+            return new(WatchlistChange.Off);
+        }
+
+        await ApiAsync($"/anime/{id}/my_list_status", HttpMethod.Delete, null, token, cancellation).ConfigureAwait(false);
+        return new(WatchlistChange.Off);
+    }
+
+    /// <summary>MyAnimeList's list statuses as the site names them.</summary>
+    private static string ListName(string status) => status switch
+    {
+        "watching" => "Watching",
+        "completed" => "Completed",
+        "on_hold" => "On Hold",
+        "dropped" => "Dropped",
+        _ => status,
+    };
+
     public async Task<LinkedAccount?> RefreshAsync(LinkedAccount account, CancellationToken cancellation)
     {
         if (account.RefreshToken is not string refresh)
@@ -197,9 +245,16 @@ public sealed class MyAnimeListClient : ITracker
                 throw new TrackerException("MyAnimeList", response.StatusCode);
         }
 
+        var text = await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            // A delete answers with no body.
+            return null;
+        }
+
         try
         {
-            return JsonNode.Parse(await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false));
+            return JsonNode.Parse(text);
         }
         catch (JsonException)
         {

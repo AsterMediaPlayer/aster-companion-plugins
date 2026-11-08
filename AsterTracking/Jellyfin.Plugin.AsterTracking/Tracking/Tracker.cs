@@ -52,6 +52,25 @@ public enum HistoryResult
     NotFound,
 }
 
+/// <summary>Where a title stands on a watchlist after asking to put it on or take it off.</summary>
+public enum WatchlistChange
+{
+    /// <summary>On the watchlist.</summary>
+    On,
+
+    /// <summary>Not on the watchlist.</summary>
+    Off,
+
+    /// <summary>On another of the person's lists (watching, completed, …), which is left alone.</summary>
+    Elsewhere,
+
+    /// <summary>The service doesn't know the title.</summary>
+    NotFound,
+}
+
+/// <summary>A watchlist change, and the list the title is on when it's <see cref="WatchlistChange.Elsewhere"/>.</summary>
+public readonly record struct WatchlistOutcome(WatchlistChange Change, string? Listed = null);
+
 /// <summary>A service answered with something other than success.</summary>
 public class TrackerException : Exception
 {

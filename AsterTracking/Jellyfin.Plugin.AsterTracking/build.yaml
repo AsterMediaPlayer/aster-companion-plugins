@@ -1,6 +1,6 @@
 name: "Aster Discovery and Tracking"
 guid: "023a7921-895e-40fb-b815-ab4462f68107"
-version: "0.9.8.0"
+version: "0.9.9.0"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
 owner: "AsterMediaPlayer"
@@ -15,6 +15,9 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.AsterTracking.dll"
 changelog: >
+  - 0.9.9.0: Add to Watchlist for anime on AniList (Planning) and MyAnimeList (Plan to Watch), under the same routes
+    (POST and DELETE /AsterTracking/Watchlist/anilist and /myanimelist). A title on another of the person's lists there
+    is left as it is. The state says which services fit a title (Fits: AniList and MyAnimeList only for anime).
   - 0.9.8.0: Add to Watchlist: the apps can put a title on the person's Simkl Plan to Watch, and take it off again
     (POST and DELETE /AsterTracking/Watchlist/simkl, and GET /AsterTracking/Watchlist for where a title stands).
     Features lists the watchlists the apps can add to. Their Discover page picks up the change.
