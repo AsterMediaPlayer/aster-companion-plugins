@@ -1,0 +1,17 @@
+# Aster for Plex beside Plex. Copy to docker-compose.yml and fill in the token.
+services:
+  aster-plex:
+    image: ghcr.io/astermediaplayer/aster-plex:latest
+    container_name: aster-plex
+    restart: unless-stopped
+    ports:
+      - "8098:8098"
+    environment:
+      # Where the container reaches Plex: its address on your network, or http://plex:32400 on the same Docker network.
+      PLEX_URL: "http://192.168.1.10:32400"
+      # The server owner's Plex token (Plex Web: any item › Get Info › View XML, the X-Plex-Token in the address).
+      PLEX_TOKEN: ""
+      # The address your apps reach this container at, from outside the house too (later versions publish it to Plex).
+      PUBLIC_URL: ""
+    volumes:
+      - ./aster-plex:/config
