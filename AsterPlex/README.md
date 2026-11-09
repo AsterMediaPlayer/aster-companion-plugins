@@ -13,7 +13,14 @@ container that runs beside Plex and answers the Aster apps the way the Jellyfin 
   added to Plex's **Custom server access URLs** so the Aster apps find the container with nothing to set up, picks
   which music libraries are audiobooks, and can use the server's own service apps in place of Aster's.
 
-Coming next: the Channels designer.
+- **Channels** at `/aster/channels/`: the Jellyfin plugin's Channels page for Plex. Make channels from a show, a
+  genre, a network, a collection or one of your playlists, change them, drag to renumber. On Plex a channel's
+  settings are kept in its playlist's description (`aster:channel, aster:number=3, …`), as the Aster apps keep them,
+  and each person's playlists are their own.
+
+  The page is `AsterChannels/…/Web/channels.js` with only its words changed, and `channel-tags.js` exactly as it is
+  there (CI checks it). `plex-api.js` answers its Jellyfin calls from Plex, as the apps do, through
+  `/aster/plex/…`, which goes to Plex as whoever is signed in to the page.
 
 ## How it works
 

@@ -15,6 +15,7 @@ namespace Aster.Plex.Api;
 ///   POST /aster/api/signout
 ///   GET  /aster/api/servers           the signed-in person's own Plex servers and their addresses, to set up with
 ///   POST /aster/api/setup             { MachineId, PlexUrl }: watch this server, as the signed-in person (its owner)
+///   GET  /aster/api/names             the server's people's names (for the Channels page)
 ///   GET  /aster/api/settings          the owner's settings, the server's music libraries and people
 ///   PUT  /aster/api/settings          changes them; the public address is added to (or taken off) Plex's Custom server access URLs
 /// Everything but signing in needs the owner once the container is set up; before that, setup takes anyone signed in
@@ -178,6 +179,18 @@ public sealed class SettingsController : ControllerBase
         _people.Reset();
         _log.LogInformation("Aster for Plex: set up for {Server} at {Url}", server.Name, url);
         return Ok();
+    }
+
+    /// <summary>The names of the server's people, for a channel kept to some of them (aster:user=…): anyone on the server may ask.</summary>
+    [HttpGet("names")]
+    public async Task<ActionResult<List<string>>> Names(CancellationToken cancellation)
+    {
+        if (!PlexServer.Configured || _signIns.TokenOf(Request) is not string token || await _people.ForTokenAsync(token, cancellation).ConfigureAwait(false) is null)
+        {
+            return Forbid();
+        }
+
+        return (await _people.EveryoneAsync(cancellation).ConfigureAwait(false)).Select(p => p.Name).OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     [HttpGet("settings")]

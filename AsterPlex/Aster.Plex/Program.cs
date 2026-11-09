@@ -24,7 +24,12 @@ builder.Services.AddHttpClient();
 builder.Services.AddControllers().AddJsonOptions(o => o.JsonSerializerOptions.PropertyNamingPolicy = null);
 builder.Services.AddHttpForwarder();
 // No default sign-in: only requests to the container's own API are checked, not what's passed through to Plex.
-builder.Services.AddAuthentication()
+builder.Services.AddAuthentication(o =>
+    {
+        // Answering 401 and 403 only; nothing is signed in by default.
+        o.DefaultChallengeScheme = PlexAuth.SchemeName;
+        o.DefaultForbidScheme = PlexAuth.SchemeName;
+    })
     .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, PlexAuth>(PlexAuth.SchemeName, null);
 builder.Services.AddAuthorization(options =>
     options.DefaultPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder(PlexAuth.SchemeName).RequireAuthenticatedUser().Build());
@@ -91,6 +96,7 @@ var toPlex = new HttpMessageInvoker(new SocketsHttpHandler
     ActivityHeadersPropagator = new ReverseProxyPropagator(DistributedContextPropagator.Current),
     ConnectTimeout = TimeSpan.FromSeconds(15),
 });
+Aster.Plex.Web.PlexAsPerson.Map(app, toPlex);
 app.Map("/{**rest}", async (HttpContext context, IHttpForwarder forwarder) =>
 {
     if (!PlexServer.Configured)

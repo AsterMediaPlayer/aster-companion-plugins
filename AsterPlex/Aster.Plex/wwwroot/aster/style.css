@@ -166,3 +166,5 @@ dialog::backdrop { background: rgba(0, 0, 0, .45); }
   .row { flex-direction: column; align-items: stretch; }
   .row .do { justify-content: flex-start; }
 }
+
+.link-nav { color: var(--accent); text-decoration: none; }

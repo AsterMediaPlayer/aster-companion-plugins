@@ -30,7 +30,7 @@ jobs:
             oped: ["AsterOpEd/**", "tools/**", ".github/workflows/ci.yml"]
             aurora: ["AsterAurora/**", "tools/**", ".github/workflows/ci.yml"]
             tracking: ["AsterTracking/**", "tools/**", ".github/workflows/ci.yml"]
-            plex: ["AsterPlex/**", ".github/workflows/ci.yml"]
+            plex: ["AsterPlex/**", "AsterChannels/Jellyfin.Plugin.AsterChannels/Web/**", ".github/workflows/ci.yml"]
 
   # ---- Aster Channels ----------------------------------------------------------
 
@@ -223,5 +223,7 @@ jobs:
           dotnet-version: 10.0.x
       - run: dotnet build AsterPlex/Aster.Plex -c Release
       - run: dotnet test AsterPlex/Aster.Plex.Tests
+      - name: The Channels page's tag rules are the plugin's (and so the app's)
+        run: cmp AsterChannels/Jellyfin.Plugin.AsterChannels/Web/channel-tags.js AsterPlex/Aster.Plex/wwwroot/aster/channels/channel-tags.js
       - name: The image builds
         run: docker build -t aster-plex AsterPlex
