@@ -10,7 +10,8 @@ namespace Aster.Plex.Plex;
 /// Signs in each request with the Plex token it carries, the same one the app uses with the Plex server: in
 /// <c>X-Plex-Token</c> (header or query, as Plex apps send it), or in an <c>Authorization</c> header the way the Aster
 /// apps send it to Jellyfin (<c>MediaBrowser …, Token="…"</c>), so their tracking code is the same for both. The person
-/// is put in the <see cref="UserIdClaim"/> claim, and the server's owner gets the Administrator role.
+/// is put in the <see cref="UserIdClaim"/> claim, and the server's owner gets the Administrator role. The settings page
+/// signs in with a cookie instead (<see cref="Web.SignIns"/>), standing for the token its person signed in with.
 /// </summary>
 public sealed partial class PlexAuth : AuthenticationHandler<AuthenticationSchemeOptions>
 {
@@ -22,11 +23,13 @@ public sealed partial class PlexAuth : AuthenticationHandler<AuthenticationSchem
     public const string AdministratorRole = "Administrator";
 
     private readonly PlexPeople _people;
+    private readonly Web.SignIns _signIns;
 
-    public PlexAuth(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder, PlexPeople people)
+    public PlexAuth(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder, PlexPeople people, Web.SignIns signIns)
         : base(options, logger, encoder)
     {
         _people = people;
+        _signIns = signIns;
     }
 
     /// <summary>The token a request carries, or null.</summary>
@@ -53,7 +56,8 @@ public sealed partial class PlexAuth : AuthenticationHandler<AuthenticationSchem
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if (TokenOf(Request) is not string token)
+        // An app's token, or the settings page's sign-in.
+        if ((TokenOf(Request) ?? _signIns.TokenOf(Request)) is not string token)
         {
             return AuthenticateResult.NoResult();
         }

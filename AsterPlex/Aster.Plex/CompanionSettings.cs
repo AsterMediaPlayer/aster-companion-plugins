@@ -32,6 +32,12 @@ public sealed class CompanionSettings
     /// </summary>
     public string PublicUrl { get; set; } = string.Empty;
 
+    /// <summary>Whether <see cref="PublicUrl"/> is added to Plex's Custom server access URLs, which is how the apps find the container.</summary>
+    public bool PublishToPlex { get; set; } = true;
+
+    /// <summary>The address last added to Plex's Custom server access URLs, so it can be taken off again when it changes.</summary>
+    public string PublishedUrl { get; set; } = string.Empty;
+
     /// <summary>Plex libraries whose music is audiobooks (names or section ids); blank takes any music library with "book" in its name.</summary>
     public List<string> AudiobookLibraries { get; set; } = new();
 

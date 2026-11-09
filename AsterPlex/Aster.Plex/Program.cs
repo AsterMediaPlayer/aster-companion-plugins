@@ -29,6 +29,7 @@ builder.Services.AddAuthentication()
 builder.Services.AddAuthorization(options =>
     options.DefaultPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder(PlexAuth.SchemeName).RequireAuthenticatedUser().Build());
 
+builder.Services.AddSingleton<Aster.Plex.Web.SignIns>();
 builder.Services.AddSingleton<PlexServer>();
 builder.Services.AddSingleton<PlexPeople>();
 builder.Services.AddSingleton<PlexItems>();
@@ -57,6 +58,23 @@ builder.Services.AddSingleton<ITracker>(s => s.GetRequiredService<HardcoverClien
 builder.Services.AddHostedService<Scrobbler>();
 
 var app = builder.Build();
+
+// The settings page, at /aster (Plex has nothing there). Its files are served before routing, which would otherwise
+// hand every path to the pass-through to Plex below.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.Value == "/aster")
+    {
+        context.Response.Redirect("/aster/");
+        return;
+    }
+
+    await next();
+});
+var page = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(Path.Combine(app.Environment.WebRootPath, "aster"));
+app.UseDefaultFiles(new DefaultFilesOptions { RequestPath = "/aster", FileProvider = page });
+app.UseStaticFiles(new StaticFileOptions { RequestPath = "/aster", FileProvider = page });
+app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();

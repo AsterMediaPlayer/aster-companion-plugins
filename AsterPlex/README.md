@@ -8,8 +8,12 @@ container that runs beside Plex and answers the Aster apps the way the Jellyfin 
   there, with the plugin's rules, retries and Recent Sends.
 - **Add to Watchlist** on title pages: Simkl's Plan to Watch, AniList's Planning, MyAnimeList's Plan to Watch.
 
-Coming next: a settings page (signing in with Plex, and publishing the container's address to Plex so the apps find
-it with nothing to type), and the Channels designer.
+- **A settings page** at `/aster` on the container: sign in with Plex, pick your server, and each person links and
+  unlinks their own accounts and sees Recent Sends. The owner also sets the container's public address, which is
+  added to Plex's **Custom server access URLs** so the Aster apps find the container with nothing to set up, picks
+  which music libraries are audiobooks, and can use the server's own service apps in place of Aster's.
+
+Coming next: the Channels designer.
 
 ## How it works
 
@@ -40,7 +44,17 @@ services:
       - ./aster-plex:/config
 ```
 
-See `docker-compose.example.yml`. `ASTER_PORT` changes the port; `ASTER_DATA` the data folder outside Docker.
+Then open `http://<container>:8098/aster/` and sign in with Plex. Without `PLEX_URL` and `PLEX_TOKEN`, the page sets
+the container up instead: sign in as the server's owner and pick the server. See `docker-compose.example.yml`.
+`ASTER_PORT` changes the port; `ASTER_DATA` the data folder outside Docker.
+
+### Letting the apps find it
+
+Plex's apps find a server through plex.tv, which hands them every address the server has, including the ones in
+Plex's **Custom server access URLs** (Settings › Network). The settings page adds the container's public address
+there. The container passes everything that isn't its own through to Plex, so the address works as a Plex address
+for any Plex app; the Aster apps also find `/AsterTracking` on it. Give an address that works from away from home too
+(behind your reverse proxy, with HTTPS), or the apps only find it at home.
 
 ### Anime
 

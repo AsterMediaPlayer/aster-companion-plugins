@@ -97,6 +97,26 @@ public sealed class PlexServer
         return JsonNode.Parse(await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false));
     }
 
+    /// <summary>A server's own id, asked at any address with any token; null when nothing answers there as Plex.</summary>
+    public async Task<string?> MachineIdAtAsync(string address, CancellationToken cancellation)
+    {
+        try
+        {
+            return (await GetAsync(new Uri(address.TrimEnd('/') + "/identity"), string.Empty, cancellation).ConfigureAwait(false))?["machineIdentifier"]?.ToString();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or PlexException or UriFormatException or System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>One of the server's preferences (<c>/:/prefs</c>), as text.</summary>
+    public async Task<string?> PreferenceAsync(string id, CancellationToken cancellation) =>
+        (await GetAsync("/:/prefs", cancellation).ConfigureAwait(false)).List("Setting").FirstOrDefault(s => s.Text("id") == id)?["value"]?.ToString();
+
+    public Task SetPreferenceAsync(string id, string value, CancellationToken cancellation) =>
+        PutAsync($"/:/prefs?{Uri.EscapeDataString(id)}={Uri.EscapeDataString(value)}", cancellation);
+
     /// <summary>The server's own id (its <c>machineIdentifier</c>), which plex.tv lists it by.</summary>
     public async Task<string?> MachineIdAsync(CancellationToken cancellation) =>
         (await GetAsync("/identity", cancellation).ConfigureAwait(false))?["machineIdentifier"]?.ToString();
