@@ -31,6 +31,7 @@ public class AsterTrackingController : ControllerBase
         return new FeaturesDto
         {
             Seerr = new SeerrDto { Enabled = false },
+            Discover = false,
             Services = _trackers.Where(t => t.Available).Select(t => t.Service).ToList(),
             Watchlist = WatchlistController.Services.Where(s => _trackers.Any(t => t.Service == s && t.Available)).ToList(),
         };
@@ -60,6 +61,12 @@ public class FeaturesDto
 
     /// <summary>The services the apps can put titles on the watchlist of (<c>/AsterTracking/Watchlist</c>): "simkl" for now.</summary>
     public List<string> Watchlist { get; set; } = new();
+
+    /// <summary>
+    /// Whether there's a Discover page (<c>/AsterTracking/Discover/Home</c>). The Jellyfin plugin's Features has no such
+    /// field, which the apps read as yes; this container has none yet, and says so.
+    /// </summary>
+    public bool Discover { get; set; }
 }
 
 /// <summary>Seerr: whether Aster's request features are on, and where the apps reach Seerr's API (through this server).</summary>
