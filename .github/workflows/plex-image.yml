@@ -3,6 +3,8 @@ name: Aster for Plex image
 # Push a tag to publish the container: asterplex-v0.1.0 publishes ghcr.io/<owner>/aster-plex:0.1.0 and :latest.
 # A push to a branch other than main that changes AsterPlex/ publishes :dev instead, for testing with Aster's real
 # apps (the secrets reach only workflows running on GitHub), with no GitHub release. So does running it by hand.
+# (Its variables aren't called VERSION and the like: MSBuild reads the environment as properties, and a Version of
+# "dev" breaks the build.)
 # Aster's own apps on each service go into the image from the repository's Actions secrets, as for the Jellyfin
 # plugin's release (see AsterPlex/Aster.Plex/BuiltInKeys.cs): only this workflow sees them, and only on a pushed tag.
 on:
@@ -42,14 +44,14 @@ jobs:
             echo "The tag says $version but Aster.Plex.csproj says $project." >&2
             exit 1
           fi
-          echo "VERSION=$version" >> "$GITHUB_ENV"
-          echo "TAGS=latest" >> "$GITHUB_ENV"
+          echo "IMAGE_VERSION=$version" >> "$GITHUB_ENV"
+          echo "IMAGE_ALSO=latest" >> "$GITHUB_ENV"
 
       - name: A test image from a branch
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         run: |
-          echo "VERSION=dev" >> "$GITHUB_ENV"
-          echo "TAGS=dev-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          echo "IMAGE_VERSION=dev" >> "$GITHUB_ENV"
+          echo "IMAGE_ALSO=dev-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
 
       - run: dotnet test AsterPlex/Aster.Plex.Tests
 
@@ -89,8 +91,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.IMAGE }}:${{ env.VERSION }}
-            ${{ env.IMAGE }}:${{ env.TAGS }}
+            ${{ env.IMAGE }}:${{ env.IMAGE_VERSION }}
+            ${{ env.IMAGE }}:${{ env.IMAGE_ALSO }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.title=Aster for Plex
@@ -106,5 +108,5 @@ jobs:
       - name: Publish the release notes
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          gh release create "$TAG" --title "Aster for Plex $VERSION" \
-            --notes "Run it with \`docker pull ${IMAGE}:${VERSION}\`. See AsterPlex/README.md."
+          gh release create "$TAG" --title "Aster for Plex $IMAGE_VERSION" \
+            --notes "Run it with \`docker pull ${IMAGE}:${IMAGE_VERSION}\`. See AsterPlex/README.md."
