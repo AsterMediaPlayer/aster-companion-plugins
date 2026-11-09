@@ -67,8 +67,8 @@ public class WatchlistController : ControllerBase
         }
 
         var kind = Kind(mediaType);
-        var ids = IdKeys.Select(k => (k, Request.Query[k].ToString())).Where(p => !string.IsNullOrWhiteSpace(p.Item2))
-            .ToDictionary(p => p.k, p => p.Item2.Trim());
+        var ids = await WithAnimeIdsAsync(IdKeys.Select(k => (k, Request.Query[k].ToString())).Where(p => !string.IsNullOrWhiteSpace(p.Item2))
+            .ToDictionary(p => p.k, p => p.Item2.Trim()), kind, cancellation).ConfigureAwait(false);
         var tracking = await _store.GetAsync(id).ConfigureAwait(false);
         var state = new WatchlistStateDto();
         foreach (var service in Services)
@@ -124,13 +124,14 @@ public class WatchlistController : ControllerBase
             return Problem("Give the title's kind: movie or tv.", statusCode: StatusCodes.Status400BadRequest);
         }
 
+        title.Ids = await WithAnimeIdsAsync(title.Ids, kind, cancellation).ConfigureAwait(false);
         var name = Name(service);
         string token;
         try
         {
             if (await _tokens.TokenAsync(id, Tracker(service), TimeSpan.FromDays(1)).ConfigureAwait(false) is not string found)
             {
-                return Problem($"Link {name} first (Settings ▸ Tracking, or the plugin's page on the dashboard).", statusCode: StatusCodes.Status409Conflict);
+                return Problem($"Link {name} first (Settings ▸ Tracking, or this container's settings page).", statusCode: StatusCodes.Status409Conflict);
             }
 
             token = found;
@@ -226,6 +227,50 @@ public class WatchlistController : ControllerBase
             WatchlistChange.Elsewhere => Problem($"It's on your {name} as {outcome.Listed} already.", statusCode: StatusCodes.Status422UnprocessableEntity),
             _ => null,
         };
+    }
+
+    /// <summary>
+    /// A title's ids, with its AniList and MyAnimeList ids added when it's anime that came without them: Plex's own TV
+    /// agent and Shoko give shows only their TVDB and TMDB ids, which ARM maps (a show by its TVDB id, a film by its
+    /// TMDB id). Anything else, or ARM out of reach, is left as it was.
+    /// </summary>
+    private async Task<Dictionary<string, string>> WithAnimeIdsAsync(Dictionary<string, string> ids, string? kind, CancellationToken cancellation)
+    {
+        if (AnimeIds.HasAnimeIds(ids))
+        {
+            return ids;
+        }
+
+        var (source, key) = kind == "movie" ? ("themoviedb", "tmdb") : ("thetvdb", "tvdb");
+        if (!ids.TryGetValue(key, out var text) || !int.TryParse(text, out var number))
+        {
+            return ids;
+        }
+
+        try
+        {
+            if (await _anime.TitleEntryAsync(source, number, cancellation).ConfigureAwait(false) is not AnimeEntry entry)
+            {
+                return ids;
+            }
+
+            var more = new Dictionary<string, string>(ids);
+            if (entry.AniList is int aniList)
+            {
+                more["anilist"] = aniList.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            if (entry.MyAnimeList is int mal)
+            {
+                more["mal"] = mal.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            return more;
+        }
+        catch (TrackerException)
+        {
+            return ids;
+        }
     }
 
     private ITracker Tracker(string service) => service switch

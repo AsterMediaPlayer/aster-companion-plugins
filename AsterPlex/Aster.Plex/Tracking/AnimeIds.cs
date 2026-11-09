@@ -147,35 +147,72 @@ public sealed class AnimeIds
             return known.Entry;
         }
 
+        var entries = await ArmEntriesAsync("thetvdb", tvdb, cancellation).ConfigureAwait(false);
+        if (entries is null)
+        {
+            return null;
+        }
+
+        // A show with one entry and no season given is that entry's season 1.
+        var matching = entries.Where(e => (e.TvdbSeason ?? (entries.Count == 1 ? 1 : null)) == season).ToList();
+        var entry = matching.Count == 1 ? Entry(matching[0]) : null;
+        _found[key] = (entry, DateTimeOffset.UtcNow);
+        return entry;
+    }
+
+    /// <summary>
+    /// The anime entry a whole show (by its TVDB id) or film (by its TMDB id) starts with, for a watchlist: its only
+    /// entry, or its first season's; null when ARM doesn't know it as anime. ARM's sources: "thetvdb", "themoviedb".
+    /// </summary>
+    public async Task<AnimeEntry?> TitleEntryAsync(string source, int id, CancellationToken cancellation)
+    {
+        var key = $"{source}:{id}:title";
+        if (_found.TryGetValue(key, out var known) && DateTimeOffset.UtcNow - known.At < Keep)
+        {
+            return known.Entry;
+        }
+
+        var entries = await ArmEntriesAsync(source, id, cancellation).ConfigureAwait(false);
+        if (entries is null)
+        {
+            return null;
+        }
+
+        var first = entries.Count == 1
+            ? entries[0]
+            : entries.Where(e => (source == "thetvdb" ? e.TvdbSeason : e.TmdbSeason) == 1).ToList() is { Count: 1 } season1 ? season1[0] : null;
+        var entry = first is null ? null : Entry(first);
+        _found[key] = (entry, DateTimeOffset.UtcNow);
+        return entry;
+    }
+
+    private static AnimeEntry? Entry(ArmIds ids) =>
+        ids.AniList is not null || ids.MyAnimeList is not null ? new AnimeEntry(ids.AniList, ids.MyAnimeList) : null;
+
+    /// <summary>Every anime entry ARM has for one TVDB or TMDB id (empty when it isn't anime); null when ARM didn't answer.</summary>
+    private async Task<List<ArmIds>?> ArmEntriesAsync(string source, int id, CancellationToken cancellation)
+    {
         try
         {
             var client = _http.CreateClient("AsterTracking.Arm");
             client.Timeout = TimeSpan.FromSeconds(15);
-            using var response = await client.GetAsync(new Uri($"https://arm.haglund.dev/api/v2/thetvdb?id={tvdb}"), cancellation).ConfigureAwait(false);
+            using var response = await client.GetAsync(new Uri($"https://arm.haglund.dev/api/v2/{source}?id={id}"), cancellation).ConfigureAwait(false);
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return [];
+            }
+
             if (!response.IsSuccessStatusCode)
             {
-                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                {
-                    _found[key] = (null, DateTimeOffset.UtcNow);
-                }
-
                 return null;
             }
 
-            var entries = (JsonNode.Parse(await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false)) as JsonArray)?
+            return (JsonNode.Parse(await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false)) as JsonArray)?
                 .OfType<JsonObject>().Select(ArmIds.From).ToList() ?? [];
-
-            // A show with one entry and no season given is that entry's season 1.
-            var matching = entries.Where(e => (e.TvdbSeason ?? (entries.Count == 1 ? 1 : null)) == season).ToList();
-            var entry = matching.Count == 1 && (matching[0].AniList is not null || matching[0].MyAnimeList is not null)
-                ? new AnimeEntry(matching[0].AniList, matching[0].MyAnimeList)
-                : null;
-            _found[key] = (entry, DateTimeOffset.UtcNow);
-            return entry;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
-            _log.LogWarning("Aster for Plex: ARM lookup {Key} failed: {Error}", key, ex.ToString());
+            _log.LogWarning("Aster for Plex: ARM lookup {Source} {Id} failed: {Error}", source, id, ex.Message);
             throw new TrackerException("ARM", 0);
         }
     }

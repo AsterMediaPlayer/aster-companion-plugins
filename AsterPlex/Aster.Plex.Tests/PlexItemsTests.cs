@@ -170,3 +170,19 @@ public class AnimeByTvdbTests
         Assert.Null(await anime.ForAsync(episode, CancellationToken.None));
     }
 }
+
+public class AnimeTitleTests
+{
+    [Fact]
+    public async Task AWholeShowStartsWithItsFirstSeasonsEntry()
+    {
+        var plex = new FakePlex();
+        plex.Replies["arm.haglund.dev/api/v2/thetvdb?id=5"] =
+            """[{"anilist":20,"myanimelist":21,"thetvdb":5,"thetvdb-season":2},{"anilist":10,"myanimelist":11,"thetvdb":5,"thetvdb-season":1}]""";
+        plex.Replies["arm.haglund.dev/api/v2/thetvdb?id=73067"] = "[]";
+        var anime = new Aster.Plex.Tracking.AnimeIds(plex, Microsoft.Extensions.Logging.Abstractions.NullLogger<Aster.Plex.Tracking.AnimeIds>.Instance);
+
+        Assert.Equal(new Aster.Plex.Tracking.AnimeEntry(10, 11), await anime.TitleEntryAsync("thetvdb", 5, CancellationToken.None));
+        Assert.Null(await anime.TitleEntryAsync("thetvdb", 73067, CancellationToken.None));
+    }
+}
