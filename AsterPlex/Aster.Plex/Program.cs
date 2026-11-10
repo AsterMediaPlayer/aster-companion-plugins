@@ -16,8 +16,16 @@ using Yarp.ReverseProxy.Forwarder;
 // Plex, so the container is itself one of the server's addresses (see README.md).
 CompanionSettings.Load();
 
-var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.ConfigureKestrel(k => k.ListenAnyIP(int.TryParse(Environment.GetEnvironmentVariable("ASTER_PORT"), out var port) ? port : 8098));
+// On Windows it runs as a service (the installer's, AsterPlex/windows/), which starts in System32: its own files are
+// beside the program. Elsewhere, and run by hand, it's as before.
+var service = Microsoft.Extensions.Hosting.WindowsServices.WindowsServiceHelpers.IsWindowsService();
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = service ? AppContext.BaseDirectory : null,
+});
+builder.Host.UseWindowsService(o => o.ServiceName = "AsterForPlex");
+builder.WebHost.ConfigureKestrel(k => k.ListenAnyIP(Port(args)));
 
 builder.Services.AddHttpClient();
 // Jellyfin's PascalCase ("Services", "Seerr"), as the plugin answers, so the apps read both the same way.
@@ -110,3 +118,10 @@ app.Map("/{**rest}", async (HttpContext context, IHttpForwarder forwarder) =>
 }).WithOrder(int.MaxValue);
 
 app.Run();
+
+// The port: --port 8098 (the Windows service's), else ASTER_PORT (the container's), else 8098.
+static int Port(string[] args)
+{
+    var given = Array.IndexOf(args, "--port") is var at and >= 0 && at + 1 < args.Length ? args[at + 1] : Environment.GetEnvironmentVariable("ASTER_PORT");
+    return int.TryParse(given, out var port) && port is > 0 and < 65536 ? port : 8098;
+}

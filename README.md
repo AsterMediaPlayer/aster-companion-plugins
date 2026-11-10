@@ -9,7 +9,7 @@ plugin repository:
 | [**Aster Disc**](AsterDisc/README.md) | Shareable disc menus for special features, with a menu editor and a community catalogue. (Formerly Disc Menus.) |
 | [**Aster OP-ED**](AsterOpEd/README.md) | Anime openings and endings matched to your shows, with song details, playable copies for every client, and Jellyfin libraries of them. (Formerly OP/ED.) |
 | [**Aster Aurora**](AsterAurora/README.md) | Apple TV style behaviour for the Jellyfin web client: home hero banner, trailer backgrounds, Up Next rows, quality badges, an Episodes row. (Formerly Aurora.) |
-| [**Aster for Plex**](AsterPlex/README.md) | Tracking and Add to Watchlist for a Plex server, which can't take plugins: a container that runs beside Plex, with Channels and a settings page. |
+| [**Aster for Plex**](AsterPlex/README.md) | Tracking and Add to Watchlist for a Plex server, which can't take plugins: a container (or a Windows installer) that runs beside Plex, with Channels and a settings page. |
 | [**Aster Discovery and Tracking**](AsterTracking/README.md) | Discovery and tracking through each person's own Trakt, Simkl, AniList, MyAnimeList, Last.fm, ListenBrainz and Hardcover accounts, and the switch that turns Aster's Seerr requests on. |
 
 ## Install
@@ -34,7 +34,7 @@ AsterDisc/       Jellyfin.Plugin.AsterDisc, its tests, schema, examples and tool
 AsterOpEd/       Jellyfin.Plugin.AsterOpEd
 AsterAurora/     Jellyfin.Plugin.AsterAurora
 AsterTracking/   Jellyfin.Plugin.AsterTracking
-AsterPlex/       Aster.Plex (a container for Plex, not a plugin), its tests and Dockerfile
+AsterPlex/       Aster.Plex (a container for Plex, not a plugin), its tests, Dockerfile and Windows installer
 tools/           check_versions.py, shared by the release workflow
 manifest.json    the plugin repository: every plugin, every version
 ```

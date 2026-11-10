@@ -1,6 +1,7 @@
 name: Aster for Plex image
 
 # Push a tag to publish the container: asterplex-v0.1.0 publishes ghcr.io/<owner>/aster-plex:0.1.0 and :latest.
+# The tag also builds the Windows installer (the windows job), attached to its release.
 # A push to a branch other than main that changes AsterPlex/ publishes :dev instead, for testing with Aster's real
 # apps (the secrets reach only workflows running on GitHub), with no GitHub release. So does running it by hand.
 # (Its variables aren't called VERSION and the like: MSBuild reads the environment as properties, and a Version of
@@ -110,3 +111,91 @@ jobs:
         run: |
           gh release create "$TAG" --title "Aster for Plex $IMAGE_VERSION" \
             --notes "Run it with \`docker pull ${IMAGE}:${IMAGE_VERSION}\`. See AsterPlex/README.md."
+
+  # The same program as a Windows installer (AsterPlex/windows/AsterForPlex.iss), for a Plex server on a Windows PC:
+  # attached to the tag's release, or kept as the run's artifact from a branch. Before that, it's installed on the
+  # runner, asked for its settings page, and uninstalled, so a broken installer never ships.
+  windows:
+    needs: image
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: The version
+        shell: bash
+        run: |
+          project=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' AsterPlex/Aster.Plex/Aster.Plex.csproj)
+          if [[ "$GITHUB_REF" == refs/tags/* && "${TAG#asterplex-v}" != "$project" ]]; then
+            echo "The tag says ${TAG#asterplex-v} but Aster.Plex.csproj says $project." >&2
+            exit 1
+          fi
+          echo "APP_VERSION=$project" >> "$GITHUB_ENV"
+
+      - name: Publish for Windows, with Aster's apps
+        shell: bash
+        env:
+          ASTER_SIMKL_CLIENT_ID: ${{ secrets.ASTER_SIMKL_CLIENT_ID }}
+          ASTER_ANILIST_CLIENT_ID: ${{ secrets.ASTER_ANILIST_CLIENT_ID }}
+          ASTER_MAL_CLIENT_ID: ${{ secrets.ASTER_MAL_CLIENT_ID }}
+          ASTER_HARDCOVER_CLIENT_ID: ${{ secrets.ASTER_HARDCOVER_CLIENT_ID }}
+          ASTER_LASTFM_API_KEY: ${{ secrets.ASTER_LASTFM_API_KEY }}
+          ASTER_LASTFM_SHARED_SECRET: ${{ secrets.ASTER_LASTFM_SHARED_SECRET }}
+        run: |
+          for name in ASTER_SIMKL_CLIENT_ID ASTER_ANILIST_CLIENT_ID ASTER_MAL_CLIENT_ID ASTER_HARDCOVER_CLIENT_ID \
+                      ASTER_LASTFM_API_KEY ASTER_LASTFM_SHARED_SECRET; do
+            if [ -z "${!name}" ]; then
+              echo "The $name secret isn't set; refusing to build Aster for Plex without Aster's apps." >&2
+              exit 1
+            fi
+          done
+          dotnet publish AsterPlex/Aster.Plex -c Release -r win-x64 --self-contained \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          & $iscc "/DAppVersion=$env:APP_VERSION" "/DSource=$env:GITHUB_WORKSPACE\publish" "/O$env:GITHUB_WORKSPACE\dist" AsterPlex\windows\AsterForPlex.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Install it, reach it, uninstall it
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem dist\AsterForPlex-*-setup.exe)[0].FullName
+          $run = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/LOG=install.log' -Wait -PassThru
+          if ($run.ExitCode -ne 0) { Get-Content install.log; throw "The installer failed ($($run.ExitCode))." }
+
+          $page = $null
+          foreach ($try in 1..30) {
+            try { $page = Invoke-WebRequest http://localhost:8098/aster/ -UseBasicParsing; break } catch { Start-Sleep 2 }
+          }
+          Get-Service AsterForPlex | Format-List Name, Status, StartType
+          if (-not $page -or $page.StatusCode -ne 200 -or $page.Content -notmatch 'Aster') { throw "The settings page didn't answer." }
+          $features = Invoke-WebRequest http://localhost:8098/AsterTracking/Features -UseBasicParsing -SkipHttpErrorCheck
+          if ($features.StatusCode -ne 401) { throw "The API answered $($features.StatusCode) without a Plex token, not 401." }
+          if (-not (Get-NetFirewallRule -DisplayName 'Aster for Plex' -ErrorAction SilentlyContinue)) { throw "No firewall rule." }
+          if (-not (Test-Path "$env:ProgramData\Aster for Plex")) { throw "No data folder." }
+
+          $uninstall = Start-Process "${env:ProgramFiles}\Aster for Plex\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0) { throw "The uninstaller failed ($($uninstall.ExitCode))." }
+          Start-Sleep 3
+          if (Get-Service AsterForPlex -ErrorAction SilentlyContinue) { throw "The service is still there after uninstalling." }
+          if (Get-NetFirewallRule -DisplayName 'Aster for Plex' -ErrorAction SilentlyContinue) { throw "The firewall rule is still there." }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aster-for-plex-windows-${{ env.APP_VERSION }}
+          path: dist/*.exe
+
+      - name: Attach it to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: gh release upload "$TAG" dist/*.exe --clobber

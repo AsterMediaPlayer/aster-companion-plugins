@@ -53,10 +53,13 @@ public sealed class CompanionSettings
 
     public string HardcoverClientId { get; set; } = string.Empty;
 
-    /// <summary>The data folder: <c>ASTER_DATA</c>, else <c>/config</c> when it exists (Docker), else <c>./data</c>.</summary>
+    /// <summary>The data folder: <c>ASTER_DATA</c>, else <c>/config</c> when it exists (Docker), else ProgramData on Windows, else <c>./data</c>.</summary>
     public static string DataPath { get; } = Environment.GetEnvironmentVariable("ASTER_DATA") is { Length: > 0 } set
         ? set
-        : Directory.Exists("/config") ? "/config" : Path.Combine(AppContext.BaseDirectory, "data");
+        : Directory.Exists("/config") ? "/config"
+        // Windows: ProgramData, which the installer makes and keeps through updates and uninstalls (not Program Files).
+        : OperatingSystem.IsWindows() ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Aster for Plex")
+        : Path.Combine(AppContext.BaseDirectory, "data");
 
     private static string FilePath => Path.Combine(DataPath, "settings.json");
 

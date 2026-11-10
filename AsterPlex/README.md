@@ -55,6 +55,23 @@ Then open `http://<container>:8098/aster/` and sign in with Plex. Without `PLEX_
 the container up instead: sign in as the server's owner and pick the server. See `docker-compose.example.yml`.
 `ASTER_PORT` changes the port; `ASTER_DATA` the data folder outside Docker.
 
+### On Windows
+
+For a Plex server on a Windows PC, each release also has `AsterForPlex-<version>-setup.exe`: the same program, with
+no Docker. It installs as the **Aster for Plex** service, which starts with Windows, asks which port to use (8098
+unless something else has it), opens it in Windows Firewall, and opens the settings page at the end, where setup
+is the same as above. The Start menu's **Aster for Plex** opens the page again later.
+
+- Settings and linked accounts are kept in `C:\ProgramData\Aster for Plex`, which only the service and
+  administrators can read (it holds the owner's Plex token). Updating keeps them; uninstalling asks.
+- It isn't code-signed yet, so Windows SmartScreen says it "protected your PC": **More info › Run anyway**.
+- Windows 10 can't reach ARM, which only speaks TLS 1.3, so anime isn't matched to AniList and MyAnimeList there;
+  Windows 11 and Server 2022 can. Everything else works on both.
+- Problems show in Event Viewer › Windows Logs › Application, from Aster.Plex.
+
+`windows/AsterForPlex.iss` is the installer, built by `.github/workflows/plex-image.yml` from a self-contained
+`win-x64` publish; it's installed, reached and uninstalled on a Windows runner before it's attached to the release.
+
 ### Letting the apps find it
 
 Plex's apps find a server through plex.tv, which hands them every address the server has, including the ones in
