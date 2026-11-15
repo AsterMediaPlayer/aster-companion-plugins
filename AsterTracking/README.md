@@ -66,7 +66,8 @@ Audiobooks aren't songs, and a song marked played by hand isn't scrobbled.
 
 Linking needs no code: **Link Last.fm** opens last.fm to approve Aster, and the page (or an app, polling
 `POST /AsterTracking/Accounts/lastfm/Link/Complete`) waits for the approval. The session key never runs out. Every request
-is signed with the API account's shared secret; Developer apps can swap in the server's own key and secret.
+is signed with the API account's shared secret. Aster has no Last.fm app for now, so the server's own key and
+secret go in Developer apps first.
 
 ## 0.5: ListenBrainz and Hardcover
 
@@ -211,8 +212,10 @@ problem's `detail`; 502: it couldn't be reached.
 Released by pushing a tag `astertracking-vX.Y.Z`.
 
 **Aster's own apps aren't in the source.** Official releases get Aster's registrations on Simkl, AniList,
-MyAnimeList, Hardcover and Last.fm from the repository's Actions secrets (`ASTER_SIMKL_CLIENT_ID`,
-`ASTER_ANILIST_CLIENT_ID`, `ASTER_MAL_CLIENT_ID`, `ASTER_HARDCOVER_CLIENT_ID`, `ASTER_LASTFM_API_KEY`,
-`ASTER_LASTFM_SHARED_SECRET`), which the release workflow passes to the build; it refuses to release without them. A
+MyAnimeList and Hardcover from the repository's Actions secrets (`ASTER_SIMKL_CLIENT_ID`, `ASTER_ANILIST_CLIENT_ID`,
+`ASTER_MAL_CLIENT_ID`, `ASTER_HARDCOVER_CLIENT_ID`), which the release workflow passes to the build; it refuses to
+release without them. **Last.fm has no Aster app for now:** each server sets its own API key and shared secret under
+Developer apps, and until it does, Last.fm isn't offered. (`ASTER_LASTFM_API_KEY` and `ASTER_LASTFM_SHARED_SECRET`
+still go into the build if they're ever set.) A
 build from the source has none: fill in Developer apps on the dashboard with your own, or set the same environment
 variables when you build. If you publish a build of your own, register your own apps rather than reusing Aster's.
