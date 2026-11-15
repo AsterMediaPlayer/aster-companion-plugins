@@ -92,8 +92,9 @@ jobs:
           ASTER_LASTFM_SHARED_SECRET: ${{ secrets.ASTER_LASTFM_SHARED_SECRET }}
         run: |
           if [ "$DIR" = AsterTracking ]; then
-            for name in ASTER_SIMKL_CLIENT_ID ASTER_ANILIST_CLIENT_ID ASTER_MAL_CLIENT_ID ASTER_HARDCOVER_CLIENT_ID \
-                        ASTER_LASTFM_API_KEY ASTER_LASTFM_SHARED_SECRET; do
+            # Last.fm isn't required: Aster has no Last.fm app of its own yet, so each server sets its own. Its
+            # secrets still go into the build if they're ever set.
+            for name in ASTER_SIMKL_CLIENT_ID ASTER_ANILIST_CLIENT_ID ASTER_MAL_CLIENT_ID ASTER_HARDCOVER_CLIENT_ID; do
               if [ -z "${!name}" ]; then
                 echo "The $name secret isn't set; refusing to release Aster Tracking without Aster's apps." >&2
                 exit 1

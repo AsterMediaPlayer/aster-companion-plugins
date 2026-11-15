@@ -98,7 +98,7 @@
                     </div>
 
                     <h2 class="sectionTitle" style="margin-top:2em">Developer apps</h2>
-                    <p class="fieldDescription">Blank uses Aster's own apps, which official releases carry (a build from the source has none). Changing one means everyone links that service again.</p>
+                    <p class="fieldDescription">Blank uses Aster's own apps, which official releases carry (a build from the source has none). Last.fm is the exception: Aster has no Last.fm app yet, so it needs your own here before anyone can link it. Changing one means everyone links that service again.</p>
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="SimklClientId">Simkl client id</label>
                         <input id="SimklClientId" type="text" is="emby-input" />
@@ -121,7 +121,7 @@
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="LastFmSharedSecret">Last.fm shared secret</label>
                         <input id="LastFmSharedSecret" type="password" is="emby-input" autocomplete="off" />
-                        <div class="fieldDescription">Both from an API account at last.fm/api/account/create. Set both or neither.</div>
+                        <div class="fieldDescription">Both from an API account at last.fm/api/account/create (no callback URL needed). Set both or neither; without them, Last.fm isn't offered.</div>
                     </div>
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="HardcoverClientId">Hardcover client id</label>
